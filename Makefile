@@ -43,7 +43,7 @@ else
   moddir=mod
 endif
 
-INCLUDES=-I${incdir} -I../libaed-water/${incdir}  -I../libaed-water/${moddir}
+INCLUDES=-I../libaed-water/${incdir}  -I../libaed-water/${moddir}
 
 #ifneq ("$(wildcard ../libaed-plus/Makefile)","")
 #  HAVEPLUS=-DHAVE_PLUS
