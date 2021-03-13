@@ -63,6 +63,14 @@ ifeq ($(F90),ifort)
   else
     FFLAGS+=-real-size 64
   endif
+else ifeq ($(F90),flang)
+  DEBUG_FFLAGS=-g
+  OPT_FFLAGS=-O3
+  FFLAGS=-fPIC -module ${moddir} $(DEFINES) $(INCLUDES)
+  ifeq ($(WITH_CHECKS),true)
+    FFLAGS+=-Mbounds
+  endif
+  FFLAGS+=-r8
 else
   DEBUG_FFLAGS=-g -fbacktrace
   OPT_FFLAGS=-O3
