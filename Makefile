@@ -103,6 +103,7 @@ endif
 FFLAGS+=$(DEBUG_FFLAGS) $(OPT_FFLAGS) $(HAVEPLUS)
 
 OBJS=${objdir}/aed_bivalve.o \
+     ${objdir}/aed_habitat_benthic.o \
      ${objdir}/aed_macroalgae.o \
      ${objdir}/aed_macrophyte.o \
      ${objdir}/aed_benthic.o
