@@ -160,7 +160,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
 !-------------------------------------------------------------------------------
 !BEGIN
    print *,"        aed_habitat_benthic initialization"
-   print *," WARNING! aed_habitat model is currently under development"
+   print *,"          WARNING! aed_habitat model is under development"
 
    ! Default
    simFishTolerance = .false.
@@ -194,6 +194,8 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    data%simClearWater    = simClearWater    ; IF(simClearWater) data%num_habitats=data%num_habitats+1
 
    print *,"          ... # habitat templates simulated: ",data%num_habitats
+
+   IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
 
    !----------------------------------------------------------------------------
    ! Define variables and dependencies
@@ -250,7 +252,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
      data%id_l_salg  = aed_locate_global(TRIM(rhsi_salg_link))
      data%id_l_falg  = aed_locate_global_sheet(TRIM(rhsi_falg_link))
 
-     IF (extra_diag) THEN
+     IF (diag_level>1) THEN
        ALLOCATE(data%id_d_rupfs(5))
        ALLOCATE(data%id_d_rupft(5))
        ALLOCATE(data%id_d_rupfl(5))
@@ -302,7 +304,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
      data%id_l_ncs2  = aed_locate_global_sheet(TRIM(chhsi_ncs2_link))
      data%id_l_tau0  = aed_locate_global_sheet(TRIM(chhsi_tau0_link))
 
-     if( extra_diag )then
+     if( diag_level>1 )then
        ALLOCATE(data%id_d_chafs(6))
        ALLOCATE(data%id_d_chaft(6))
        ALLOCATE(data%id_d_chafl(6))
@@ -472,7 +474,7 @@ SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
         ! Overall HSI : Habitat Suitability Index (Issue here re time integration)
         _DIAG_VAR_S_(data%id_rhsi) = (rhpl+rhfl+rhsd+rhtr+rhsp)/5.
 
-        iF( extra_diag ) THEN
+        iF( diag_level>1 ) THEN
           DO i = 1,5
            _DIAG_VAR_S_(data%id_d_rupfs(i)) = limitation(i,1)
            _DIAG_VAR_S_(data%id_d_rupft(i)) = limitation(i,2)
@@ -534,7 +536,7 @@ SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
         ENDIF
 
 
-        iF( extra_diag ) THEN
+        iF( diag_level>1 ) THEN
           DO i = 1,5
            _DIAG_VAR_S_(data%id_d_chafs(i)) = limitation(i,1)  ! salinity
            _DIAG_VAR_S_(data%id_d_chaft(i)) = limitation(i,2)  ! temperature

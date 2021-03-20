@@ -458,7 +458,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%slough_stress = slough_stress
 
    data%simMalgFeedback = simMalgFeedback
-   PRINT *,'    NOTE - macroalgae feedbacks on water column properties: ',simMalgFeedback
+   PRINT *,'          NOTE - macroalgae feedbacks to water column properties: ',simMalgFeedback
 
    ! Store parameter values in a local malgae strcutured type
    ! Note: all rates must be provided in values per day,
