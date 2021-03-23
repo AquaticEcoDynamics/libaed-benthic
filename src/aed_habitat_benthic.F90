@@ -1,0 +1,1608 @@
+!###############################################################################
+!#                                                                             #
+!# aed_habitat.F90                                                             #
+!#                                                                             #
+!#  Developed by :                                                             #
+!#      AquaticEcoDynamics (AED) Group                                         #
+!#      School of Agriculture and Environment                                  #
+!#      The University of Western Australia                                    #
+!#                                                                             #
+!#      http://aquatic.science.uwa.edu.au/                                     #
+!#                                                                             #
+!#  Copyright 2016 - 2020 -  The University of Western Australia               #
+!#                                                                             #
+!#   GLM is free software: you can redistribute it and/or modify               #
+!#   it under the terms of the GNU General Public License as published by      #
+!#   the Free Software Foundation, either version 3 of the License, or         #
+!#   (at your option) any later version.                                       #
+!#                                                                             #
+!#   GLM is distributed in the hope that it will be useful,                    #
+!#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
+!#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
+!#   GNU General Public License for more details.                              #
+!#                                                                             #
+!#   You should have received a copy of the GNU General Public License         #
+!#   along with this program.  If not, see <http://www.gnu.org/licenses/>.     #
+!#                                                                             #
+!#   -----------------------------------------------------------------------   #
+!#                                                                             #
+!# Created March 2016                                                          #
+!#                                                                             #
+!###############################################################################
+
+#include "aed+.h"
+
+!
+MODULE aed_habitat_benthic
+!-------------------------------------------------------------------------------
+! aed_habitat --- habitat model
+!
+!-------------------------------------------------------------------------------
+   USE aed_core
+   USE aed_util
+
+   IMPLICIT NONE
+
+   PRIVATE
+!
+   PUBLIC aed_habitat_benthic_data_t
+!
+   TYPE,extends(aed_model_data_t) :: aed_habitat_benthic_data_t
+      INTEGER :: num_habitats
+      !# Variable identifiers
+      INTEGER :: id_bird, id_mtox
+      INTEGER :: id_chsi, id_chpl, id_chfl, id_chsd
+      INTEGER :: id_fssi, id_fsdp, id_fssd, id_fsst, id_fsls, id_fsdw, id_fsmt
+      INTEGER :: id_rhsi, id_rhpl, id_rhfl, id_rhsd, id_rhtr, id_rhsp
+      INTEGER :: id_chhsi, id_chhpl, id_chhfl, id_chhsd, id_chhtr, id_chhsp
+      INTEGER :: id_crhsi, id_crhpl, id_crhfl, id_crhsd, id_crhtr
+      INTEGER :: id_pshsi, id_pshsd, id_pshpl, id_pshfl
+      INTEGER :: id_wettime, id_drytime
+      INTEGER, ALLOCATABLE :: id_d_rupfs(:),id_d_rupft(:),id_d_rupfl(:),id_d_rupfa(:),id_d_rupfd(:)
+      INTEGER, ALLOCATABLE :: id_d_chafs(:),id_d_chaft(:),id_d_chafl(:),id_d_chafa(:),id_d_chafd(:),id_d_chafv(:)
+      INTEGER, ALLOCATABLE :: id_d_crcfm(:),id_d_crcft(:),id_d_crcfv(:),id_d_crcfs(:),id_d_crcfd(:),id_d_crcfp(:)
+      INTEGER, ALLOCATABLE :: id_d_pssfm(:), id_d_pssft(:),id_d_pssfv(:),id_d_pssfs(:),id_d_pssfd(:), id_d_pssfu(:)
+
+      !# Dependencies
+      INTEGER :: id_l_ph, id_l_hab, id_l_aass, id_l_rveg, id_l_bveg
+      INTEGER :: id_l_salg, id_l_falg, id_d_turb, id_l_ncs1, id_l_ncs2, id_l_tau0
+      INTEGER :: id_l_otrc, id_l_oxy, id_l_sav
+      INTEGER :: id_l_svwc, id_l_stmp25, id_l_stmp, id_l_veg1, id_l_veg2, id_l_pass
+      INTEGER, ALLOCATABLE :: id_l_mtox(:)
+
+      !# Environment variables
+      INTEGER :: id_E_temp, id_E_salt, id_E_bathy, id_E_matz, id_E_depth
+      INTEGER :: id_E_nearlevel, id_E_extc, id_E_Io, id_E_stress, id_E_airtemp
+
+      !# Model switches
+      LOGICAL :: simBirdForaging,simBenthicProd,simFishTolerance,simGalaxiidSpawning
+      LOGICAL :: simCrabHabitat,simRuppiaHabitat,simCharaHabitat
+      LOGICAL :: simMosquitoRisk,simCyanoRisk
+      LOGICAL :: simMetalTox,simClearWater
+      LOGICAL :: simCrocEggs,simPassiflora
+
+      !# Model parameters
+      AED_REAL, ALLOCATABLE :: mtox_lims(:)
+      INTEGER :: num_mtox, n_zones_chara, n_zones_fishspawn
+      INTEGER :: n_zones_crocs, n_zones_pass
+      AED_REAL,ALLOCATABLE :: active_zones_chara(:), active_zones_fishspawn(:)
+      AED_REAL,ALLOCATABLE :: active_zones_crocs(:), active_zones_pass(:)
+
+
+     CONTAINS
+         PROCEDURE :: define             => aed_define_habitat_benthic
+!        PROCEDURE :: calculate          => aed_calculate_habitat_benthic
+!        PROCEDURE :: calculate_benthic  => aed_calculate_benthic_habitat_benthic
+         PROCEDURE :: calculate_riparian => aed_calculate_riparian_habitat_benthic
+!        PROCEDURE :: mobility           => aed_mobility_habitat_benthic
+!        PROCEDURE :: light_extinction   => aed_light_extinction_habitat_benthic
+!        PROCEDURE :: delete             => aed_delete_habitat_benthic
+
+   END TYPE
+
+!-------------------------------------------------------------------------------
+!MODULE VARIABLES
+   AED_REAL, PARAMETER :: DDT = 0.25/24.    ! Currently assuming 15 min timestep
+   LOGICAL :: extra_diag
+   INTEGER :: diag_level = 10
+
+!===============================================================================
+CONTAINS
+
+
+
+!###############################################################################
+SUBROUTINE aed_define_habitat_benthic(data, namlst)
+!-------------------------------------------------------------------------------
+! Initialise the AED HABITAT module
+!
+!  Here, the aed namelist is read and the variables exported
+!  are registered with AED2.
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   INTEGER,INTENT(in) :: namlst
+   CLASS (aed_habitat_benthic_data_t),INTENT(inout) :: data
+!
+!LOCALS
+   INTEGER :: i, z, status, num_mtox
+   INTEGER :: n_zones_chara = 0, active_zones_chara(MAX_ZONES)
+   INTEGER :: n_zones_fishspawn = 0,active_zones_fishspawn(MAX_ZONES)
+   LOGICAL :: simFishTolerance, simGalaxiidSpawning, simBenthicProd, &
+              simCyanoRisk, simMosquitoRisk, simCrabHabitat, simClearWater,      &
+              simRuppiaHabitat, simCharaHabitat, simMetalTox
+   AED_REAL          :: mtox_lims(10)
+   CHARACTER(len=64) :: bird_acid_link, bird_habs_link, bird_aass_link, bird_rveg_link, bird_bveg_link
+   CHARACTER(len=64) :: fshsi_veg_link, fshsi_oxy_link, fshsi_otrc_link
+   CHARACTER(len=64) :: chsi_otrc_link, chsi_oxy_link, chsi_veg_link
+   CHARACTER(len=64) :: chhsi_salg_link,chhsi_falg_link
+   CHARACTER(len=64) :: chhsi_ncs1_link,chhsi_ncs2_link,chhsi_tau0_link
+   CHARACTER(len=64) :: crhsi_ncs1_link,crhsi_ncs2_link
+   CHARACTER(len=64) :: crhsi_stmp_link,crhsi_svwc_link,crhsi_pass_link
+   CHARACTER(len=64) :: pshsi_stmp_link,pshsi_svwc_link,pshsi_veg1_link,pshsi_veg2_link
+   CHARACTER(len=64) :: pshsi_ncs1_link, pshsi_ncs2_link
+   CHARACTER(len=64) :: rhsi_salg_link, rhsi_falg_link
+   CHARACTER(len=40) :: mtox_acid_link, mtox_aass_link
+   CHARACTER(len=40) :: mtox_vars(10)
+
+   NAMELIST /aed_habitat_benthic/ &
+                           simFishTolerance, &
+                           simGalaxiidSpawning,n_zones_fishspawn,active_zones_fishspawn,  &
+                           simBenthicProd,   &
+                           simCyanoRisk,     &
+                           simMosquitoRisk,  &
+                           simCrabHabitat,   &
+                           simRuppiaHabitat, &
+                           simCharaHabitat,n_zones_chara,active_zones_chara, &
+                           simClearWater,    &
+                           simMetalTox, mtox_vars, mtox_lims,   &
+                           extra_diag, diag_level
+!
+!-------------------------------------------------------------------------------
+!BEGIN
+   print *,"        aed_habitat_benthic initialization"
+   print *,"          WARNING! aed_habitat model is under development"
+
+   ! Default
+   simFishTolerance = .false.
+   simGalaxiidSpawning = .false.
+   simBenthicProd = .false.
+   simCyanoRisk = .false.
+   simMosquitoRisk = .false.
+   simMetalTox = .false.
+   simCrabHabitat = .false.
+   simCharaHabitat = .false.
+   simRuppiaHabitat = .false.
+   simClearWater = .false.
+
+   extra_diag = .false.
+
+   ! Read the namelist
+   read(namlst,nml=aed_habitat_benthic,iostat=status)
+   IF (status /= 0) STOP 'Error reading namelist aed_habitat'
+
+   ! Update module level switches
+   data%num_habitats = 0
+   data%simFishTolerance = simFishTolerance ; IF(simFishTolerance) data%num_habitats=data%num_habitats+1
+   data%simGalaxiidSpawning  = simGalaxiidSpawning  ; IF(simGalaxiidSpawning) data%num_habitats=data%num_habitats+1
+   data%simBenthicProd   = simBenthicProd   ; IF(simBenthicProd) data%num_habitats=data%num_habitats+1
+   data%simMetalTox      = simMetalTox      ; IF(simMetalTox) data%num_habitats=data%num_habitats+1
+   data%simMosquitoRisk  = simMosquitoRisk  ; IF(simMosquitoRisk) data%num_habitats=data%num_habitats+1
+   data%simCyanoRisk     = simCyanoRisk     ; IF(simCyanoRisk) data%num_habitats=data%num_habitats+1
+   data%simCrabHabitat   = simCrabHabitat   ; IF(simCrabHabitat) data%num_habitats=data%num_habitats+1
+   data%simRuppiaHabitat = simRuppiaHabitat ; IF(simRuppiaHabitat) data%num_habitats=data%num_habitats+1
+   data%simCharaHabitat  = simCharaHabitat  ; IF(simCharaHabitat) data%num_habitats=data%num_habitats+1
+   data%simClearWater    = simClearWater    ; IF(simClearWater) data%num_habitats=data%num_habitats+1
+
+   print *,"          ... # habitat templates simulated: ",data%num_habitats
+
+   IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
+
+   !----------------------------------------------------------------------------
+   ! Define variables and dependencies
+
+
+   !-- CONTAMINATION
+   IF( simMetalTox ) THEN
+     data%id_mtox =  aed_define_sheet_diag_variable('toxicity','-', 'Suitability')
+
+     mtox_acid_link = 'CAR_pH'
+     mtox_aass_link = 'ASS_uzaass'
+
+     mtox_vars = '' ;  mtox_lims = 1.0
+     DO i=1,10 ; IF (mtox_vars(i)  .EQ. '' ) THEN ; num_mtox = i-1 ; EXIT ; ENDIF ; ENDDO
+     ALLOCATE(data%id_l_mtox(num_mtox)); ALLOCATE(data%mtox_lims(num_mtox))
+     data%num_mtox = num_mtox
+     DO i=1,data%num_mtox
+       data%id_l_mtox(i) =  aed_locate_variable(mtox_vars(i))
+       data%mtox_lims(i) =  mtox_lims(i)
+       !print*,'Tox : ', TRIM(tfe_vars(i)), ' * ', data%tfe_varscale(i)
+     ENDDO
+   ENDIF
+
+   !-- BLUE SWIMMER CRABS
+   IF( simCrabHabitat ) THEN
+     data%id_chsi =  aed_define_sheet_diag_variable('crab_hsi','-', 'Crab Habitat Suitability Index')
+     data%id_chpl =  aed_define_sheet_diag_variable('crab_hsi_larvae','-', 'Crab Habitat Suitability - larval connectivity')
+     data%id_chfl =  aed_define_sheet_diag_variable('crab_hsi_wq','-', 'Crab Habitat Suitability - water quality')
+     data%id_chsd =  aed_define_sheet_diag_variable('crab_hsi_ben','-', 'Crab Habitat Suitability - benthic habitat')
+
+     chsi_otrc_link = 'TRC_tr1'    ! ocean larvae tracer
+     chsi_oxy_link  = 'OXY_oxy'    ! oxygen
+     chsi_veg_link  = 'MAC_mac'    ! submerged aquatic vegetation
+
+     data%id_l_otrc  = aed_locate_global(TRIM(chsi_otrc_link))
+     data%id_l_oxy  = aed_locate_global(TRIM(chsi_oxy_link))
+     data%id_l_sav  = aed_locate_global_sheet(TRIM(chsi_veg_link))
+   ENDIF
+
+   !-- SEAGRASS : RUPPIA
+   IF( simRuppiaHabitat ) THEN
+     data%id_rhsi =  aed_define_sheet_diag_variable('ruppia_hsi','-', 'Ruppia Habitat Suitability Index')
+     data%id_rhpl =  aed_define_sheet_diag_variable('ruppia_hsi_plant','-', 'Ruppia Habitat Suitability - plant')
+     data%id_rhfl =  aed_define_sheet_diag_variable('ruppia_hsi_flower','-', 'Ruppia Habitat Suitability - flowering')
+     data%id_rhsd =  aed_define_sheet_diag_variable('ruppia_hsi_seed','-', 'Ruppia Habitat Suitability - seed germination')
+     data%id_rhtr =  aed_define_sheet_diag_variable('ruppia_hsi_turion','-', 'Ruppia Habitat Suitability - turion')
+     data%id_rhsp =  aed_define_sheet_diag_variable('ruppia_hsi_sprout','-', 'Ruppia Habitat Suitability - sprout')
+    !data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
+    !data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
+
+     rhsi_falg_link = 'MAG_ulva_ben'
+     rhsi_salg_link = 'MAG_ulva'
+
+     data%id_l_salg  = aed_locate_global(TRIM(rhsi_salg_link))
+     data%id_l_falg  = aed_locate_global_sheet(TRIM(rhsi_falg_link))
+
+     IF (diag_level>1) THEN
+       ALLOCATE(data%id_d_rupfs(5))
+       ALLOCATE(data%id_d_rupft(5))
+       ALLOCATE(data%id_d_rupfl(5))
+       ALLOCATE(data%id_d_rupfa(5))
+       ALLOCATE(data%id_d_rupfd(5))
+       DO i =1,5
+        data%id_d_rupfs(i) = aed_define_sheet_diag_variable('ruppia_hsi_fsal_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Ruppia Habitat Suitability - fSal')
+        data%id_d_rupft(i) = aed_define_sheet_diag_variable('ruppia_hsi_ftem_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Ruppia Habitat Suitability - fTem')
+        data%id_d_rupfl(i) = aed_define_sheet_diag_variable('ruppia_hsi_flgt_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Ruppia Habitat Suitability - fLgt')
+        data%id_d_rupfa(i) = aed_define_sheet_diag_variable('ruppia_hsi_falg_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Ruppia Habitat Suitability - fAlg')
+        data%id_d_rupfd(i) = aed_define_sheet_diag_variable('ruppia_hsi_fdep_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Ruppia Habitat Suitability - fDep')
+       ENDDO
+     ENDIF
+
+   ENDIF
+
+   !-- CHARAPHYTES
+   IF( simCharaHabitat ) THEN
+
+     data%n_zones_chara = n_zones_chara
+     IF (n_zones_chara > 0) THEN
+        ALLOCATE(data%active_zones_chara(n_zones_chara))
+        DO z=1,n_zones_chara
+           data%active_zones_chara(z) = active_zones_chara(z)
+        ENDDO
+     ENDIF
+
+     data%id_chhsi =  aed_define_sheet_diag_variable('chara_hsi','-', 'Chara Habitat Suitability Index')
+     data%id_chhpl =  aed_define_sheet_diag_variable('chara_hsi_plant','-', 'Chara Habitat Suitability - plant growth')
+     data%id_chhfl =  aed_define_sheet_diag_variable('chara_hsi_oospore','-', 'Chara Habitat Suitability - oospore production')
+     data%id_chhsd =  aed_define_sheet_diag_variable('chara_hsi_seed','-', 'Chara Habitat Suitability - seed germination')
+     data%id_chhtr =  aed_define_sheet_diag_variable('chara_hsi_turion','-', 'Chara Habitat Suitability - turion production')
+     data%id_chhsp =  aed_define_sheet_diag_variable('chara_hsi_sprout','-', 'Chara Habitat Suitability - sprout establishment')
+
+     chhsi_falg_link = 'MAG_cladophora_ben'
+     chhsi_salg_link = 'MAG_cladophora'
+     data%id_l_salg  = 0 !aed_locate_global(TRIM(rhsi_salg_link))
+     data%id_l_falg  = 0 !aed_locate_global_sheet(TRIM(rhsi_falg_link))
+
+     chhsi_ncs1_link = 'NCS_fs1'
+     chhsi_ncs2_link = 'NCS_fs2'
+     chhsi_tau0_link = 'NCS_tau_0'
+     data%id_l_ncs1  = aed_locate_global_sheet(TRIM(chhsi_ncs1_link))
+     data%id_l_ncs2  = aed_locate_global_sheet(TRIM(chhsi_ncs2_link))
+     data%id_l_tau0  = aed_locate_global_sheet(TRIM(chhsi_tau0_link))
+
+     if( diag_level>1 )then
+       ALLOCATE(data%id_d_chafs(6))
+       ALLOCATE(data%id_d_chaft(6))
+       ALLOCATE(data%id_d_chafl(6))
+       ALLOCATE(data%id_d_chafa(6))
+       ALLOCATE(data%id_d_chafd(6))
+       ALLOCATE(data%id_d_chafv(6))
+       DO i =1,6
+        data%id_d_chafs(i) = aed_define_sheet_diag_variable('chara_hsi_fsal_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fSal')
+        data%id_d_chaft(i) = aed_define_sheet_diag_variable('chara_hsi_ftem_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fTem')
+        data%id_d_chafl(i) = aed_define_sheet_diag_variable('chara_hsi_flgt_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fLgt')
+        data%id_d_chafa(i) = aed_define_sheet_diag_variable('chara_hsi_falg_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fAlg')
+        data%id_d_chafd(i) = aed_define_sheet_diag_variable('chara_hsi_fdep_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fDep')
+        data%id_d_chafv(i) = aed_define_sheet_diag_variable('chara_hsi_fstr_'//CHAR(ICHAR('0') + i),'-', &
+                                                                            'Chara Habitat Suitability - fStr')
+       ENDDO
+     endif
+   ENDIF
+
+
+   !-- FISH : GALAXIID SPAWNING
+   IF( simGalaxiidSpawning ) THEN
+
+     data%n_zones_fishspawn = n_zones_fishspawn
+     IF (n_zones_fishspawn > 0) THEN
+        ALLOCATE(data%active_zones_fishspawn(n_zones_fishspawn))
+        DO z=1,n_zones_fishspawn
+           data%active_zones_fishspawn(z) = active_zones_fishspawn(z)
+        ENDDO
+     ENDIF
+
+     data%id_fssi =  aed_define_sheet_diag_variable('spawning_hsi','-',           &
+                                          'Galaxiid Spawning Habitat Suitability Index')
+
+     data%id_fsdp =  aed_define_sheet_diag_variable('spawning_hsi_depth','-',    &
+                                          'Galaxiid Spawning Habitat Suitability - depth trigger')
+     data%id_fssd =  aed_define_sheet_diag_variable('spawning_hsi_substrate','-',        &
+                                          'Galaxiid Spawning Habitat Suitability - substrate quality')
+     data%id_fsst =  aed_define_sheet_diag_variable('spawning_hsi_temp','-',       &
+                                          'Galaxiid Spawning Habitat Suitability - temperature trigger')
+     data%id_fsls =  aed_define_sheet_diag_variable('spawning_hsi_stress','-',    &
+                                          'Galaxiid Spawning Habitat Suitability - egg stability')
+     data%id_fsdw =  aed_define_sheet_diag_variable('spawning_hsi_dewatering','-',        &
+                                          'Galaxiid Spawning Habitat Suitability - egg dewatering')
+     data%id_fsmt =  aed_define_sheet_diag_variable('spawning_hsi_maturation','-',       &
+                                          'Galaxiid Spawning Habitat Suitability - egg maturation')
+
+     fshsi_otrc_link = 'TOT_turbidity'   ! turbidity
+     chhsi_ncs1_link = 'NCS_fs1'
+     chhsi_ncs2_link = 'NCS_fs2'
+     chhsi_tau0_link = 'NCS_tau_0'
+     data%id_d_turb  = aed_locate_global(TRIM(fshsi_otrc_link))
+     data%id_l_ncs1  = aed_locate_global_sheet(TRIM(chhsi_ncs1_link))
+     data%id_l_ncs2  = aed_locate_global_sheet(TRIM(chhsi_ncs2_link))
+     data%id_l_tau0  = aed_locate_global_sheet(TRIM(chhsi_tau0_link))
+
+   ENDIF
+
+   !-- GENERAL
+   IF( simGalaxiidSpawning .OR. simCharaHabitat .OR. simRuppiaHabitat) THEN
+     data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
+     data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
+   ENDIF
+
+   ! Register environmental dependencies
+   data%id_E_salt  = aed_locate_global('salinity')
+   data%id_E_extc  = aed_locate_global('extc_coef')
+   data%id_E_temp  = aed_locate_global('temperature')
+   data%id_E_depth = aed_locate_global('layer_ht')
+   data%id_E_bathy     = aed_locate_global_sheet('bathy')
+   data%id_E_matz      = aed_locate_global_sheet('material')
+   data%id_E_Io        = aed_locate_global_sheet('par_sf')
+   data%id_E_airtemp   = aed_locate_global_sheet('air_temp')
+   data%id_E_stress    = aed_locate_global_sheet('taub')
+   data%id_E_nearlevel = aed_locate_global_sheet('nearest_depth')
+
+END SUBROUTINE aed_define_habitat_benthic
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+!###############################################################################
+SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
+!-------------------------------------------------------------------------------
+! Calculate pelagic bottom fluxes and benthic sink and source terms of AED habitat.
+! Everything in units per surface area (not volume!) per time.
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_habitat_benthic_data_t),INTENT(in) :: data
+   TYPE (aed_column_t),INTENT(inout) :: column(:)
+   INTEGER,INTENT(in) :: layer_idx
+   AED_REAL,INTENT(in) :: pc_wet
+!
+!LOCALS
+   ! Environment
+   AED_REAL :: temp, salt, wlevel, extc, bathy, matz, Io, Ig, vel, stress, tau0, stem05, stem25
+
+   ! State
+   AED_REAL :: depth, ph, hab, sdepth, uzaass, aass, conc, mtox, turb, grav, stem, svwc
+
+   ! Temporary variables
+   INTEGER  :: i
+   AED_REAL :: bird_acid, bird_soil, bird_rveg, bird_bveg, bird_salt, bird_dept, bird_habs
+   AED_REAL :: euphotic, drytime, light
+
+   ! Parameters
+   AED_REAL, PARAMETER :: crit_soil_acidity = 100.000
+   AED_REAL, PARAMETER :: crit_water_ph = 6.0
+   AED_REAL, PARAMETER :: crit_soil_type = 5.5 ! (matz 6&7 is sand)
+   AED_REAL, PARAMETER :: crit_rveg_depth = 0.6
+   AED_REAL, PARAMETER :: sav_height = 0.1 !assume plant are 10cm to middle
+   AED_REAL, PARAMETER :: crit_salinity = 50.0
+   AED_REAL, PARAMETER :: crit_leg_depth = 0.12
+   AED_REAL, PARAMETER :: crit_hab_conc = 500.
+
+   AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem
+
+   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp = 0.,falg
+   AED_REAL :: pshpl, pshfl, pshsd, pass, height
+   AED_REAL :: crns = 0.,creg = 0.,crht = 0.,crml = 0.
+   AED_REAL :: limitation(5,6)
+
+!-------------------------------------------------------------------------------
+!BEGIN
+   matz = 0.0 ; salt = 0.0 ; euphotic = 0.0 ; bathy = 0.0  !## CAB [-Wmaybe-uninitialized]
+
+
+
+
+      !---------------------------------------------------------------------------+
+      !-- HABITAT TEMPLATE 4: Ruppia Habitat
+      IF( data%simRuppiaHabitat ) THEN
+
+        depth = _STATE_VAR_(data%id_E_depth)  ! metres
+        salt  = _STATE_VAR_(data%id_E_salt)   ! salinity g/L
+        temp  = _STATE_VAR_(data%id_E_temp)   ! degC
+        extc  = _STATE_VAR_(data%id_E_extc)   ! /m
+        Io    = _STATE_VAR_S_(data%id_E_Io)   ! W/m2
+        falg  =(_STATE_VAR_S_(data%id_l_falg) +   &
+                     _STATE_VAR_(data%id_l_salg)*depth) * 12. * 1e-3 / 0.5  ! convert mmolC/m2 to gDW/m2
+        vel   = 0. !
+
+        CALL ruppia_habitat_suitability(data, &
+                                        rhpl,rhfl,rhsd,rhtr,rhsp,&
+                                        depth,salt,temp,extc,falg,Io,vel,pc_wet,&
+                                        limitation)
+
+        _DIAG_VAR_S_(data%id_rhpl) = rhpl
+        _DIAG_VAR_S_(data%id_rhfl) = rhfl
+        _DIAG_VAR_S_(data%id_rhsd) = rhsd
+        _DIAG_VAR_S_(data%id_rhtr) = rhtr
+        _DIAG_VAR_S_(data%id_rhsp) = rhsp
+
+        ! Inundation time counter and wetness checker
+        IF( pc_wet < 0.1 ) THEN
+          _DIAG_VAR_S_(data%id_drytime) = _DIAG_VAR_S_(data%id_drytime) + DDT
+          IF( _DIAG_VAR_S_(data%id_drytime)>2. ) _DIAG_VAR_S_(data%id_wettime) = zero_
+        ELSE
+          _DIAG_VAR_S_(data%id_wettime) = _DIAG_VAR_S_(data%id_wettime) + DDT
+          IF( _DIAG_VAR_S_(data%id_wettime)>2. )_DIAG_VAR_S_(data%id_drytime) = zero_
+        ENDIF
+
+        ! Overall HSI : Habitat Suitability Index (Issue here re time integration)
+        _DIAG_VAR_S_(data%id_rhsi) = (rhpl+rhfl+rhsd+rhtr+rhsp)/5.
+
+        iF( diag_level>1 ) THEN
+          DO i = 1,5
+           _DIAG_VAR_S_(data%id_d_rupfs(i)) = limitation(i,1)
+           _DIAG_VAR_S_(data%id_d_rupft(i)) = limitation(i,2)
+           _DIAG_VAR_S_(data%id_d_rupfl(i)) = limitation(i,3)
+           _DIAG_VAR_S_(data%id_d_rupfa(i)) = limitation(i,4)
+           _DIAG_VAR_S_(data%id_d_rupfd(i)) = limitation(i,5)
+         !_DIAG_VAR_S_(data%id_d_rupfm(i)) = limitation(i,6)
+         ENDDO
+        ENDiF
+      ENDIF
+
+      !---------------------------------------------------------------------------+
+      !-- HABITAT TEMPLATE 4: Charaphyte Habitat
+      IF( data%simCharaHabitat ) THEN
+
+        depth = _STATE_VAR_(data%id_E_depth)     ! metres
+        salt  = _STATE_VAR_(data%id_E_salt)      ! salinity g/L
+        temp  = _STATE_VAR_(data%id_E_temp)      ! degC
+        extc  = _STATE_VAR_(data%id_E_extc)      ! /m
+        Io    = _STATE_VAR_S_(data%id_E_Io)      ! W/m2
+        vel   = _STATE_VAR_S_(data%id_E_stress)  ! N/m2
+        tau0  = _DIAG_VAR_S_(data%id_l_tau0)     ! N/m2
+        matz  = _DIAG_VAR_S_(data%id_l_ncs1)+_DIAG_VAR_S_(data%id_l_ncs2)
+        falg  = 0.0
+
+
+        CALL chara_habitat_suitability(data, &
+                                       rhpl,rhfl,rhsd,rhtr,rhsp,&
+                                       depth,salt,temp,extc,falg,Io,vel,pc_wet,matz,&
+                                       limitation)
+
+        IF( tau0 > 1.) rhpl = zero_
+        _DIAG_VAR_S_(data%id_chhpl) = rhpl   ! adult plant
+        IF( tau0 > 10.) rhsp = zero_
+        _DIAG_VAR_S_(data%id_chhsp) = rhsp   ! sprouts
+        _DIAG_VAR_S_(data%id_chhfl) = rhfl   ! flowering
+        _DIAG_VAR_S_(data%id_chhsd) = rhsd   ! seed
+        _DIAG_VAR_S_(data%id_chhtr) = rhtr   ! turion/spore
+
+        ! Inundation time counter and wetness checker
+        IF( pc_wet < 0.1 ) THEN
+          _DIAG_VAR_S_(data%id_drytime) = _DIAG_VAR_S_(data%id_drytime) + DDT
+          IF( _DIAG_VAR_S_(data%id_drytime)>2. ) _DIAG_VAR_S_(data%id_wettime) = zero_
+        ELSE
+          _DIAG_VAR_S_(data%id_wettime) = _DIAG_VAR_S_(data%id_wettime) + DDT
+          IF( _DIAG_VAR_S_(data%id_wettime)>2. )_DIAG_VAR_S_(data%id_drytime) = zero_
+        ENDIF
+
+        !# Overall HSI : Habitat Suitability Index
+        !  note an issue here re time integration, check specific time windows
+        !  via post-processing
+        _DIAG_VAR_S_(data%id_chhsi) = zero_
+        IF (in_zone_set(_STATE_VAR_S_(data%id_E_matz), data%active_zones_chara) ) THEN
+           _DIAG_VAR_S_(data%id_chhsi) = (rhpl+rhfl+rhsd+rhtr+rhsp)/5.
+
+           IF(rhpl<0.05 .or. rhsp<0.05 ) &
+              _DIAG_VAR_S_(data%id_chhsi) = zero_
+
+        ENDIF
+
+
+        iF( diag_level>1 ) THEN
+          DO i = 1,5
+           _DIAG_VAR_S_(data%id_d_chafs(i)) = limitation(i,1)  ! salinity
+           _DIAG_VAR_S_(data%id_d_chaft(i)) = limitation(i,2)  ! temperature
+           _DIAG_VAR_S_(data%id_d_chafl(i)) = limitation(i,3)  ! light
+           _DIAG_VAR_S_(data%id_d_chafa(i)) = limitation(i,4)  ! algae
+           _DIAG_VAR_S_(data%id_d_chafd(i)) = limitation(i,5)  ! depth
+           _DIAG_VAR_S_(data%id_d_chafv(i)) = limitation(i,6)  ! stress
+         ENDDO
+        ENDiF
+      ENDIF
+
+      !---------------------------------------------------------------------------+
+      !-- HABITAT TEMPLATE 3: Fish Spawning
+      IF( data%simGalaxiidSpawning ) THEN
+
+        Io    = _STATE_VAR_S_(data%id_E_Io)      ! W/m2
+        turb  = _DIAG_VAR_(data%id_d_turb)
+        tau0  = _DIAG_VAR_S_(data%id_l_tau0)    ! N/m2
+
+        depth = _STATE_VAR_(data%id_E_depth)     ! metres
+        stress= _STATE_VAR_S_(data%id_E_stress)  ! N/m2
+        matz  = _STATE_VAR_S_(data%id_E_matz)    ! -
+        grav  = _DIAG_VAR_S_(data%id_l_ncs1)+_DIAG_VAR_S_(data%id_l_ncs2)
+        IF( pc_wet < 0.1 ) THEN
+          temp = _STATE_VAR_S_(data%id_E_airtemp )
+        ELSE
+          temp  = _STATE_VAR_(data%id_E_temp)      ! degC
+        ENDIF
+
+        !#0 Initialise the six key habitat metrics
+        fs_sdepth = zero_    ! depth required for spawning
+        fs_substr = zero_    ! substrate requirement for spawning
+        fs_spntem = zero_    ! temperature to trigger spawning
+        fs_stress = zero_    ! stress conditions for egg persistance
+        fs_dewatr = one_     ! dewatering occurance of eggs
+        fs_mattem = zero_    ! degree days of eggs
+
+        !#1 Depth suitability for spawning to occur
+        IF ( depth<=0.2 ) THEN
+          fs_sdepth = zero_
+        ELSE IF ( depth>0.2 .AND. depth<=0.4 ) THEN
+          fs_sdepth = 0. + ( (depth-0.2)/(0.4-0.2) )
+        ELSE IF ( depth>0.4 .AND. depth<=0.8 ) THEN
+          fs_sdepth = one_
+        ELSE IF ( depth>0.8 .AND. depth<=1.3 ) THEN
+          fs_sdepth = 1. - ( (depth-0.8)/(1.3-0.8) )
+        ELSE IF ( depth>1.3 ) THEN
+          fs_sdepth = zero_
+        ENDIF
+        _DIAG_VAR_S_(data%id_fsdp) = fs_sdepth   ! depth
+
+        !#2 Check for substrate area that is silty, and not gravel/cobbles
+        IF (in_zone_set(matz, data%active_zones_fishspawn) )  THEN
+          !IF( grav >0.35 ) fs_substr = zero_
+          IF ( grav<=0.05 .or. tau0>10 ) THEN
+            fs_substr = one_
+          ELSE IF ( grav>0.05 .AND. grav<=0.65 ) THEN
+            fs_substr = 1. - ( (grav-0.1)/(0.65-0.05) )
+          ELSE IF ( grav>0.65 ) THEN
+            fs_substr = zero_
+          ENDIF
+        ENDIF
+        _DIAG_VAR_S_(data%id_fssd) = fs_substr   ! substrate
+
+        !#3 Temperature suitability, known to trigger spawning
+        !   <7 unsuitable
+        !   7 - 10 suboptimal
+        !   10 - 12 optimal
+        !   12-15 suboptimal
+        !   >14 unsuitable
+        IF( temp<=7. ) THEN
+          fs_spntem = zero_
+        ELSE IF ( temp>7. .AND. temp<=10.  ) THEN
+          fs_spntem = 0. + ( (temp-7.)/(10.-7.) )
+        ELSE IF ( temp>10. .AND. temp<=12. ) THEN
+          fs_spntem = one_
+        ELSE IF ( temp>12. .AND. temp<=15. ) THEN
+          fs_spntem = 1. - ( (temp-12.)/(15.-12.) )
+        ELSE IF ( temp>15. ) THEN
+          fs_spntem = zero_
+        ENDIF
+        _DIAG_VAR_S_(data%id_fsst) = fs_spntem   ! temperature
+
+
+        !#4 Excessive stress (eg waves), can impact egg persistance
+        IF ( stress<=0.1 ) THEN
+          fs_stress = one_
+        ELSE IF ( stress>0.1 .AND. stress<=0.5 ) THEN
+          fs_stress = 1. - ( (stress-0.1)/(0.5-0.1) )
+        ELSE IF ( stress>0.5 ) THEN
+          fs_stress = zero_
+        ENDIF
+        _DIAG_VAR_S_(data%id_fsls) = fs_stress   ! stress
+
+
+        !#5 Dewatering of eggs, will lead to decline
+        !   We must look at inundation time counter & wetness checker
+        !   (and increment if not already done)
+        IF( .NOT. data%simCharaHabitat ) THEN
+          IF( pc_wet < 0.1 ) THEN
+            _DIAG_VAR_S_(data%id_drytime) = _DIAG_VAR_S_(data%id_drytime) + DDT
+            IF( _DIAG_VAR_S_(data%id_drytime)>2. ) _DIAG_VAR_S_(data%id_wettime) = zero_
+          ELSE
+            _DIAG_VAR_S_(data%id_wettime) = _DIAG_VAR_S_(data%id_wettime) + DDT
+            IF( _DIAG_VAR_S_(data%id_wettime)>2. )_DIAG_VAR_S_(data%id_drytime) = zero_
+          ENDIF
+        ENDIF
+        drytime = _DIAG_VAR_S_(data%id_drytime)
+        IF ( drytime<=0.05 ) THEN
+          fs_dewatr = one_
+        ELSE IF ( drytime>0.05 .AND. drytime<=2.0 ) THEN
+          fs_dewatr = 1. - ( (drytime-0.05)/(2.0-0.05) )
+        ELSE IF ( drytime>2.0 ) THEN
+          fs_dewatr = zero_
+        ENDIF
+        _DIAG_VAR_S_(data%id_fsdw) = fs_dewatr   ! dewatering
+
+        !#6 Degree days of eggs, can help us predict maturation time
+        fs_mattem = temp
+        _DIAG_VAR_S_(data%id_fsmt) = fs_mattem   ! maturation
+
+
+        !IF( turb<=4. ) THEN
+        !   fsfl = one_
+        !ELSE IF ( turb>4. .AND. turb<=10.  ) THEN
+        !   fsfl = 1. - ( (turb-4.0)/(10.-4.0) )
+        !ELSE IF ( turb>10. ) THEN
+        !   fsfl = zero_
+        !ENDIF
+        !_DIAG_VAR_S_(data%id_fsfl) = fsfl   ! wq suitability
+
+
+        !# Overall HSI : Habitat Suitability Index
+        !  Note an issue here re time integration, check specific time windows
+        !  via post-processing; this also requires maturation temp to be checked
+        _DIAG_VAR_S_(data%id_fssi) = zero_
+        IF (in_zone_set(matz, data%active_zones_fishspawn) ) THEN
+           _DIAG_VAR_S_(data%id_fssi) = (fs_sdepth+fs_substr+fs_spntem+fs_stress+fs_dewatr)/5.
+
+           IF(fs_sdepth<0.05 .or. fs_substr<0.05 .or. fs_substr<0.05 ) &
+              _DIAG_VAR_S_(data%id_fssi) = zero_
+
+        ENDIF
+
+      ENDIF
+
+
+   !---------------------------------------------------------------------------+
+   !-- HABITAT TEMPLATE 3: Mosquito / Midge Risk
+   IF( data%simMosquitoRisk ) THEN
+
+   !  _DIAG_VAR_S_(data%id_fish) = mtox
+
+   ENDIF
+
+
+
+!   ENDIF
+
+
+
+END SUBROUTINE aed_calculate_riparian_habitat_benthic
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+
+
+!###############################################################################
+SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,depth,salt,temp,extc,fa,Io,vel,pc_wet,limitation)
+!-------------------------------------------------------------------------------
+! Get the light extinction coefficient due to biogeochemical variables
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_habitat_benthic_data_t),INTENT(in) :: data
+   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp
+   AED_REAL :: depth,salt,temp,extc,fa,Io,vel,pc_wet
+   AED_REAL :: limitation(:,:)
+!
+!LOCALS
+   AED_REAL :: rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess
+   AED_REAL :: light
+!
+!-----------------------------------------------------------------------
+!BEGIN
+
+     rupp_salt=one_; rupp_temp=one_; rupp_lght=one_;
+     rupp_falg=one_; rupp_matz=one_; rupp_dess=one_;
+
+     IF( depth<0.1 ) THEN
+       light = 100.
+     ELSE
+       light = 100. * exp(-extc*(depth-0.08))
+     ENDIF
+
+     !-- First do ADULT tolerance
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       rupp_dess = zero_    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       rupp_salt = ruppia_salinity(salt, "adult")
+       rupp_temp = ruppia_temp(temp, "adult")
+       rupp_lght = ruppia_light(light, "adult")
+       rupp_falg = ruppia_filalgae(fa, "adult")
+       rupp_dess = ruppia_depth(depth, "adult")
+
+     ENDIF
+     ! Adult plant habitat suitability
+     rhpl = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+
+     limitation(1,1) = rupp_salt
+     limitation(1,2) = rupp_temp
+     limitation(1,3) = rupp_lght
+     limitation(1,4) = rupp_falg
+     limitation(1,5) = rupp_dess
+     limitation(1,6) = rupp_matz
+
+
+     !-- Second do FLOWER tolerance
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       rupp_dess = zero_    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       rupp_salt = ruppia_salinity(salt, "flower")
+       rupp_temp = ruppia_temp(temp, "flower")
+       rupp_lght = ruppia_light(light, "flower")
+       rupp_falg = ruppia_filalgae(fa, "flower")
+       rupp_dess = ruppia_depth(depth, "flower")
+
+     ENDIF
+     ! Habitat suitability for flowering
+     rhfl = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+     limitation(2,1) = rupp_salt
+     limitation(2,2) = rupp_temp
+     limitation(2,3) = rupp_lght
+     limitation(2,4) = rupp_falg
+     limitation(2,5) = rupp_dess
+     limitation(2,6) = rupp_matz
+
+     !-- Third do seed germination
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+
+       rupp_dess = 0.5    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       rupp_salt = ruppia_salinity(salt, "seed")
+       rupp_temp = ruppia_temp(temp, "seed")
+       rupp_lght = one_
+       rupp_falg = one_
+       rupp_dess = ruppia_depth(depth, "seed")
+
+     ENDIF
+     ! Habitat suitability for seed germination
+     rhsd = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+     limitation(3,1) = rupp_salt
+     limitation(3,2) = rupp_temp
+     limitation(3,3) = rupp_lght
+     limitation(3,4) = rupp_falg
+     limitation(3,5) = rupp_dess
+     limitation(3,6) = rupp_matz
+
+
+     !-- Fourth do sediment suitability for turions/turion sprouting
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+
+       rupp_dess = zero_    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       rupp_salt = ruppia_salinity(salt, "turion")
+       rupp_temp = ruppia_temp(temp, "turion")
+       rupp_lght = one_
+       rupp_falg = one_
+       rupp_dess = ruppia_depth(depth, "turion")
+
+     ENDIF
+     !IF( .NOT. _STATE_VAR_S_(data%id_E_matz)==in_zone_set ) rupp_matz = zero_
+     ! overall habitat suitability for seed germination
+    rhtr = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+    limitation(4,1) = rupp_salt
+    limitation(4,2) = rupp_temp
+    limitation(4,3) = rupp_lght
+    limitation(4,4) = rupp_falg
+    limitation(4,5) = rupp_dess
+    limitation(4,6) = rupp_matz
+
+    !-- Fifth do sprout tolerance
+    IF( pc_wet < 0.1 ) THEN
+      ! Dry cell - set dessication factor
+
+      rupp_dess = zero_    ! maybe need a time counter here.
+
+    ELSE
+      ! Wet cell
+      rupp_salt = ruppia_salinity(salt, "sprout")
+      rupp_temp = ruppia_temp(temp, "sprout")
+      rupp_lght = ruppia_light(light, "sprout")
+      rupp_falg = ruppia_filalgae(fa, "sprout")
+      rupp_dess = ruppia_depth(depth, "sprout")
+
+    ENDIF
+    ! overall habitat suitability for sprouting
+    rhsp = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+    limitation(5,1) = rupp_salt
+    limitation(5,2) = rupp_temp
+    limitation(5,3) = rupp_lght
+    limitation(5,4) = rupp_falg
+    limitation(5,5) = rupp_dess
+    limitation(5,6) = rupp_matz
+
+  !---------------------------------------------------------------------
+  CONTAINS
+
+  !#############################################################################
+  AED_REAL FUNCTION ruppia_salinity(salt,stage)
+  !-----------------------------------------------------------------------------
+  ! Salinity function
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: salt
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     ruppia_salinity = one_
+
+     IF( TRIM(stage)=="seed" ) THEN
+
+       !<10 unsuitable
+       !10-30 suboptimal
+       !40-60 optimal
+       !60-85 suboptimal
+       !>85 unsuitable
+       IF( salt<=10. ) THEN
+         ruppia_salinity = zero_
+       ELSE IF ( salt>10. .AND. salt<=30.  ) THEN
+         ruppia_salinity = 0. + ( (salt-10.)/(30.-10.) )
+       ELSE IF ( salt>30. .AND. salt<=60. ) THEN
+         ruppia_salinity = one_
+       ELSE IF ( salt>60. .AND. salt<=85. ) THEN
+         ruppia_salinity = 1. - ( (salt-60.)/(85.-60.) )
+       ELSE IF ( salt>85. ) THEN
+         ruppia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="sprout" ) THEN
+
+       !<20 suboptimal
+       !20-75 optimal
+       !75 - 130 suboptimal
+       !>130 unsuitable
+       IF( salt<=0.1 ) THEN
+         ruppia_salinity = zero_
+       ELSE IF ( salt>0.1 .AND. salt<=20.  ) THEN
+         ruppia_salinity = 0. + ( (salt-0.1)/(20.-0.1) )
+       ELSE IF ( salt>20. .AND. salt<=75. ) THEN
+         ruppia_salinity = one_
+       ELSE IF ( salt>75. .AND. salt<=130. ) THEN
+         ruppia_salinity = 1. - ( (salt-75.)/(130.-75.) )
+       ELSE IF ( salt>130. ) THEN
+         ruppia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="adult" ) THEN
+
+       !0 - 10 unsuitable
+       !10 - 71 suboptimal
+       !72 - 123 optimal
+       !123 - 230 suboptimal
+       !>230 unsuitable
+       IF( salt<=10. ) THEN
+         ruppia_salinity = zero_
+       ELSE IF ( salt>10. .AND. salt<=31.  ) THEN
+         ruppia_salinity = 0. + ( (salt-10.)/(31.-10.) )
+       ELSE IF ( salt>31. .AND. salt<=123. ) THEN
+         ruppia_salinity = one_
+       ELSE IF ( salt>123. .AND. salt<=230. ) THEN
+         ruppia_salinity = 1. - ( (salt-123.)/(230.-123.) )
+       ELSE IF ( salt>230. ) THEN
+         ruppia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="flower" ) THEN
+
+       !<47 unsuitable
+       !47-50 suboptimal
+       !50 - 62 optimal
+       !62 - 70 suboptimal
+       !>70 unsuitable
+       IF( salt<=10. ) THEN
+         ruppia_salinity = zero_
+       ELSE IF ( salt>10. .AND. salt<=35.  ) THEN
+         ruppia_salinity = 0. + ( (salt-10.)/(35.-10.) )
+       ELSE IF ( salt>35. .AND. salt<=62. ) THEN
+         ruppia_salinity = one_
+       ELSE IF ( salt>62. .AND. salt<=100. ) THEN
+         ruppia_salinity = 1. - ( (salt-62.)/(100.-62.) )
+       ELSE IF ( salt>100. ) THEN
+         ruppia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="turion" ) THEN
+
+       !<70 unsuitable
+       !70 - 124 suboptimal
+       !124 - 160 optimal
+       !160 - 230 suboptimal
+       !>230 unsuitable
+       IF( salt<=70. ) THEN
+         ruppia_salinity = zero_
+       ELSE IF ( salt>70. .AND. salt<=124.  ) THEN
+         ruppia_salinity = 0. + ( (salt-70.)/(124.-70.) )
+       ELSE IF ( salt>124. .AND. salt<=160. ) THEN
+         ruppia_salinity = one_
+       ELSE IF ( salt>160. .AND. salt<=230. ) THEN
+         ruppia_salinity = 1. - ( (salt-160.)/(230.-160.) )
+       ELSE IF ( salt>230. ) THEN
+         ruppia_salinity = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION ruppia_salinity
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION ruppia_temp(temp,stage)
+  !-----------------------------------------------------------------------------
+  ! Salinity function
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: temp
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     ruppia_temp = one_
+
+     IF( TRIM(stage)=="seed"   .OR. &
+         TRIM(stage)=="sprout" .OR. &
+         TRIM(stage)=="adult"  .OR. &
+         TRIM(stage)=="flower" .OR. &
+         TRIM(stage)=="turion"  ) THEN
+
+       !<4 unsuitable
+       !4 - 10 suboptimal
+       !10 - 20 optimal
+       !20-30 suboptimal
+       !>30 unsuitable
+       IF( temp<=4. ) THEN
+         ruppia_temp = zero_
+       ELSE IF ( temp>4. .AND. temp<=10.  ) THEN
+         ruppia_temp = 0. + ( (temp-4.)/(10.-4.) )
+       ELSE IF ( temp>10. .AND. temp<=20. ) THEN
+         ruppia_temp = one_
+       ELSE IF ( temp>20. .AND. temp<=30. ) THEN
+         ruppia_temp = 1. - ( (temp-20.)/(30.-20.) )
+       ELSE IF ( temp>30. ) THEN
+         ruppia_temp = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION ruppia_temp
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION ruppia_light(light,stage)
+  !-----------------------------------------------------------------------------
+  ! Salinity function
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: light
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     ruppia_light = one_
+
+     IF( TRIM(stage)=="sprout" .OR. &
+         TRIM(stage)=="adult"  ) THEN
+
+       !0 - 7.5 unsuitable
+       !7.5 - 24 suboptimal
+       !>24 optimal
+       IF( light<=7.5 ) THEN
+         ruppia_light = zero_
+       ELSE IF ( light>7.5 .AND. light<=24.  ) THEN
+         ruppia_light = 0. + ( (light-7.5)/(24.-7.5) )
+       ELSE IF ( light>24. ) THEN
+         ruppia_light = one_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION ruppia_light
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION ruppia_filalgae(fa,stage)
+  !-----------------------------------------------------------------------------
+  ! Salinity function
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: fa
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     ruppia_filalgae = one_
+
+     IF( TRIM(stage)=="adult"  .OR. &
+         TRIM(stage)=="flower" ) THEN
+
+       IF ( fa>=0. .AND. fa<=25. ) THEN
+         ruppia_filalgae = one_
+       ELSE IF ( fa>25. .AND. fa<=100. ) THEN
+         ruppia_filalgae = 1. - ( (fa-25.)/(100.-25.) )
+       ELSE IF ( fa>100. ) THEN
+         ruppia_filalgae = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION ruppia_filalgae
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION ruppia_depth(depth,stage)
+  !-----------------------------------------------------------------------------
+  ! Salinity function
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: depth
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     ruppia_depth = one_
+
+     IF( TRIM(stage)=="adult" ) THEN
+
+       IF ( depth<=0.1 ) THEN
+         ruppia_depth = zero_
+       ELSE IF ( depth>0.1 .AND. depth<=0.2 ) THEN
+         ruppia_depth = 1. - ( (depth-0.1)/(0.2-0.1) )
+       ELSE IF ( depth>0.2 ) THEN
+         ruppia_depth = one_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="sprout" ) THEN
+
+       IF ( depth<=0.01 ) THEN
+         ruppia_depth = zero_
+       ELSE IF ( depth>0.01 .AND. depth<=0.2 ) THEN
+         ruppia_depth = 1. - ( (depth-0.01)/(0.2-0.01) )
+       ELSE IF ( depth>0.2 ) THEN
+         ruppia_depth = one_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="flower" ) THEN
+
+       IF ( depth<=0.01 ) THEN
+         ruppia_depth = zero_
+       ELSE IF ( depth>0.01 .AND. depth<=0.1 ) THEN
+         ruppia_depth = 1. - ( (depth-0.01)/(0.1-0.01) )
+       ELSE IF ( depth>0.1 .AND. depth<=0.4 ) THEN
+         ruppia_depth = one_
+       ELSE IF ( depth>0.4 .AND. depth<=1. ) THEN
+         ruppia_depth = 1. - ( (depth-0.4)/(1.-0.4) )
+       ELSE IF ( depth>1.0 ) THEN
+         ruppia_depth = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION ruppia_depth
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+END SUBROUTINE ruppia_habitat_suitability
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+!###############################################################################
+SUBROUTINE chara_habitat_suitability(data,                                      &
+                                     rhpl,rhfl,rhsd,rhtr,rhsp,                  &
+                                     depth,salt,temp,extc,fa,Io,vel,pc_wet,matz,&
+                                     limitation)
+!-------------------------------------------------------------------------------
+! Routine with empirical settings for Charaphyte HSI computation
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_habitat_benthic_data_t),INTENT(in) :: data
+   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp
+   AED_REAL :: depth,salt,temp,extc,fa,Io,vel,pc_wet,matz
+   AED_REAL :: limitation(:,:)
+!
+!LOCALS
+   AED_REAL :: char_salt,char_temp,char_lght,char_falg,char_matz,char_dess,char_strs
+   AED_REAL :: light
+!
+!-----------------------------------------------------------------------
+!BEGIN
+
+     IF( depth<0.1 ) THEN
+       light = 100.
+     ELSE
+       ! percentage of light reaching mid-canopy height (8cm assumed)
+       light = 100. * exp(-extc*(depth-0.08))
+     ENDIF
+
+     !-- First do ADULT tolerance
+     char_salt=one_; char_temp=one_; char_lght=one_; char_falg=one_
+     char_strs=one_; char_matz=one_; char_dess=one_;
+
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       char_dess = zero_    ! maybe need a time counter here.
+     ELSE
+       ! Wet cell
+       char_salt = charia_salinity(salt, "adult")
+       char_temp = charia_temp(temp, "adult")
+       char_lght = charia_light(light, "adult")
+       char_falg = charia_filalgae(fa, "adult")
+       char_dess = charia_depth(depth, "adult")
+       char_strs = charia_stress(vel, "adult")
+     ENDIF
+
+     ! Check for gravel/cobbles
+     IF( matz <0.3 ) char_dess = zero_
+
+     ! Adult plant habitat suitability
+     rhpl = MIN(char_salt,char_temp,char_lght,char_falg,char_dess,char_strs)!,char_matz,)
+
+     limitation(1,1) = char_salt
+     limitation(1,2) = char_temp
+     limitation(1,3) = char_lght
+     limitation(1,4) = char_falg
+     limitation(1,5) = char_dess
+     limitation(1,6) = char_strs
+
+
+     !-- Second do OOSPORE tolerance
+     char_salt=one_; char_temp=one_; char_lght=one_; char_falg=one_
+     char_strs=one_; char_matz=one_; char_dess=one_;
+
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       char_dess = zero_    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       char_salt = charia_salinity(salt, "oospore")
+       char_temp = charia_temp(temp, "oospore")
+       char_lght = charia_light(light, "oospore")
+       char_falg = 1.0 !charia_filalgae(fa, "oospore")
+       char_dess = charia_depth(depth, "oospore")
+       char_strs = charia_stress(vel, "oospore")
+
+     ENDIF
+     ! Habitat suitability for flowering
+     rhfl = MIN(char_salt,char_temp,char_lght,char_falg,char_matz,char_dess)
+     limitation(2,1) = char_salt
+     limitation(2,2) = char_temp
+     limitation(2,3) = char_lght
+     limitation(2,4) = char_falg
+     limitation(2,5) = char_dess
+     limitation(2,6) = char_strs
+
+
+     !-- Third do SEED germination
+     char_salt=one_; char_temp=one_; char_lght=one_; char_falg=one_
+     char_strs=one_; char_matz=one_; char_dess=one_;
+
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       char_dess = 0.5    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       char_salt = charia_salinity(salt, "seed")
+       char_temp = charia_temp(temp, "seed")
+       char_lght = one_
+       char_falg = one_
+       char_dess = charia_depth(depth, "seed")
+       char_strs = 1.0
+       !if ( .NOT. in_zone_set(matz, data%active_zones_chara) ) char_matz = zero_
+     ENDIF
+
+     IF( matz <0.3 ) char_dess = zero_
+
+     ! Habitat suitability for seed germination
+     rhsd = MIN(char_salt,char_temp,char_lght,char_falg,char_dess,char_strs)
+     limitation(3,1) = char_salt
+     limitation(3,2) = char_temp
+     limitation(3,3) = char_lght
+     limitation(3,4) = char_falg
+     limitation(3,5) = char_dess  ! Depth and substrate type consideration
+     limitation(3,6) = char_strs
+
+
+     !-- Fourth do sediment suitability for turions/turion sprouting
+     char_salt=one_; char_temp=one_; char_lght=one_; char_falg=one_
+     char_strs=one_; char_matz=one_; char_dess=one_;
+
+     IF( pc_wet < 0.1 ) THEN
+       ! Dry cell - set dessication factor
+       char_dess = zero_    ! maybe need a time counter here.
+
+     ELSE
+       ! Wet cell
+       char_salt = charia_salinity(salt, "turion")
+       char_temp = charia_temp(temp, "turion")
+       char_lght = one_
+       char_falg = one_
+       char_dess = charia_depth(depth, "turion")
+       char_strs = 1.0
+
+     ENDIF
+
+     ! Habitat suitability for turion
+    rhtr = MIN(char_salt,char_temp,char_lght,char_falg,char_dess,char_strs)
+    limitation(4,1) = char_salt
+    limitation(4,2) = char_temp
+    limitation(4,3) = char_lght
+    limitation(4,4) = char_falg
+    limitation(4,5) = char_dess
+    limitation(4,6) = char_strs
+
+    !-- Fifth do SPROUT tolerance
+    char_salt=one_; char_temp=one_; char_lght=one_; char_falg=one_
+    char_strs=one_; char_matz=one_; char_dess=one_;
+
+    IF( pc_wet < 0.1 ) THEN
+      ! Dry cell - set dessication factor
+      char_dess = zero_    ! maybe need a time counter here.
+
+    ELSE
+      ! Wet cell
+      char_salt = charia_salinity(salt, "sprout")
+      char_temp = charia_temp(temp, "sprout")
+      char_lght = charia_light(light, "sprout")
+      char_falg = charia_filalgae(fa, "sprout")
+      char_dess = charia_depth(depth, "sprout")
+      char_strs = charia_stress(vel, "sprout")
+
+    ENDIF
+
+    ! Check for gravel/cobbles
+    IF( matz <0.3 ) char_dess = zero_
+
+    ! Habitat suitability for sprouting
+    rhsp = MIN(char_salt,char_temp,char_lght,char_falg,char_dess,char_strs)
+    limitation(5,1) = char_salt
+    limitation(5,2) = char_temp
+    limitation(5,3) = char_lght
+    limitation(5,4) = char_falg
+    limitation(5,5) = char_dess
+    limitation(5,6) = char_strs
+
+  !---------------------------------------------------------------------
+  CONTAINS
+
+  !#############################################################################
+  AED_REAL FUNCTION charia_salinity(salt,stage)
+  !-----------------------------------------------------------------------------
+  ! Sainity limitation function for Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: salt
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_salinity = one_
+
+     return ! for now....
+
+     IF( TRIM(stage)=="seed" ) THEN
+
+       !<1 suitable
+       !1-10 suboptimal
+       !10 unsuitable
+       IF( salt<=1. ) THEN
+         charia_salinity = one_
+       ELSE IF ( salt>1. .AND. salt<=10.  ) THEN
+         charia_salinity = 0. + ( (salt-1.)/(10.-1.) )
+       ELSE IF ( salt>10. ) THEN
+         charia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="sprout" ) THEN
+
+       !<1 suitable
+       !1-10 suboptimal
+       !10 unsuitable
+       IF( salt<=1. ) THEN
+         charia_salinity = one_
+       ELSE IF ( salt>1. .AND. salt<=10.  ) THEN
+         charia_salinity = 0. + ( (salt-1.)/(10.-1.) )
+       ELSE IF ( salt>10. ) THEN
+         charia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="adult" ) THEN
+
+       !<1 suitable
+       !1-10 suboptimal
+       !10 unsuitable
+       IF( salt<=1. ) THEN
+         charia_salinity = one_
+       ELSE IF ( salt>1. .AND. salt<=10.  ) THEN
+         charia_salinity = 0. + ( (salt-1.)/(10.-1.) )
+       ELSE IF ( salt>10. ) THEN
+         charia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="flower" ) THEN
+
+       !<1 suitable
+       !1-10 suboptimal
+       !10 unsuitable
+       IF( salt<=1. ) THEN
+         charia_salinity = one_
+       ELSE IF ( salt>1. .AND. salt<=10.  ) THEN
+         charia_salinity = 0. + ( (salt-1.)/(10.-1.) )
+       ELSE IF ( salt>10. ) THEN
+         charia_salinity = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="turion" ) THEN
+
+       !<1 suitable
+       !1-10 suboptimal
+       !10 unsuitable
+       IF( salt<=1. ) THEN
+         charia_salinity = one_
+       ELSE IF ( salt>1. .AND. salt<=10.  ) THEN
+         charia_salinity = 0. + ( (salt-1.)/(10.-1.) )
+       ELSE IF ( salt>10. ) THEN
+         charia_salinity = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION charia_salinity
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION charia_temp(temp,stage)
+  !-----------------------------------------------------------------------------
+  ! Temperature limitation function for Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: temp
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_temp = one_
+
+     IF( TRIM(stage)=="sprout" .OR. &
+         TRIM(stage)=="adult"  .OR. &
+         TRIM(stage)=="oospore" .OR. &
+         TRIM(stage)=="turion"        ) THEN
+
+       !<4 unsuitable
+       !4 - 10 suboptimal
+       !10 - 20 optimal
+       !20 - 30 suboptimal
+       !>30 unsuitable
+       IF( temp<=4. ) THEN
+         charia_temp = zero_
+       ELSE IF ( temp>4. .AND. temp<=10.  ) THEN
+         charia_temp = 0. + ( (temp-4.)/(10.-4.) )
+       ELSE IF ( temp>10. .AND. temp<=20. ) THEN
+         charia_temp = one_
+       ELSE IF ( temp>20. .AND. temp<=30. ) THEN
+         charia_temp = 1. - ( (temp-20.)/(30.-20.) )
+       ELSE IF ( temp>30. ) THEN
+         charia_temp = zero_
+       ENDIF
+
+
+     ELSEIF( TRIM(stage)=="seed" ) THEN
+
+        IF( temp<=0. ) THEN
+          charia_temp = zero_
+        ELSE IF ( temp>2. .AND. temp<=5.  ) THEN
+          charia_temp = 0. + ( (temp-2.)/(5.-2.) )
+        ELSE IF ( temp>5. .AND. temp<=25. ) THEN
+          charia_temp = one_
+        ELSE IF ( temp>25. .AND. temp<=40. ) THEN
+          charia_temp = 1. - ( (temp-25.)/(40.-25.) )
+        ELSE IF ( temp>40. ) THEN
+          charia_temp = zero_
+        ENDIF
+
+
+     ENDIF
+
+  END FUNCTION charia_temp
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION charia_light(light,stage)
+  !-----------------------------------------------------------------------------
+  ! Light limitation function for Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: light
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_light = one_
+
+     IF( TRIM(stage)=="sprout" .OR. &
+         TRIM(stage)=="adult"  ) THEN
+
+       !0 - 7.5 unsuitable
+       !7.5 - 24 suboptimal
+       !>24 optimal
+       IF( light<=10.0 ) THEN
+         charia_light = zero_
+       ELSE IF ( light>10.0 .AND. light<=25.  ) THEN
+         charia_light = 0. + ( (light-10.0)/(25.-10.0) )
+       ELSE IF ( light>25. ) THEN
+         charia_light = one_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION charia_light
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION charia_filalgae(fa,stage)
+  !-----------------------------------------------------------------------------
+  ! Algae inhibition function for Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: fa
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_filalgae = one_
+
+     return ! for now
+
+     IF( TRIM(stage)=="adult"  .OR. &
+         TRIM(stage)=="oospore" ) THEN
+
+       IF ( fa>=0. .AND. fa<=250. ) THEN
+         charia_filalgae = one_
+       ELSE IF ( fa>250. .AND. fa<=100. ) THEN
+         charia_filalgae = 1. - ( (fa-25.)/(100.-25.) )
+       ELSE IF ( fa>100. ) THEN
+         charia_filalgae = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION charia_filalgae
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION charia_depth(depth,stage)
+  !-----------------------------------------------------------------------------
+  ! Depth function fro Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: depth
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_depth = one_
+
+     IF( TRIM(stage)=="adult" ) THEN
+
+       IF ( depth<=0.1 ) THEN
+         charia_depth = zero_
+       ELSE IF ( depth>0.1 .AND. depth<=0.4 ) THEN
+         charia_depth = (depth-0.1)/(0.4-0.1)
+       ELSE IF ( depth>0.4 .AND. depth<=9.0 ) THEN
+         charia_depth = one_
+       ELSE IF ( depth>9.0 .AND. depth<=12.0 ) THEN
+         charia_depth = 1. - ( (depth-9.)/(12.-9.) )
+       ELSE IF ( depth>12.0 ) THEN
+         charia_depth = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="sprout" ) THEN
+
+       IF ( depth<=0.01 ) THEN
+         charia_depth = zero_
+       ELSE IF ( depth>0.01 .AND. depth<=0.1 ) THEN
+         charia_depth =  (depth-0.01)/(0.1-0.01)
+       ELSE IF ( depth>0.1 .AND. depth<=9.0 ) THEN
+         charia_depth = one_
+       ELSE IF ( depth>9.0 .AND. depth<=12.0 ) THEN
+         charia_depth = 1. - ( (depth-9.)/(12.-9.) )
+       ELSE IF ( depth>12.0 ) THEN
+         charia_depth = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION charia_depth
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !#############################################################################
+  AED_REAL FUNCTION charia_stress(stress,stage)
+  !-----------------------------------------------------------------------------
+  ! Stress function for Charaphytes; life-stage dependent
+  !-----------------------------------------------------------------------------
+  !ARGUMENTS
+    AED_REAL,INTENT(in) :: stress
+    CHARACTER(len=*),INTENT(in) :: stage
+  !
+  !---------------------------------------------------------------------
+  !BEGIN
+
+     charia_stress = one_
+
+     IF( TRIM(stage)=="adult" ) THEN
+
+       IF ( stress<=0.1 ) THEN
+         charia_stress = one_
+       ELSE IF ( stress>0.1 .AND. stress<=0.4 ) THEN
+         charia_stress = 1. - ( (stress-0.1)/(0.4-0.1) )
+       ELSE IF ( stress>0.4 ) THEN
+         charia_stress = zero_
+       ENDIF
+
+     ELSEIF( TRIM(stage)=="sprout" ) THEN
+
+       IF ( stress<=0.04 ) THEN
+         charia_stress = one_
+       ELSE IF ( stress>0.04 .AND. stress<=0.2 ) THEN
+         charia_stress = 1. - ( (stress-0.04)/(0.2-0.04) )
+       ELSE IF ( stress>0.2 ) THEN
+         charia_stress = zero_
+       ENDIF
+
+     ENDIF
+
+  END FUNCTION charia_stress
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+END SUBROUTINE chara_habitat_suitability
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+END MODULE aed_habitat_benthic
