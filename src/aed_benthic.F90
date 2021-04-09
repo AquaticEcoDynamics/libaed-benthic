@@ -41,6 +41,7 @@ MODULE aed_benthic
    USE aed_bivalve
    USE aed_macrophyte
    USE aed_macroalgae
+   USE aed_macroalgae2
    USE aed_habitat_benthic
 
    IMPLICIT NONE
@@ -74,8 +75,9 @@ FUNCTION aed_new_ben_model(modelname) RESULT(model)
    SELECT CASE (modelname)
       CASE ('aed_bivalve');        prefix = 'BIV'; ALLOCATE(aed_bivalve_data_t::model)
       CASE ('aed_macroalgae');     prefix = 'MAG'; ALLOCATE(aed_macroalgae_data_t::model)
+      CASE ('aed_macroalgae2');    prefix = 'MA2'; ALLOCATE(aed_macroalgae2_data_t::model)
       CASE ('aed_macrophyte');     prefix = 'MAC'; ALLOCATE(aed_macrophyte_data_t::model)
-      CASE ('aed_habitat_benthic');     prefix = 'HAB'; ALLOCATE(aed_habitat_benthic_data_t::model)
+      CASE ('aed_habitat_benthic'); prefix = 'HAB'; ALLOCATE(aed_habitat_benthic_data_t::model)
    END SELECT
 
    IF (ASSOCIATED(model)) THEN

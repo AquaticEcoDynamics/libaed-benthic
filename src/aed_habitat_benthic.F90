@@ -155,6 +155,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
                            simCharaHabitat,n_zones_chara,active_zones_chara, &
                            simClearWater,    &
                            simMetalTox, mtox_vars, mtox_lims,   &
+                           rhsi_falg_link, rhsi_salg_link,      &
                            extra_diag, diag_level
 !
 !-------------------------------------------------------------------------------
@@ -246,8 +247,11 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
     !data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
     !data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
 
-     rhsi_falg_link = 'MAG_ulva_ben'
-     rhsi_salg_link = 'MAG_ulva'
+!    rhsi_falg_link = 'MAG_ulva_ben'
+!    rhsi_salg_link = 'MAG_ulva'
+     IF (rhsi_falg_link .EQ. "") THEN
+         STOP 'need to set rhsi_falg_link and rhsi_salg_link'
+     ENDIF
 
      data%id_l_salg  = aed_locate_global(TRIM(rhsi_salg_link))
      data%id_l_falg  = aed_locate_global_sheet(TRIM(rhsi_falg_link))
