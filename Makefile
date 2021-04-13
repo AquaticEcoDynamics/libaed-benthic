@@ -45,9 +45,11 @@ endif
 
 INCLUDES=-I../libaed-water/${incdir}  -I../libaed-water/${moddir}
 
-#ifneq ("$(wildcard ../libaed-plus/Makefile)","")
-#  HAVEPLUS=-DHAVE_PLUS
-#endif
+ifeq ("$(HAVEPLUS)","true")
+  HAVEPLUS=-DHAVE_PLUS
+else
+  HAVEPLUS=""
+endif
 
 ifeq ($(F90),ifort)
   INCLUDES+=-I/opt/intel/include
