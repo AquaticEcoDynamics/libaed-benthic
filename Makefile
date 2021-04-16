@@ -48,7 +48,7 @@ INCLUDES=-I../libaed-water/${incdir}  -I../libaed-water/${moddir}
 ifeq ("$(HAVEPLUS)","true")
   HAVEPLUS=-DHAVE_PLUS
 else
-  HAVEPLUS=""
+  HAVEPLUS=
 endif
 
 ifeq ($(F90),ifort)
