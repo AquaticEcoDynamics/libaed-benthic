@@ -1073,6 +1073,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 !-------------------------------------------------------------------------------
 !BEGIN
 
+  fT = 0.
+
   !-- Benthic light fraction and extinction, for diagnostics
   extc  = _STATE_VAR_(data%id_extc)      ! extinction coefficient of bottom cell
   depth = _STATE_VAR_(data%id_dz)        ! water column depth (cell depth if 2D)

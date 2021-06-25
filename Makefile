@@ -9,7 +9,7 @@
 #                                                                             #
 #      http://aquatic.science.uwa.edu.au/                                     #
 #                                                                             #
-#  Copyright 2013 - 2020 -  The University of Western Australia               #
+#  Copyright 2013 - 2021 -  The University of Western Australia               #
 #                                                                             #
 #   GLM is free software: you can redistribute it and/or modify               #
 #   it under the terms of the GNU General Public License as published by      #
@@ -58,7 +58,7 @@ ifeq ($(F90),ifort)
   FFLAGS=-fPIC -warn all -module ${moddir} -static-intel -mp1 -stand f08 -warn nounused $(DEFINES) $(INCLUDES)
   FFLAGS+=-module ../libaed-water/mod
   ifeq ($(WITH_CHECKS),true)
-    FFLAGS+=-check
+    FFLAGS+=-check all -check noarg_temp_created
   endif
   ifeq ($(SINGLE),true)
     FFLAGS+=-real-size 32
