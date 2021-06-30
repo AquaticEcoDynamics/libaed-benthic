@@ -45,12 +45,6 @@ endif
 
 INCLUDES=-I../libaed-water/${incdir}  -I../libaed-water/${moddir}
 
-ifeq ("$(HAVEPLUS)","true")
-  HAVEPLUS=-DHAVE_PLUS
-else
-  HAVEPLUS=
-endif
-
 ifeq ($(F90),ifort)
   INCLUDES+=-I/opt/intel/include
   DEBUG_FFLAGS=-g -traceback
@@ -102,7 +96,7 @@ ifeq ($(SINGLE),true)
 endif
 
 
-FFLAGS+=$(DEBUG_FFLAGS) $(OPT_FFLAGS) $(HAVEPLUS)
+FFLAGS+=$(DEBUG_FFLAGS) $(OPT_FFLAGS)
 
 OBJS=${objdir}/aed_bivalve.o \
      ${objdir}/aed_habitat_benthic.o \
