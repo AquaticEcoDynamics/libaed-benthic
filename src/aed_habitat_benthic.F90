@@ -9,14 +9,14 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2016 - 2020 -  The University of Western Australia               #
+!#  Copyright 2016 - 2021 -  The University of Western Australia               #
 !#                                                                             #
-!#   GLM is free software: you can redistribute it and/or modify               #
+!#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
 !#   the Free Software Foundation, either version 3 of the License, or         #
 !#   (at your option) any later version.                                       #
 !#                                                                             #
-!#   GLM is distributed in the hope that it will be useful,                    #
+!#   AED is distributed in the hope that it will be useful,                    #
 !#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
 !#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
 !#   GNU General Public License for more details.                              #
@@ -30,7 +30,7 @@
 !#                                                                             #
 !###############################################################################
 
-#include "aed+.h"
+#include "aed.h"
 
 !
 MODULE aed_habitat_benthic
@@ -125,12 +125,30 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
 !
 !LOCALS
    INTEGER :: i, z, status, num_mtox
-   INTEGER :: n_zones_chara = 0, active_zones_chara(MAX_ZONES)
-   INTEGER :: n_zones_fishspawn = 0,active_zones_fishspawn(MAX_ZONES)
-   LOGICAL :: simFishTolerance, simGalaxiidSpawning, simBenthicProd, &
-              simCyanoRisk, simMosquitoRisk, simCrabHabitat, simClearWater,      &
-              simRuppiaHabitat, simCharaHabitat, simMetalTox
+
+!  %% NAMELIST   %%  /aed_habitat_benthic/
+   INTEGER           :: n_zones_chara = 0
+   INTEGER           :: active_zones_chara(MAX_ZONES)
+   INTEGER           :: n_zones_fishspawn = 0
+   INTEGER           :: active_zones_fishspawn(MAX_ZONES)
+   LOGICAL           :: simFishTolerance = .FALSE.
+   LOGICAL           :: simGalaxiidSpawning = .FALSE.
+   LOGICAL           :: simBenthicProd = .FALSE.
+   LOGICAL           :: simCyanoRisk = .FALSE.
+   LOGICAL           :: simMosquitoRisk = .FALSE.
+   LOGICAL           :: simCrabHabitat = .FALSE.
+   LOGICAL           :: simClearWater = .FALSE.
+   LOGICAL           :: simRuppiaHabitat = .FALSE.
+   LOGICAL           :: simCharaHabitat = .FALSE.
+   LOGICAL           :: simMetalTox = .FALSE.
    AED_REAL          :: mtox_lims(10)
+   CHARACTER(len=40) :: mtox_vars(10)
+
+! %% From Module Globals
+!  LOGICAL :: extra_diag
+!  INTEGER :: diag_level = 10
+!  %% END NAMELIST   %%  /aed_habitat_benthic/
+
    CHARACTER(len=64) :: bird_acid_link, bird_habs_link, bird_aass_link, bird_rveg_link, bird_bveg_link
    CHARACTER(len=64) :: fshsi_veg_link, fshsi_oxy_link, fshsi_otrc_link
    CHARACTER(len=64) :: chsi_otrc_link, chsi_oxy_link, chsi_veg_link
@@ -142,7 +160,6 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    CHARACTER(len=64) :: pshsi_ncs1_link, pshsi_ncs2_link
    CHARACTER(len=64) :: rhsi_salg_link, rhsi_falg_link
    CHARACTER(len=40) :: mtox_acid_link, mtox_aass_link
-   CHARACTER(len=40) :: mtox_vars(10)
 
    NAMELIST /aed_habitat_benthic/ &
                            simFishTolerance, &
@@ -164,16 +181,17 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    print *,"          WARNING! aed_habitat model is under development"
 
    ! Default
-   simFishTolerance = .false.
-   simGalaxiidSpawning = .false.
-   simBenthicProd = .false.
-   simCyanoRisk = .false.
-   simMosquitoRisk = .false.
-   simMetalTox = .false.
-   simCrabHabitat = .false.
-   simCharaHabitat = .false.
-   simRuppiaHabitat = .false.
-   simClearWater = .false.
+! now done at declaration
+!  simFishTolerance = .false.
+!  simGalaxiidSpawning = .false.
+!  simBenthicProd = .false.
+!  simCyanoRisk = .false.
+!  simMosquitoRisk = .false.
+!  simMetalTox = .false.
+!  simCrabHabitat = .false.
+!  simCharaHabitat = .false.
+!  simRuppiaHabitat = .false.
+!  simClearWater = .false.
 
    extra_diag = .false.
 
@@ -231,9 +249,9 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
      chsi_oxy_link  = 'OXY_oxy'    ! oxygen
      chsi_veg_link  = 'MAC_mac'    ! submerged aquatic vegetation
 
-     data%id_l_otrc  = aed_locate_global(TRIM(chsi_otrc_link))
-     data%id_l_oxy  = aed_locate_global(TRIM(chsi_oxy_link))
-     data%id_l_sav  = aed_locate_global_sheet(TRIM(chsi_veg_link))
+     data%id_l_otrc  = aed_locate_variable(TRIM(chsi_otrc_link))
+     data%id_l_oxy  = aed_locate_variable(TRIM(chsi_oxy_link))
+     data%id_l_sav  = aed_locate_sheet_variable(TRIM(chsi_veg_link))
    ENDIF
 
    !-- SEAGRASS : RUPPIA
@@ -253,8 +271,8 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
          STOP 'need to set rhsi_falg_link and rhsi_salg_link'
      ENDIF
 
-     data%id_l_salg  = aed_locate_global(TRIM(rhsi_salg_link))
-     data%id_l_falg  = aed_locate_global_sheet(TRIM(rhsi_falg_link))
+     data%id_l_salg  = aed_locate_variable(TRIM(rhsi_salg_link))
+     data%id_l_falg  = aed_locate_sheet_variable(TRIM(rhsi_falg_link))
 
      IF (diag_level>1) THEN
        ALLOCATE(data%id_d_rupfs(5))
@@ -298,15 +316,15 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
 
      chhsi_falg_link = 'MAG_cladophora_ben'
      chhsi_salg_link = 'MAG_cladophora'
-     data%id_l_salg  = 0 !aed_locate_global(TRIM(rhsi_salg_link))
-     data%id_l_falg  = 0 !aed_locate_global_sheet(TRIM(rhsi_falg_link))
+     data%id_l_salg  = 0 !aed_locate_variable(TRIM(rhsi_salg_link))
+     data%id_l_falg  = 0 !aed_locate_sheet_variable(TRIM(rhsi_falg_link))
 
      chhsi_ncs1_link = 'NCS_fs1'
      chhsi_ncs2_link = 'NCS_fs2'
      chhsi_tau0_link = 'NCS_tau_0'
-     data%id_l_ncs1  = aed_locate_global_sheet(TRIM(chhsi_ncs1_link))
-     data%id_l_ncs2  = aed_locate_global_sheet(TRIM(chhsi_ncs2_link))
-     data%id_l_tau0  = aed_locate_global_sheet(TRIM(chhsi_tau0_link))
+     data%id_l_ncs1  = aed_locate_sheet_variable(TRIM(chhsi_ncs1_link))
+     data%id_l_ncs2  = aed_locate_sheet_variable(TRIM(chhsi_ncs2_link))
+     data%id_l_tau0  = aed_locate_sheet_variable(TRIM(chhsi_tau0_link))
 
      if( diag_level>1 )then
        ALLOCATE(data%id_d_chafs(6))
@@ -364,10 +382,10 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
      chhsi_ncs1_link = 'NCS_fs1'
      chhsi_ncs2_link = 'NCS_fs2'
      chhsi_tau0_link = 'NCS_tau_0'
-     data%id_d_turb  = aed_locate_global(TRIM(fshsi_otrc_link))
-     data%id_l_ncs1  = aed_locate_global_sheet(TRIM(chhsi_ncs1_link))
-     data%id_l_ncs2  = aed_locate_global_sheet(TRIM(chhsi_ncs2_link))
-     data%id_l_tau0  = aed_locate_global_sheet(TRIM(chhsi_tau0_link))
+     data%id_d_turb  = aed_locate_variable(TRIM(fshsi_otrc_link))
+     data%id_l_ncs1  = aed_locate_sheet_variable(TRIM(chhsi_ncs1_link))
+     data%id_l_ncs2  = aed_locate_sheet_variable(TRIM(chhsi_ncs2_link))
+     data%id_l_tau0  = aed_locate_sheet_variable(TRIM(chhsi_tau0_link))
 
    ENDIF
 
@@ -382,16 +400,14 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    data%id_E_extc  = aed_locate_global('extc_coef')
    data%id_E_temp  = aed_locate_global('temperature')
    data%id_E_depth = aed_locate_global('layer_ht')
-   data%id_E_bathy     = aed_locate_global_sheet('bathy')
-   data%id_E_matz      = aed_locate_global_sheet('material')
-   data%id_E_Io        = aed_locate_global_sheet('par_sf')
-   data%id_E_airtemp   = aed_locate_global_sheet('air_temp')
-   data%id_E_stress    = aed_locate_global_sheet('taub')
-   data%id_E_nearlevel = aed_locate_global_sheet('nearest_depth')
-
+   data%id_E_bathy     = aed_locate_sheet_global('bathy')
+   data%id_E_matz      = aed_locate_sheet_global('material')
+   data%id_E_Io        = aed_locate_sheet_global('par_sf')
+   data%id_E_airtemp   = aed_locate_sheet_global('air_temp')
+   data%id_E_stress    = aed_locate_sheet_global('taub')
+   data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
 END SUBROUTINE aed_define_habitat_benthic
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
 
 !###############################################################################
@@ -438,8 +454,6 @@ SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
 !-------------------------------------------------------------------------------
 !BEGIN
    matz = 0.0 ; salt = 0.0 ; euphotic = 0.0 ; bathy = 0.0  !## CAB [-Wmaybe-uninitialized]
-
-
 
 
       !---------------------------------------------------------------------------+

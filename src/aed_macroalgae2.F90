@@ -10,12 +10,12 @@
 !#                                                                             #
 !#  Copyright 2017 - 2020 -  The University of Western Australia               #
 !#                                                                             #
-!#   AED2+ is free software: you can redistribute it and/or modify             #
+!#   AED2 is free software: you can redistribute it and/or modify              #
 !#   it under the terms of the GNU General Public License as published by      #
 !#   the Free Software Foundation, either version 3 of the License, or         #
 !#   (at your option) any later version.                                       #
 !#                                                                             #
-!#   AED2+ is distributed in the hope that it will be useful,                  #
+!#   AED2 is distributed in the hope that it will be useful,                   #
 !#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
 !#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
 !#   GNU General Public License for more details.                              #
@@ -31,7 +31,7 @@
 !#                                                                             #
 !###############################################################################
 
-#include "aed+.h"
+#include "aed.h"
 
 MODULE aed_macroalgae2
 !-------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ MODULE aed_macroalgae2
       INTEGER :: id_mag_ben, id_min_ben, id_mip_ben
 
       !# Model parameters and options
-      TYPE(phyto_data),DIMENSION(:),ALLOCATABLE :: malgs
+      TYPE(phyto_data_t),DIMENSION(:),ALLOCATABLE :: malgs
       INTEGER  :: num_malgae
       LOGICAL  :: do_Puptake, do_Nuptake, do_Cuptake
       LOGICAL  :: do_Siuptake, do_DOuptake, do_N2uptake
@@ -136,8 +136,8 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
    INTEGER  :: i,tfil
    AED_REAL :: minNut
 
-   TYPE(phyto_nml_data) :: pd(MAX_PHYTO_TYPES)
-   NAMELIST /malgae_data/ pd
+   TYPE(phyto_param_t) :: pd(MAX_PHYTO_TYPES)
+   NAMELIST /malgae_data/ pd    ! %% phyto_params_t - see aed_bio_utils
 !-------------------------------------------------------------------------------
 !BEGIN
     tfil = find_free_lun()
@@ -377,38 +377,48 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 !LOCALS
    INTEGER  :: status, i
 
-   !  %% NAMELIST VARS
-   INTEGER  :: num_malgae
-   INTEGER  :: the_malgae(MAX_PHYTO_TYPES)
-   INTEGER  :: settling(MAX_PHYTO_TYPES)
-   AED_REAL :: resuspension(MAX_PHYTO_TYPES)
-   CHARACTER(len=64)  :: p_excretion_target_variable=''
-   CHARACTER(len=64)  :: p_mortality_target_variable=''
-   CHARACTER(len=64)  :: p1_uptake_target_variable=''
-   CHARACTER(len=64)  :: p2_uptake_target_variable=''
-   CHARACTER(len=64)  :: n_excretion_target_variable=''
-   CHARACTER(len=64)  :: n_mortality_target_variable=''
-   CHARACTER(len=64)  :: n1_uptake_target_variable=''
-   CHARACTER(len=64)  :: n2_uptake_target_variable=''
-   CHARACTER(len=64)  :: n3_uptake_target_variable=''
-   CHARACTER(len=64)  :: n4_uptake_target_variable=''
-   CHARACTER(len=64)  :: c_excretion_target_variable=''
-   CHARACTER(len=64)  :: c_mortality_target_variable=''
-   CHARACTER(len=64)  :: c_uptake_target_variable=''
-   CHARACTER(len=64)  :: do_uptake_target_variable=''
-   CHARACTER(len=64)  :: si_excretion_target_variable=''
-   CHARACTER(len=64)  :: si_mortality_target_variable=''
-   CHARACTER(len=64)  :: si_uptake_target_variable=''
-   CHARACTER(len=128) :: dbase='aed_malgae_pars.nml'
+!  %% NAMELIST   %%  /aed_macroalgae/
+!  %% Last Checked 20/08/2021
+   INTEGER  :: num_malgae = 0
+   INTEGER  :: the_malgae(MAX_PHYTO_TYPES) = 0
+   INTEGER  :: settling(MAX_PHYTO_TYPES) = 0
+   AED_REAL :: resuspension(MAX_PHYTO_TYPES) = 0.
+   CHARACTER(len=64)  :: p_excretion_target_variable = ''
+   CHARACTER(len=64)  :: p_mortality_target_variable = ''
+   CHARACTER(len=64)  :: p1_uptake_target_variable = ''
+   CHARACTER(len=64)  :: p2_uptake_target_variable = ''
+   CHARACTER(len=64)  :: n_excretion_target_variable = ''
+   CHARACTER(len=64)  :: n_mortality_target_variable = ''
+   CHARACTER(len=64)  :: n1_uptake_target_variable = ''
+   CHARACTER(len=64)  :: n2_uptake_target_variable = ''
+   CHARACTER(len=64)  :: n3_uptake_target_variable = ''
+   CHARACTER(len=64)  :: n4_uptake_target_variable = ''
+   CHARACTER(len=64)  :: c_excretion_target_variable = ''
+   CHARACTER(len=64)  :: c_mortality_target_variable = ''
+   CHARACTER(len=64)  :: c_uptake_target_variable = ''
+   CHARACTER(len=64)  :: do_uptake_target_variable = ''
+   CHARACTER(len=64)  :: si_excretion_target_variable = ''
+   CHARACTER(len=64)  :: si_mortality_target_variable = ''
+   CHARACTER(len=64)  :: si_uptake_target_variable = ''
+   CHARACTER(len=128) :: dbase = 'aed_malgae_pars.nml'
    AED_REAL           :: zerolimitfudgefactor = 0.9 * 3600
-   AED_REAL           :: min_rho, max_rho
+   AED_REAL           :: min_rho
+   AED_REAL           :: max_rho
    AED_REAL           :: slough_stress = one_
    INTEGER            :: simMalgHSI = 0
    INTEGER            :: simSloughing = 0
    INTEGER            :: n_zones = 0
    INTEGER            :: active_zones(1000)
    LOGICAL            :: extra_debug = .false.
-   !  %% END NAMELIST VARS
+
+! %% From Module Globals
+!  LOGICAL  :: extra_diag = .false.
+!  INTEGER  :: diag_level = 10                ! 0 = no diagnostic outputs
+!                                             ! 1 = basic diagnostic outputs
+!                                             ! 2 = flux rates, and supporitng
+!                                             ! 3 = other metrics
+!                                             !10 = all debug & checking outputs
+!  %% END NAMELIST   %%  /aed_macroalgae/
 
    NAMELIST /aed_macroalgae/ num_malgae, the_malgae, settling,resuspension,    &
                     p_excretion_target_variable,p_mortality_target_variable,   &
@@ -518,10 +528,10 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%do_Nuptake = .false.
    IF (data%nnup>0) data%do_Nuptake=.true.
    IF (data%do_Nuptake) THEN
-     IF (data%nnup>0) data%id_Nupttarget(ino3) = aed_locate_variable( n1_uptake_target_variable)  !; ino3=1  ! CAB - now constants in bio utils
-     IF (data%nnup>1) data%id_Nupttarget(inh4) = aed_locate_variable( n2_uptake_target_variable)  !; inh4=2  ! CAB - now constants in bio utils
-     IF (data%nnup>2) data%id_Nupttarget(idon) = aed_locate_variable( n3_uptake_target_variable)  !; idon=3  ! CAB - now constants in bio utils
-     IF (data%nnup>3) data%id_Nupttarget(in2)  = aed_locate_variable( n4_uptake_target_variable)  !; in2 =4  ! CAB - now constants in bio utils
+     IF (data%nnup>0) data%id_Nupttarget(ino3) = aed_locate_variable(n1_uptake_target_variable)
+     IF (data%nnup>1) data%id_Nupttarget(inh4) = aed_locate_variable(n2_uptake_target_variable)
+     IF (data%nnup>2) data%id_Nupttarget(idon) = aed_locate_variable(n3_uptake_target_variable)
+     IF (data%nnup>3) data%id_Nupttarget(in2)  = aed_locate_variable(n4_uptake_target_variable)
    ENDIF
    data%do_Cuptake = c_uptake_target_variable .NE. ''
    IF (data%do_Cuptake) THEN
@@ -574,9 +584,9 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%id_dens = aed_locate_global('density')
    data%id_extc = aed_locate_global('extc_coef')
    data%id_par = aed_locate_global('par')
-   data%id_I_0 = aed_locate_global_sheet('par_sf')
-   data%id_taub = aed_locate_global_sheet('taub')
-   data%id_sedzone = aed_locate_global_sheet('sed_zone')
+   data%id_I_0 = aed_locate_sheet_global('par_sf')
+   data%id_taub = aed_locate_sheet_global('taub')
+   data%id_sedzone = aed_locate_sheet_global('sed_zone')
 
 END SUBROUTINE aed_define_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

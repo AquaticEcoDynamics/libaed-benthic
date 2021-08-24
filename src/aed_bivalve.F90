@@ -11,14 +11,14 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015 - 2020 -  The University of Western Australia               #
+!#  Copyright 2015 - 2021 -  The University of Western Australia               #
 !#                                                                             #
-!#   AED2+ is free software: you can redistribute it and/or modify             #
+!#   AED2 is free software: you can redistribute it and/or modify              #
 !#   it under the terms of the GNU General Public License as published by      #
 !#   the Free Software Foundation, either version 3 of the License, or         #
 !#   (at your option) any later version.                                       #
 !#                                                                             #
-!#   AED2+ is distributed in the hope that it will be useful,                  #
+!#   AED2 is distributed in the hope that it will be useful,                   #
 !#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
 !#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
 !#   GNU General Public License for more details.                              #
@@ -34,7 +34,7 @@
 !#                                                                             #
 !###############################################################################
 
-#include "aed+.h"
+#include "aed.h"
 
 #define _MODPFX_ 3
 #define _PHYMOD_ 'PHY'
@@ -54,15 +54,18 @@ MODULE aed_bivalve
 !
    PUBLIC aed_bivalve_data_t
 !
-   TYPE type_bivalve_prey
+!  %% NAMELIST   %%  type : bivalve_prey_t
+   TYPE bivalve_prey_t
       !State variable name for bivalvelankton prey
       CHARACTER(64) :: bivalve_prey
       !Preference factors for bivalvelankton predators grazing on prey
       AED_REAL      :: Pbiv_prey
-   END TYPE type_bivalve_prey
+   END TYPE bivalve_prey_t
+!  %% END NAMELIST   %%  type : bivalve_prey_t
 
 
-   TYPE type_bivalve_params
+!  %% NAMELIST   %% type : bivalve_params_t
+   TYPE bivalve_params_t
       ! General Attributes
       CHARACTER(64) :: name
       AED_REAL :: initial_conc, min
@@ -98,10 +101,11 @@ MODULE aed_bivalve
 
       ! The prey
       INTEGER  :: num_prey
-      TYPE(type_bivalve_prey) :: prey(MAX_ZOOP_PREY)
+      TYPE(bivalve_prey_t) :: prey(MAX_ZOOP_PREY)
    END TYPE
+!  %% END NAMELIST   %% type : bivalve_params_t
 
-   TYPE,extends(type_bivalve_params) :: type_bivalve_data
+   TYPE,extends(bivalve_params_t) :: bivalve_data_t
       INTEGER  :: id_prey(MAX_ZOOP_PREY)
       INTEGER  :: id_phyIN(MAX_ZOOP_PREY), id_phyIP(MAX_ZOOP_PREY)
    END TYPE
@@ -124,7 +128,7 @@ MODULE aed_bivalve
 
       !# Model parameters
       INTEGER  :: num_biv
-      TYPE(type_bivalve_data),DIMENSION(:),ALLOCATABLE :: bivalves
+      TYPE(bivalve_data_t),DIMENSION(:),ALLOCATABLE :: bivalves
       LOGICAL  :: simDNexcr, simDPexcr, simDCexcr
       LOGICAL  :: simPNexcr, simPPexcr, simPCexcr
       LOGICAL  :: simSSlim, simBivFeedback, simFixedEnv, simStaticBiomass
@@ -164,7 +168,7 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CHARACTER(len=*),INTENT(in) :: dbase
-   TYPE(type_bivalve_params),INTENT(out) :: bivalve_param(MAX_ZOOP_TYPES)
+   TYPE(bivalve_params_t),INTENT(out) :: bivalve_param(MAX_ZOOP_TYPES)
 !
 !LOCALS
    INTEGER :: unit, nccols, ccol
@@ -274,8 +278,8 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
    INTEGER  :: i,j,tfil,sort_i(MAX_ZOOP_PREY)
    AED_REAL :: Pbiv_prey(MAX_ZOOP_PREY)
 
-   TYPE(type_bivalve_params)  :: bivalve_param(MAX_ZOOP_TYPES)
-   NAMELIST /bivalve_params/ bivalve_param
+   TYPE(bivalve_params_t)  :: bivalve_param(MAX_ZOOP_TYPES)
+   NAMELIST /bivalve_params/ bivalve_param   ! %% bivalve_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
     SELECT CASE (param_file_type(dbase))
@@ -388,13 +392,14 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 
 !
 !LOCALS
-   INTEGER  :: status
+   INTEGER  :: status, i
 
-   !  %% NAMELIST VARS
+!  %% NAMELIST   %%  /aed_bivalve/
+!  %% Last Checked 20/08/2021
    INTEGER  :: num_biv = 0
    INTEGER  :: the_biv(MAX_ZOOP_TYPES) = 0
    INTEGER  :: n_zones = 0
-   INTEGER  :: active_zones(MAX_ZONES), i
+   INTEGER  :: active_zones(MAX_ZONES)
    LOGICAL  :: initFromDensity = .false.  !ability to read in map of mussel #'s
    LOGICAL  :: simBivTracer = .false.     !include filtration rate tracer
    LOGICAL  :: simBivFeedback = .false.   !allow module to change prey/nutrient concs
@@ -402,18 +407,28 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    LOGICAL  :: simFixedEnv = .false.      !special case to overwrite env and food factors with constants
    AED_REAL :: X_c(MAX_ZOOP_TYPES) = 1.   !mmolC/organism
    AED_REAL :: bt_renewal = zero_         !biv-tracer "renewal" timescale (days)
-   AED_REAL :: fixed_temp, fixed_sal, fixed_oxy, fixed_food
+   AED_REAL :: fixed_temp
+   AED_REAL :: fixed_sal
+   AED_REAL :: fixed_oxy
+   AED_REAL :: fixed_food
 
-   CHARACTER(len=64)  :: dn_target_variable='' !dissolved nitrogen target variable
-   CHARACTER(len=64)  :: pn_target_variable='' !particulate nitrogen target variable
-   CHARACTER(len=64)  :: dp_target_variable='' !dissolved phosphorus target variable
-   CHARACTER(len=64)  :: pp_target_variable='' !particulate phosphorus target variable
-   CHARACTER(len=64)  :: dc_target_variable='' !dissolved carbon target variable
-   CHARACTER(len=64)  :: pc_target_variable='' !particulate carbon target variable
-   CHARACTER(len=64)  :: do_uptake_variable='' !oxy uptake variable
-   CHARACTER(len=64)  :: ss_uptake_variable='' !sus. solids uptake variable
-   CHARACTER(len=128) :: dbase='aed_bivalve_pars.nml'
-   !  %% END NAMELIST VARS
+   CHARACTER(len=64)  :: dn_target_variable = '' !dissolved nitrogen target variable
+   CHARACTER(len=64)  :: pn_target_variable = '' !particulate nitrogen target variable
+   CHARACTER(len=64)  :: dp_target_variable = '' !dissolved phosphorus target variable
+   CHARACTER(len=64)  :: pp_target_variable = '' !particulate phosphorus target variable
+   CHARACTER(len=64)  :: dc_target_variable = '' !dissolved carbon target variable
+   CHARACTER(len=64)  :: pc_target_variable = '' !particulate carbon target variable
+   CHARACTER(len=64)  :: do_uptake_variable = '' !oxy uptake variable
+   CHARACTER(len=64)  :: ss_uptake_variable = '' !sus. solids uptake variable
+   CHARACTER(len=128) :: dbase = 'aed_bivalve_pars.nml'
+
+! %% From Module Globals
+!  INTEGER :: diag_level = 10                 ! 0 = no diagnostic outputs
+!                                             ! 1 = basic diagnostic outputs
+!                                             ! 2 = flux rates, and supporitng
+!                                             ! 3 = other metrics
+!                                             !10 = all debug & checking outputs
+!  %% END NAMELIST   %%  /aed_bivalve/
 
    INTEGER  :: biv_i, prey_i, phy_i
 
@@ -574,7 +589,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    ! Register environmental dependencies
    data%id_tem = aed_locate_global('temperature')
    data%id_sal = aed_locate_global('salinity')
-   data%id_sed_zone = aed_locate_global_sheet('sed_zone')
+   data%id_sed_zone = aed_locate_sheet_global('sed_zone')
 !
 END SUBROUTINE aed_define_bivalve
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

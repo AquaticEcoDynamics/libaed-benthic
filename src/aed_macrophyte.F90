@@ -9,14 +9,14 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2015 - 2020 -  The University of Western Australia               #
+!#  Copyright 2015 - 2021 -  The University of Western Australia               #
 !#                                                                             #
-!#   GLM is free software: you can redistribute it and/or modify               #
+!#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
 !#   the Free Software Foundation, either version 3 of the License, or         #
 !#   (at your option) any later version.                                       #
 !#                                                                             #
-!#   GLM is distributed in the hope that it will be useful,                    #
+!#   AED is distributed in the hope that it will be useful,                    #
 !#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
 !#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
 !#   GNU General Public License for more details.                              #
@@ -30,7 +30,7 @@
 !#                                                                             #
 !###############################################################################
 
-#include "aed+.h"
+#include "aed.h"
 
 
 MODULE aed_macrophyte
@@ -47,7 +47,8 @@ MODULE aed_macrophyte
 !
    PUBLIC aed_macrophyte_data_t
 
-   TYPE :: macrophyte_data_t
+!  %% NAMELIST    %% type :  macrophyte_params_t
+   TYPE :: macrophyte_params_t
        INTEGER       :: growthForm
        CHARACTER(64) :: m_name
        AED_REAL      :: m0
@@ -77,6 +78,7 @@ MODULE aed_macrophyte
        AED_REAL      :: K_P
        AED_REAL      :: X_pcon
    END TYPE
+!  %% END NAMELIST    %% type :  macrophyte_params_t
 
    TYPE,extends(aed_model_data_t) :: aed_macrophyte_data_t
       !# Variable identifiers
@@ -90,7 +92,7 @@ MODULE aed_macrophyte
 
       !# Model parameters
       INTEGER  :: num_mphy
-      TYPE(macrophyte_data_t),DIMENSION(:),ALLOCATABLE :: mphydata
+      TYPE(macrophyte_params_t),DIMENSION(:),ALLOCATABLE :: mphydata
       LOGICAL  :: simMacFeedback, simStaticBiomass
 
      CONTAINS
@@ -123,7 +125,7 @@ INTEGER FUNCTION load_csv(dbase, md)
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CHARACTER(len=*),INTENT(in) :: dbase
-   TYPE(macrophyte_data_t) :: md(MAX_PHYTO_TYPES)
+   TYPE(macrophyte_params_t) :: md(MAX_PHYTO_TYPES)
 !
 !LOCALS
    INTEGER :: unit, nccols, ccol
@@ -207,8 +209,8 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
    INTEGER  :: i,tfil
    AED_REAL :: minNut
 
-   TYPE(macrophyte_data_t) :: md(MAX_PHYTO_TYPES)
-   NAMELIST /macrophyte_data/ md
+   TYPE(macrophyte_params_t) :: md(MAX_PHYTO_TYPES)
+   NAMELIST /macrophyte_data/ md  ! %% type : macrophyte_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
     SELECT CASE (param_file_type(dbase))
@@ -287,13 +289,18 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER,INTENT(in) :: namlst
 !
 !LOCALS
-   INTEGER  :: status
+   INTEGER  :: status, i
 
-   INTEGER  :: num_mphy
-   INTEGER  :: the_mphy(MAX_PHYTO_TYPES)
-   CHARACTER(len=128) :: dbase='aed_macrophyte_pars.nml'
-   INTEGER  :: n_zones = 0, active_zones(MAX_ZONES), i
-   LOGICAL  :: simMacFeedback, simStaticBiomass
+!  %% NAMELIST   %%  /aed_macrophyte/
+!  %% Last Checked 20/08/2021
+   INTEGER            :: num_mphy = 0
+   INTEGER            :: the_mphy(MAX_PHYTO_TYPES) = 0
+   CHARACTER(len=128) :: dbase = 'aed_macrophyte_pars.nml'
+   INTEGER            :: n_zones = 0
+   INTEGER            :: active_zones(MAX_ZONES)
+   LOGICAL            :: simMacFeedback = .FALSE.
+   LOGICAL            :: simStaticBiomass = .FALSE.
+!  %% END NAMELIST   %%  /aed_macrophyte/
 
    NAMELIST /aed_macrophyte/ num_mphy, the_mphy, dbase, n_zones, active_zones, &
                               simMacFeedback, simStaticBiomass
@@ -302,8 +309,9 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 !BEGIN
    print *,"        aed_macrophyte initialization"
 
-   simMacFeedback = .FALSE.
-   simStaticBiomass = .FALSE.
+! now done in the declaration
+!  simMacFeedback = .FALSE.
+!  simStaticBiomass = .FALSE.
 
    ! Read the namelist
    read(namlst,nml=aed_macrophyte,iostat=status)
@@ -350,12 +358,11 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    data%id_tem = aed_locate_global('temperature')
    data%id_sal = aed_locate_global('salinity')
    data%id_par = aed_locate_global('par')
-   data%id_I_0 = aed_locate_global_sheet('par_sf')
+   data%id_I_0 = aed_locate_sheet_global('par_sf')
    data%id_dz = aed_locate_global('layer_ht')
    data%id_extc = aed_locate_global('extc_coef')
-   data%id_sed_zone = aed_locate_global_sheet('sed_zone')
-   data%id_atem = aed_locate_global_sheet('air_temp')
-
+   data%id_sed_zone = aed_locate_sheet_global('sed_zone')
+   data%id_atem = aed_locate_sheet_global('air_temp')
 END SUBROUTINE aed_define_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
