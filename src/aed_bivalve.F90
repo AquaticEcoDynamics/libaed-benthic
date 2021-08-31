@@ -149,7 +149,6 @@ MODULE aed_bivalve
    END TYPE
 
    ! MODULE GLOBALS
-   LOGICAL :: debug = .TRUE.
    LOGICAL :: extra_diag = .false.
    INTEGER :: diag_level = 10                 ! 0 = no diagnostic outputs
                                               ! 1 = basic diagnostic outputs
@@ -423,6 +422,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    CHARACTER(len=128) :: dbase = 'aed_bivalve_pars.nml'
 
 ! %% From Module Globals
+!  LOGICAL  :: extra_diag = .false.      !## Obsolete Use diag_level = 10
 !  INTEGER :: diag_level = 10                 ! 0 = no diagnostic outputs
 !                                             ! 1 = basic diagnostic outputs
 !                                             ! 2 = flux rates, and supporitng
@@ -432,7 +432,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 
    INTEGER  :: biv_i, prey_i, phy_i
 
-   NAMELIST /aed_bivalve/ num_biv, the_biv, n_zones, active_zones, extra_diag,&
+   NAMELIST /aed_bivalve/ num_biv, the_biv, n_zones, active_zones, extra_diag, &
                     simBivTracer, simBivFeedback, simStaticBiomass,            &
                     dn_target_variable, pn_target_variable, dp_target_variable,&
                     pp_target_variable, dc_target_variable, pc_target_variable,&

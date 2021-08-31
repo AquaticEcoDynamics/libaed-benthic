@@ -116,6 +116,7 @@ MODULE aed_macroalgae
    AED_REAL, PARAMETER :: TempAvgTime = 1.0            !  1 day
    AED_REAL :: dtlim = 900
    AED_REAL :: macroHgt, macroExt = zero_
+
    LOGICAL  :: extra_diag = .false.
    INTEGER  :: diag_level = 10                ! 0 = no diagnostic outputs
                                               ! 1 = basic diagnostic outputs
@@ -524,10 +525,10 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    INTEGER            :: n_zones = 0
    INTEGER            :: active_zones(1000) = 0
    LOGICAL            :: simMalgFeedback = .true.
-   LOGICAL            :: extra_debug = .false.
 
 ! From Module Globals
-!  LOGICAL  :: extra_diag = .false.
+   LOGICAL  :: extra_debug = .false.  !## Obsolete Use diag_level = 10
+!  LOGICAL  :: extra_diag = .false.   !## Obsolete Use diag_level = 10
 !  INTEGER  :: diag_level = 10                ! 0 = no diagnostic outputs
                                               ! 1 = basic diagnostic outputs
                                               ! 2 = flux rates, and supporitng
@@ -557,7 +558,6 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    read(namlst,nml=aed_macroalgae,iostat=status)
    IF (status /= 0) STOP 'Error reading namelist aed_macroalgae'
    IF( extra_debug )  extra_diag = .true.       ! legacy use of extra_debug
-   IF( extra_debug )  diag_level = 10           ! legacy use of extra_debug
    IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
    data%min_rho = min_rho ; data%max_rho = max_rho
    data%simMalgHSI = simMalgHSI

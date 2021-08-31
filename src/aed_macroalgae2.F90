@@ -115,6 +115,11 @@ MODULE aed_macroalgae2
    AED_REAL, PARAMETER :: TempAvgTime = 1.0            !  1 day
    AED_REAL :: dtlim = 0.9 * 3600
    LOGICAL  :: extra_diag = .false.
+   INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
+                                             ! 1 = basic diagnostic outputs
+                                             ! 2 = flux rates, and supporitng
+                                             ! 3 = other metrics
+                                             !10 = all debug & checking outputs
 
 !===============================================================================
 CONTAINS
@@ -159,7 +164,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
     ALLOCATE(data%id_pben(count)) ; data%id_p(:) = 0
     ALLOCATE(data%id_inben(count)) ; data%id_inben(:) = 0
     ALLOCATE(data%id_ipben(count)) ; data%id_ipben(:) = 0
-    IF (extra_diag) THEN
+    IF ( diag_level >= 10 ) THEN
        ALLOCATE(data%id_fT(count)) ; data%id_fT(:) = 0
        ALLOCATE(data%id_fI(count)) ; data%id_fI(:) = 0
        ALLOCATE(data%id_fNit(count)) ; data%id_fNit(:) = 0
@@ -295,7 +300,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
        ENDIF
 
        ! Group specific diagnostic variables
-       IF (extra_diag) THEN
+       IF ( diag_level >= 10 ) THEN
           data%id_NtoP(i) = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_NtoP','-', 'internal n:p ratio')
           data%id_fI(i)   = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_fI', '-', 'fI (0-1)')
           data%id_fNit(i) = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_fNit', '-', 'fNit (0-1)')
@@ -348,7 +353,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
                             minimum=minNut)
          ENDIF
          ! Group specific diagnostics for the benthic variables
-         IF (extra_diag) THEN
+         IF ( diag_level >= 10 ) THEN
           data%id_fI_ben(i)   = aed_define_sheet_diag_variable( TRIM(data%malgs(i)%p_name)//'_fI_ben', '-', 'fI (0-1)')
           data%id_fNit_ben(i) = aed_define_sheet_diag_variable( TRIM(data%malgs(i)%p_name)//'_fNit_ben', '-', 'fNit (0-1)')
           data%id_fPho_ben(i) = aed_define_sheet_diag_variable( TRIM(data%malgs(i)%p_name)//'_fPho_ben', '-', 'fPho (0-1)')
@@ -409,10 +414,10 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    INTEGER            :: simSloughing = 0
    INTEGER            :: n_zones = 0
    INTEGER            :: active_zones(1000)
-   LOGICAL            :: extra_debug = .false.
 
 ! %% From Module Globals
-!  LOGICAL  :: extra_diag = .false.
+   LOGICAL  :: extra_debug = .false.   !## Obsolete Use diag_level = 10
+!  LOGICAL  :: extra_diag = .false.   !## Obsolete Use diag_level = 10
 !  INTEGER  :: diag_level = 10                ! 0 = no diagnostic outputs
 !                                             ! 1 = basic diagnostic outputs
 !                                             ! 2 = flux rates, and supporitng
@@ -447,6 +452,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    IF (status /= 0) STOP 'Error reading namelist aed_macroalgae'
    dtlim = zerolimitfudgefactor
    IF( extra_debug ) extra_diag = .true.       ! legacy use of extra_debug
+   IF ( extra_diag ) diag_level = 10
    data%min_rho = min_rho ; data%max_rho = max_rho
    data%slough_stress = slough_stress
    data%simMalgHSI = simMalgHSI
@@ -572,7 +578,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
      data%id_rsp_ben = aed_define_sheet_diag_variable('rsp_ben','mmol/m**2/d', 'BEN MAG: macroalgal respiration')
    ENDIF
 
-   IF (extra_diag) THEN
+   IF ( diag_level >= 10 ) THEN
      data%id_dPAR  = aed_define_diag_variable('par','%', 'MAG: PAR light fraction reaching the bottom')
      data%id_TCHLA = aed_define_diag_variable('extc','/m', 'MAG: light extinction')
    ENDIF
@@ -853,7 +859,7 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
       ENDIF
 
       ! Diagnostic info
-      IF (extra_diag) THEN
+      IF ( diag_level >= 10 ) THEN
          _DIAG_VAR_(data%id_NtoP(mag_i)) =  INi/IPi
          _DIAG_VAR_(data%id_fT(mag_i))   =  fT
          _DIAG_VAR_(data%id_fI(mag_i))   =  fI
@@ -1094,8 +1100,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
   ELSE
     light = 100. * exp(-extc*(depth-0.08))
   ENDIF
-  IF(extra_diag) _DIAG_VAR_(data%id_dPAR)  = light
-  IF(extra_diag) _DIAG_VAR_(data%id_TCHLA) = extc
+  IF( diag_level >= 10 ) _DIAG_VAR_(data%id_dPAR)  = light
+  IF( diag_level >= 10 ) _DIAG_VAR_(data%id_TCHLA) = extc
 
   !-- Initialise the accumulated biomass variables
   _DIAG_VAR_S_(data%id_mag_ben) = zero_
@@ -1238,7 +1244,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        fI = photosynthesis_irradiance(0, &  ! 0 is vertical integral
             data%malgs(mag_i)%I_K, data%malgs(mag_i)%I_S, par, extc, Io, dz)
 
-       IF (extra_diag) THEN
+       IF ( diag_level >= 10 ) THEN
          _DIAG_VAR_S_(data%id_fT_ben(mag_i)) =  fT
          _DIAG_VAR_S_(data%id_fI_ben(mag_i)) =  fI
          _DIAG_VAR_S_(data%id_fNit_ben(mag_i)) =  fNit
@@ -1467,7 +1473,7 @@ SUBROUTINE aed_mobility_macroalgae(data,column,layer_idx,mobility)
       END SELECT
       ! set global mobility array
       mobility(data%id_p(mag_i)) = vvel
-      IF(extra_diag .AND. data%id_vvel(mag_i)>0) _DIAG_VAR_(data%id_vvel(mag_i)) = vvel
+      IF( diag_level >= 10  .AND. data%id_vvel(mag_i)>0) _DIAG_VAR_(data%id_vvel(mag_i)) = vvel
     ENDDO
 END SUBROUTINE aed_mobility_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1681,7 +1687,7 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf,pu,n
       IF (sf > zero_) THEN
         sf = 1.0 - (data%malgs(cgm)%X_pmin/sf)
       ENDIF
-      IF (extra_diag) _DIAG_VAR_S_(data%id_fPho_ben(cgm)) =  sf
+      IF ( diag_level >= 10 ) _DIAG_VAR_S_(data%id_fPho_ben(cgm)) =  sf
 
       !-------------------------------------------------------------------------
       !-- Update moving avg for daily light (averaged over the photo-period, PP)
@@ -1700,7 +1706,7 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf,pu,n
       lf = 1.0 - malg/MAX(X_maxp,data%malgs(cgm)%p0)
 
       IF(lf < zero_) lf = zero_ ; IF(lf > one_) lf = one_
-      IF (extra_diag) _DIAG_VAR_S_(data%id_fI_ben(cgm)) =  lf
+      IF ( diag_level >= 10 ) _DIAG_VAR_S_(data%id_fI_ben(cgm)) =  lf
 
       !-------------------------------------------------------------------------
       !-- Now light and temperature function for photosynthesis
@@ -1778,7 +1784,7 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf,pu,n
     ELSE
       tf = exp((18.0-temp)/18.75)
     ENDIF
-    IF (extra_diag) _DIAG_VAR_S_(data%id_fT_ben(cgm)) =  tf
+    IF ( diag_level >= 10 ) _DIAG_VAR_S_(data%id_fT_ben(cgm)) =  tf
 
     Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
 

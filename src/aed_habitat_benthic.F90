@@ -103,8 +103,12 @@ MODULE aed_habitat_benthic
 !-------------------------------------------------------------------------------
 !MODULE VARIABLES
    AED_REAL, PARAMETER :: DDT = 0.25/24.    ! Currently assuming 15 min timestep
-   LOGICAL :: extra_diag
-   INTEGER :: diag_level = 10
+   LOGICAL :: extra_diag = .false.
+   INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
+                                             ! 1 = basic diagnostic outputs
+                                             ! 2 = flux rates, and supporitng
+                                             ! 3 = other metrics
+                                             !10 = all debug & checking outputs
 
 !===============================================================================
 CONTAINS
@@ -145,7 +149,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    CHARACTER(len=40) :: mtox_vars(10)
 
 ! %% From Module Globals
-!  LOGICAL :: extra_diag
+!  LOGICAL :: extra_diag = .false.      !## Obsolete Use diag_level = 10
 !  INTEGER :: diag_level = 10
 !  %% END NAMELIST   %%  /aed_habitat_benthic/
 
@@ -179,21 +183,6 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
 !BEGIN
    print *,"        aed_habitat_benthic initialization"
    print *,"          WARNING! aed_habitat model is under development"
-
-   ! Default
-! now done at declaration
-!  simFishTolerance = .false.
-!  simGalaxiidSpawning = .false.
-!  simBenthicProd = .false.
-!  simCyanoRisk = .false.
-!  simMosquitoRisk = .false.
-!  simMetalTox = .false.
-!  simCrabHabitat = .false.
-!  simCharaHabitat = .false.
-!  simRuppiaHabitat = .false.
-!  simClearWater = .false.
-
-   extra_diag = .false.
 
    ! Read the namelist
    read(namlst,nml=aed_habitat_benthic,iostat=status)

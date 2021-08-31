@@ -106,11 +106,14 @@ MODULE aed_macrophyte
    END TYPE
 
 
-   LOGICAL :: debug = .TRUE.
    INTEGER, PARAMETER :: SUBMERGED = 1
    INTEGER, PARAMETER :: EMERGENT = 2
    INTEGER, PARAMETER :: FLOATING = 3
-   INTEGER :: diag_level = 10
+   INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
+                                             ! 1 = basic diagnostic outputs
+                                             ! 2 = flux rates, and supporitng
+                                             ! 3 = other metrics
+                                             !10 = all debug & checking outputs
 
 CONTAINS
 !===============================================================================
