@@ -139,12 +139,12 @@ MODULE aed_bivalve
       AED_REAL :: bt_renewal
 
      CONTAINS
-         PROCEDURE :: define            => aed_define_bivalve
-         PROCEDURE :: initialize        => aed_initialize_bivalve
-         PROCEDURE :: calculate_benthic => aed_calculate_benthic_bivalve
-        !PROCEDURE :: mobility          => aed_mobility_bivalve
-        !PROCEDURE :: light_extinction  => aed_light_extinction_bivalve
-        !PROCEDURE :: delete            => aed_delete_bivalve
+         PROCEDURE :: define             => aed_define_bivalve
+         PROCEDURE :: initialize_benthic => aed_initialize_benthic_bivalve
+         PROCEDURE :: calculate_benthic  => aed_calculate_benthic_bivalve
+        !PROCEDURE :: mobility           => aed_mobility_bivalve
+        !PROCEDURE :: light_extinction   => aed_light_extinction_bivalve
+        !PROCEDURE :: delete             => aed_delete_bivalve
 
    END TYPE
 
@@ -596,7 +596,7 @@ END SUBROUTINE aed_define_bivalve
 
 
 !###############################################################################
-SUBROUTINE aed_initialize_bivalve(data, column, layer_idx)
+SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
 !-------------------------------------------------------------------------------
 ! Routine to initialize bivalve mass from spatial density map
 !-------------------------------------------------------------------------------
@@ -625,7 +625,7 @@ SUBROUTINE aed_initialize_bivalve(data, column, layer_idx)
      _STATE_VAR_S_(data%id_biv(biv_i)) = &
                             (biv_density/data%num_biv)*data%bivalves(biv_i)%X_ci
    ENDDO
-END SUBROUTINE aed_initialize_bivalve
+END SUBROUTINE aed_initialize_benthic_bivalve
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 

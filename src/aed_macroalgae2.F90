@@ -97,14 +97,14 @@ MODULE aed_macroalgae2
       INTEGER :: simCGM
 
      CONTAINS
-         PROCEDURE :: define            => aed_define_macroalgae
-         PROCEDURE :: initialize        => aed_initialize_macroalgae
-         PROCEDURE :: calculate         => aed_calculate_macroalgae
-         PROCEDURE :: calculate_benthic => aed_calculate_benthic_macroalgae
-         PROCEDURE :: mobility          => aed_mobility_macroalgae
-         PROCEDURE :: light_extinction  => aed_light_extinction_macroalgae
-         PROCEDURE :: bio_drag          => aed_bio_drag_macroalgae
-        !PROCEDURE :: delete            => aed_delete_macroalgae
+         PROCEDURE :: define             => aed_define_macroalgae
+         PROCEDURE :: initialize_benthic => aed_initialize_benthic_macroalgae
+         PROCEDURE :: calculate          => aed_calculate_macroalgae
+         PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macroalgae
+         PROCEDURE :: mobility           => aed_mobility_macroalgae
+         PROCEDURE :: light_extinction   => aed_light_extinction_macroalgae
+         PROCEDURE :: bio_drag           => aed_bio_drag_macroalgae
+        !PROCEDURE :: delete             => aed_delete_macroalgae
 
    END TYPE
 
@@ -599,7 +599,7 @@ END SUBROUTINE aed_define_macroalgae
 
 
 !###############################################################################
-SUBROUTINE aed_initialize_macroalgae(data, column, layer_idx)
+SUBROUTINE aed_initialize_benthic_macroalgae(data, column, layer_idx)
 !-------------------------------------------------------------------------------
 ! Routine to initialize bottom diagnostics, and other checks
 !-------------------------------------------------------------------------------
@@ -632,7 +632,7 @@ SUBROUTINE aed_initialize_macroalgae(data, column, layer_idx)
      _DIAG_VAR_S_(data%id_par_avg) = 0.1   !_STATE_VAR_S_(data%id_par)
    ENDIF
 
-END SUBROUTINE aed_initialize_macroalgae
+END SUBROUTINE aed_initialize_benthic_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
