@@ -661,15 +661,19 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 
    ! Check to ensure this zone is colonisable, and numbers are adequate
    matz = _STATE_VAR_S_(data%id_sed_zone)
+
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
-   IF ( _DIAG_VAR_S_(data%id_bnum) <1e-3 ) RETURN
+   IF ( .NOT. data%initFromDensity ) THEN
+      IF ( _DIAG_VAR_S_(data%id_bnum) <1e-3 ) RETURN
+   ENDIF
+
 
    ! Retrieve current environmental conditions.
    IF(data%simFixedEnv) THEN
      temp = data%fixed_temp + matz             ! user provided temp
      salinity = data%fixed_sal                 ! user provided salinity
      oxy = data%fixed_oxy                      ! user provided oxygen
-     Ctotal_prey = data%fixed_food * matz      ! user provided food
+     Ctotal_prey = data%fixed_food             ! user provided food
      ss = zero_
    ELSE
      ! Normal operation
