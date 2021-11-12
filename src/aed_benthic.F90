@@ -50,7 +50,7 @@ MODULE aed_benthic
 
    PRIVATE   !# By default make everything private
 
-   PUBLIC aed_new_ben_model, aed_print_version_ben
+   PUBLIC aed_new_ben_model, aed_print_ben_version
 
    !#---------------------------------------------------------------------------
 
@@ -73,10 +73,10 @@ FUNCTION aed_new_ben_model(modelname) RESULT(model)
    NULLIFY(model)
 
    SELECT CASE (modelname)
-      CASE ('aed_bivalve');        prefix = 'BIV'; ALLOCATE(aed_bivalve_data_t::model)
-      CASE ('aed_macroalgae');     prefix = 'MAG'; ALLOCATE(aed_macroalgae_data_t::model)
-      CASE ('aed_macroalgae2');    prefix = 'MA2'; ALLOCATE(aed_macroalgae2_data_t::model)
-      CASE ('aed_macrophyte');     prefix = 'MAC'; ALLOCATE(aed_macrophyte_data_t::model)
+      CASE ('aed_bivalve');         prefix = 'BIV'; ALLOCATE(aed_bivalve_data_t::model)
+      CASE ('aed_macroalgae');      prefix = 'MAG'; ALLOCATE(aed_macroalgae_data_t::model)
+      CASE ('aed_macroalgae2');     prefix = 'MA2'; ALLOCATE(aed_macroalgae2_data_t::model)
+      CASE ('aed_macrophyte');      prefix = 'MAC'; ALLOCATE(aed_macrophyte_data_t::model)
       CASE ('aed_habitat_benthic'); prefix = 'HAB'; ALLOCATE(aed_habitat_benthic_data_t::model)
    END SELECT
 
@@ -88,7 +88,7 @@ END FUNCTION aed_new_ben_model
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !###############################################################################
-SUBROUTINE aed_print_version_ben
+SUBROUTINE aed_print_ben_version
 !-------------------------------------------------------------------------------
 !BEGIN
    print*,"    libaed-ben version ", TRIM(AED_VERSION)
@@ -109,7 +109,7 @@ SUBROUTINE aed_print_version_ben
 #  endif
 # endif
 #endif
-END SUBROUTINE aed_print_version_ben
+END SUBROUTINE aed_print_ben_version
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !===============================================================================
