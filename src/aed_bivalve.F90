@@ -601,7 +601,7 @@ SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
 ! Routine to initialize bivalve mass from spatial density map
 !-------------------------------------------------------------------------------
 !ARGUMENTS
-   CLASS (aed_bivalve_data_t),INTENT(in) :: data
+   CLASS (aed_bivalve_data_t),INTENT(inout) :: data
    TYPE (aed_column_t),INTENT(inout) :: column(:)
    INTEGER,INTENT(in) :: layer_idx
 !

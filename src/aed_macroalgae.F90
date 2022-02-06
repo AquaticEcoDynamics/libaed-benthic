@@ -708,7 +708,7 @@ SUBROUTINE aed_initialize_benthic_macroalgae(data, column, layer_idx)
 ! Routine to initialize bottom diagnostics, and other checks
 !-------------------------------------------------------------------------------
 !ARGUMENTS
-   CLASS (aed_macroalgae_data_t),INTENT(in) :: data
+   CLASS (aed_macroalgae_data_t),INTENT(inout) :: data
    TYPE (aed_column_t),INTENT(inout) :: column(:)
    INTEGER,INTENT(in) :: layer_idx
 !
