@@ -8,7 +8,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2017 - 2021 -  The University of Western Australia               #
+!#  Copyright 2017 - 2022 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED2 is free software: you can redistribute it and/or modify              #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -708,7 +708,7 @@ SUBROUTINE aed_initialize_benthic_macroalgae(data, column, layer_idx)
 ! Routine to initialize bottom diagnostics, and other checks
 !-------------------------------------------------------------------------------
 !ARGUMENTS
-   CLASS (aed_macroalgae_data_t),INTENT(inout) :: data
+   CLASS (aed_macroalgae_data_t),INTENT(in) :: data
    TYPE (aed_column_t),INTENT(inout) :: column(:)
    INTEGER,INTENT(in) :: layer_idx
 !

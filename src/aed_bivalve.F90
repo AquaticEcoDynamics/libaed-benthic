@@ -11,7 +11,7 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015 - 2021 -  The University of Western Australia               #
+!#  Copyright 2015 - 2022 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED2 is free software: you can redistribute it and/or modify              #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -601,7 +601,7 @@ SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
 ! Routine to initialize bivalve mass from spatial density map
 !-------------------------------------------------------------------------------
 !ARGUMENTS
-   CLASS (aed_bivalve_data_t),INTENT(inout) :: data
+   CLASS (aed_bivalve_data_t),INTENT(in) :: data
    TYPE (aed_column_t),INTENT(inout) :: column(:)
    INTEGER,INTENT(in) :: layer_idx
 !
