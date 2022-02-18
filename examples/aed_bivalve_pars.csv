@@ -1,0 +1,57 @@
+[COMMENT],!-- GENERAL Parameters
+name, 'zebra', 'quagga',[COMMENT],string, Name of bivalve group
+initial_conc, 833, 833,[COMMENT],real, Initial concentration of bivalve (mmolC/m2)
+min, 8.3, 8.3,[COMMENT],real, Minimum concentration of bivalve (mmolC/m3)
+length, 15, 15,[COMMENT],real, Length of bivalve (mm)
+INC, 291.67, 291.67,[COMMENT],real, Ratio of internal nitrogen to carbon of bivalve (-)
+IPC, 64.58, 64.58,[COMMENT],real, Ratio of internal phosphorus to carbon of bivalve (-)
+[COMMENT],!-- FILTRATION & INGESTION Parameters
+Rgrz, 1.9, 0.12,[COMMENT],real, Maximum ingestion rate of bivalve (mmol/mmol/day) (Spillman et al. 2008) Calculated from Schneider 1992 based on 15 mm mussel
+Ing, 0, 0,[COMMENT],integer, Type of maximum ingestion for bivalve; 0=Enter (mmol/mmol/d) or 1=Calculate based on length
+WaI, 0, 0,[COMMENT],real, Maximum standard ingestion rate of bivalve (mmol/mmol/day) (Schneider 1992)
+WbI, -0.39, -0.39,[COMMENT],real, Exponent for weight effect on ingestion of bivalve (-) (Schneider 1992)
+fassim, 0.34, 0.34,[COMMENT],real, Minimum proportion of food lost as pseudofeces for bivalve (-)
+Cmin_grz, 0.05, 0.05,[COMMENT],real, Minimum prey concentration for grazing by bivalve (mmolC/m3)
+Kgrz, 187.5, 187.5,[COMMENT],real, Optimum algae+POC concentration for ingestion of bivalve (mmol/m3)
+minT, 4, 4,[COMMENT],real, Lower temperature for no ingestion of bivalve (degC)
+Tmin, 17, 17,[COMMENT],real, Lower temperature for optimum ingestion of bivalve (degC)
+Tmax, 20, 20,[COMMENT],real, Upper temperature for optimum ingestion of bivalve (degC)
+maxT, 32, 32,[COMMENT],real, Upper temperature for no ingestion of bivalve (degC)
+Dmax, 6333.3, 6333.3,[COMMENT],real, Upper density for optimum ingestion of bivalve (mmol/m2)
+maxD, 20000, 20000,[COMMENT],real, Upper density for no ingestion of bivalve (mmol/m2)
+SSmax, 20, 20,[COMMENT],real, Upper suspended solids for optimum ingestion of bivalve (mg/L)
+maxSS, 100, 100,[COMMENT],real, Upper suspended solids for no ingestion of bivalve (mg/L)
+[COMMENT],!-- EXCRETION AND EGESTION Parameters
+Rexcr, 0, 0,[COMMENT],real, Excretion fraction of ingestion for bivalve(-)
+Regst, 0, 0,[COMMENT],real, Minimum proportion egested as feces for bivalve (-)
+gegst, 0, 0,[COMMENT],real, Gamma coefficient for food availability dependence for bivalve
+[COMMENT],!-- RESPIRATION Parameters
+Rresp, 0.01, 0.01,[COMMENT],real, Respiration rate coefficient of bivalve (/day) (Calculated from Schneider 1992 based on 15 mm mussel)
+saltfunc, 0, 0,[COMMENT],integer, Type of salinity function for bivalve; 0=None or 1=Spillman et al. 2008
+minS, 0, 0,[COMMENT],real, Lower salinity for no ingestion of bivalve (psu)
+Smin, 0, 0,[COMMENT],real, Lower salinity for optimum ingestion of bivalve (psu)
+Smax, 0, 0,[COMMENT],real, Upper salinity for optimum ingestion of bivalve (psu)
+maxS, 0, 0,[COMMENT],real, Upper salinity for no ingestion of bivalve (psu)
+fR20, 0, 0,[COMMENT],integer, Type of maximum respiration for bivalve; 0=Enter or 1=Calculate based on length (mm)
+War, 16.759, 16.759,[COMMENT],real, Standard respiration rate of bivalve (mmol/mmol/d) (Schneider 1992)
+Wbr, -0.25, -0.25,[COMMENT],real, Exponent for weight effect on respiration of bivalve (-)
+fR, 1, 1,[COMMENT],integer, Type of respiration function for bivalve; 0=Schneider 1992 or 1=Spillman et al. 2008
+theta_resp, 1.08, 1.08,[COMMENT],real, Temperature multiplier for respiration of bivalve (-)
+TmaxR, 30, 30,[COMMENT],real, Upper temperature for optimum respiration of bivalve (degC)
+maxTR, 43, 43,[COMMENT],real, Upper temperature for no respiration of bivalve (degC)
+Qresp, 2.3, 2.3,[COMMENT],real, Respiration curve slope estimate for bivalve (-)
+SDA, 0.285, 0.285,[COMMENT],real, Specific dynamic action of bivalve (-)
+[COMMENT],!-- MORTALITY Parameters
+Rmort, 0, 0,[COMMENT],real, Mortality rate coefficient for bivalve (/day)
+Rpred, 0, 0,[COMMENT],real, Mortality rate from predation of bivalve (/day)
+fDO, 0, 0,[COMMENT],integer, Type of dissolved oxygen function for bivalve; 0=None or 1=XXX or 2=XXX
+K_BDO, 160, 160,[COMMENT],real, Basal respiration rate of bivalve (mmol/m3)
+KDO, 8, 8,[COMMENT],real, Half saturation constant for metabolic response to DO for bivalve (mmol/m3)
+[COMMENT],!-- GENERAL Parameters
+num_prey, 3, 3,[COMMENT],integer, Number of state variables for bivalve prey
+prey(1)%bivalve_prey, 'PHY_green', 'PHY_green',[COMMENT],string, State variable name of bivalve prey
+prey(1)%Pbiv_prey, 1, 1,[COMMENT],real, Preference factors for bivalve predators grazing on prey
+prey(2)%bivalve_prey, 'PHY_diatom', 'PHY_diatom',[COMMENT],string, State variable name of bivalve prey
+prey(2)%Pbiv_prey, 1, 1,[COMMENT],real, Preference factors for bivalve predators grazing on prey
+prey(3)%bivalve_prey, 'PHY_crypto', 'OGM_poc',[COMMENT],string, State variable name of bivalve prey
+prey(3)%Pbiv_prey, 1, 1,[COMMENT],real, Preference factors for bivalve predators grazing on prey

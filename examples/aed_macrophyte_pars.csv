@@ -1,0 +1,35 @@
+[COMMENT],!-- GENERAL parameters
+m_name, 'pota', 'halo', 'ruppia', 'zostera', 'chara', 'pois', 'misc', 'baumea',[COMMENT],string, Name of macrophyte group
+m0, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.3,[COMMENT],real, Minimum above ground density of macrophyte (mmol C/m2)
+[COMMENT],!-- GROWTH parameters
+R_growth, 2, 2, 1, 3.3, 3.3, 0.4, 0.4, 0.4,[COMMENT],real, Phyto max growth rate @20C (/day)
+fT_Method, 1, 1, 1, 1, 1, 1, 1, 1,[COMMENT],integer, Specifies temperature limitation function of growth (-); 0 = no temperature limitation 1= CAEDYM style
+theta_growth, 1.06, 1.06, 1.1, 1.05, 1.05, 1.1, 1.1, 1.1,[COMMENT],real, Arrenhius temperature scaling for growth function (-)
+T_std, 18, 18, 23, 12, 12, 20, 20, 20,[COMMENT],real, Standard temperature (deg C)
+T_opt, 23, 23, 28, 16, 16, 31, 31, 31,[COMMENT],real, Optimum temperature (deg C)
+T_max, 35, 35, 38, 23, 23, 39, 39, 39,[COMMENT],real, Maximum temperature (deg C)
+[COMMENT],!-- LIGHT parameters
+lightModel, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],integer, Type of light response function [0 = no photoinhibition; 1 = photoinhibition]
+I_K, 180, 180, 150, 200, 200, 500, 500, 500,[COMMENT],real, Half saturation constant for light limitation of growth (microE/m^2/s) used if lightModel=0
+I_S, 100, 100, 120, 100, 100, 100, 100, 100,[COMMENT],real, saturating light intensity  (microE/m^2/s) used if lightModel=1
+KeMAC, 0.00408, 0.00408, 0.0051, 0.0048, 0.0048, 0.003, 0.003, 0.003,[COMMENT],real, Specific attenuation coefficient  ((mmol C m^2^-1)^1 m^-1)
+[COMMENT],!-- RESPIRATION parameters
+f_pr, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025,[COMMENT],real, Fraction of primary production lost to exudation (-)
+R_resp, 0.02, 0.02, 0.02, 0.03, 0.0375, 0.05, 0.05, 0.05,[COMMENT],real, respiration/metabolic loss rate @ 20 (degC)
+theta_resp, 1.04, 1.04, 1.04, 1.09, 1.09, 1.07, 1.07, 1.07,[COMMENT],real, Arrhenius temperature scaling factor for respiration (-)
+[COMMENT],!-- SALINITY parameters
+salTol, 0, 0, 1, 1, 2, 0, 0, 0,[COMMENT],integer, Type of salinity limitation function (-)
+S_bep, 1, 1, 5, 1, 5, 1, 1, 1,[COMMENT],real, Salinity limitation value at maximum salinity S_maxsp (-)
+S_maxsp, 36, 36, 16, 36, 40, 36, 36, 36,[COMMENT],real, Maximum salinity (g/kg)
+S_opt, 1, 1, 1, 1, 33, 1, 1, 1,[COMMENT],real, Optimal salinity (g/kg)
+[COMMENT],!-- GENERAL parameters
+K_CD, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Constant relating macrophyte density to drag coefficient
+f_bg, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Fraction of primary production apportioned to below-ground biomass
+k_omega, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Omega constant relating plant density to effective area of coverage
+Xcc, 50, 50, 40, 50, 50, 60, 60, 60,[COMMENT],real, Internal C:Chl-a ratio of the plant leaves
+[COMMENT],!-- NITROGEN parameters
+K_N, 1.786, 1.786, 2.143, 2.5, 1.6, 3.571, 3.571, 3.571,[COMMENT],real, Half-saturation concentration of nitrogen (mmol N/m^3)
+X_ncon, 0.151, 0.151, 0.151, 0.151, 0.137, 0.151, 0.151, 0.151,[COMMENT],real, Constant internal nitrogen concentration (mmol N/ mmol C)
+[COMMENT],!-- PHOSPHORUS parameters
+K_P, 0.3226, 0.3226, 0.1935, 0.1935, 0.1935, 0.1613, 0.1613, 0.1613,[COMMENT],real, Half-saturation concentration of phosphorus (mmol P/m^3)
+X_pcon, 0.0094, 0.0094, 0.0094, 0.0039, 0.0039, 0.0094, 0.0094, 0.0094,[COMMENT],real, Constant internal phosphorus concentration (mmol P/ mmol C)
