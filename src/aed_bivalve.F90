@@ -101,19 +101,19 @@ MODULE aed_bivalve
 
       ! The prey
       INTEGER  :: num_prey
-      TYPE(bivalve_prey_t) :: prey(MAX_ZOOP_PREY)
+      TYPE(bivalve_prey_t) :: prey(MAX_BVLV_PREY)
    END TYPE
 !  %% END NAMELIST   %% type : bivalve_params_t
 
    TYPE,extends(bivalve_params_t) :: bivalve_data_t
-      INTEGER  :: id_prey(MAX_ZOOP_PREY)
-      INTEGER  :: id_phyIN(MAX_ZOOP_PREY), id_phyIP(MAX_ZOOP_PREY)
+      INTEGER  :: id_prey(MAX_BVLV_PREY)
+      INTEGER  :: id_phyIN(MAX_BVLV_PREY), id_phyIP(MAX_BVLV_PREY)
    END TYPE
 
 
    TYPE,extends(aed_model_data_t) :: aed_bivalve_data_t
       !# Variable identifiers
-      INTEGER  :: id_biv(MAX_ZOOP_TYPES)
+      INTEGER  :: id_biv(MAX_BVLV_TYPES)
       INTEGER  :: id_Nexctarget,id_Nmorttarget
       INTEGER  :: id_Pexctarget,id_Pmorttarget
       INTEGER  :: id_Cexctarget,id_Cmorttarget
@@ -167,7 +167,7 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CHARACTER(len=*),INTENT(in) :: dbase
-   TYPE(bivalve_params_t),INTENT(out) :: bivalve_param(MAX_ZOOP_TYPES)
+   TYPE(bivalve_params_t),INTENT(out) :: bivalve_param(MAX_BVLV_TYPES)
 !
 !LOCALS
    INTEGER :: unit, nccols, ccol
@@ -274,10 +274,10 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
 !LOCALS
    INTEGER  :: status
 
-   INTEGER  :: i,j,tfil,sort_i(MAX_ZOOP_PREY)
-   AED_REAL :: Pbiv_prey(MAX_ZOOP_PREY)
+   INTEGER  :: i,j,tfil,sort_i(MAX_BVLV_PREY)
+   AED_REAL :: Pbiv_prey(MAX_BVLV_PREY)
 
-   TYPE(bivalve_params_t)  :: bivalve_param(MAX_ZOOP_TYPES)
+   TYPE(bivalve_params_t)  :: bivalve_param(MAX_BVLV_TYPES)
    NAMELIST /bivalve_params/ bivalve_param   ! %% bivalve_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
@@ -396,7 +396,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 !  %% NAMELIST   %%  /aed_bivalve/
 !  %% Last Checked 20/08/2021
    INTEGER  :: num_biv = 0
-   INTEGER  :: the_biv(MAX_ZOOP_TYPES) = 0
+   INTEGER  :: the_biv(MAX_BVLV_TYPES) = 0
    INTEGER  :: n_zones = 0
    INTEGER  :: active_zones(MAX_ZONES)
    LOGICAL  :: initFromDensity = .false.  !ability to read in map of mussel #'s
@@ -404,7 +404,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    LOGICAL  :: simBivFeedback = .false.   !allow module to change prey/nutrient concs
    LOGICAL  :: simStaticBiomass = .false. !keep biomass fixed over time
    LOGICAL  :: simFixedEnv = .false.      !special case to overwrite env and food factors with constants
-   AED_REAL :: X_c(MAX_ZOOP_TYPES) = 1.   !mmolC/organism
+   AED_REAL :: X_c(MAX_BVLV_TYPES) = 1.   !mmolC/organism
    AED_REAL :: bt_renewal = zero_         !biv-tracer "renewal" timescale (days)
    AED_REAL :: fixed_temp
    AED_REAL :: fixed_sal
@@ -641,8 +641,8 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 !
 !LOCALS
    AED_REAL :: biv, temp, salinity, oxy, ss ,matz !State variables
-   AED_REAL :: prey(MAX_ZOOP_PREY), grazing_prey(MAX_ZOOP_PREY) !Prey state variables
-   AED_REAL :: phy_INcon(MAX_ZOOP_PREY), phy_IPcon(MAX_ZOOP_PREY) !Internal nutrients for phytos
+   AED_REAL :: prey(MAX_BVLV_PREY), grazing_prey(MAX_BVLV_PREY) !Prey state variables
+   AED_REAL :: phy_INcon(MAX_BVLV_PREY), phy_IPcon(MAX_BVLV_PREY) !Internal nutrients for phytos
    AED_REAL :: dn_excr, dp_excr, dc_excr !Excretion state variables
    AED_REAL :: pon, pop, poc !Mortaility and fecal pellet state variables
    AED_REAL :: FGrazing_Limitation, f_Temp, f_Salinity, f_SS, I_max
