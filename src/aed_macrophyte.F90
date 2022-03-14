@@ -268,9 +268,9 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
        data%mphydata(i)%X_pcon       = md(list(i))%X_pcon
 
        ! Register group as a state variable
-       data%id_mphy(i) = aed_define_sheet_variable(                   &
+       data%id_mphy(i) = aed_define_sheet_variable(                    &
                               md(list(i))%m_name,                      &
-                              'mmolC/m**2', 'macrophyte',              &
+                              'mmol C/m2', 'macrophyte',               &
                               md(list(i))%m0,                          &
                               minimum=zero_)
 
@@ -310,7 +310,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
 !-----------------------------------------------------------------------
 !BEGIN
-   print *,"        aed_macrophyte initialization"
+   print *,"        aed_macrophyte configuration"
 
 ! now done in the declaration
 !  simMacFeedback = .FALSE.
@@ -349,13 +349,13 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
 
    ! Register diagnostic variables
-   data%id_diag_PAR = aed_define_sheet_diag_variable('par','W/m**2','benthic light intensity')
-   data%id_GPP = aed_define_sheet_diag_variable('gpp','/d',  'benthic plant productivity')
+   data%id_diag_PAR = aed_define_sheet_diag_variable('par','W/m2','benthic light intensity')
+   data%id_GPP = aed_define_sheet_diag_variable('gpp','mmol C/m2/d',  'benthic plant productivity')
    data%id_P2R = aed_define_sheet_diag_variable('p_r','-',  'macrophyte p:r ratio')
-   data%id_MAC = aed_define_sheet_diag_variable('mac','mmolC/m2',  'total macrophyte biomass')
+   data%id_MAC = aed_define_sheet_diag_variable('mac','mmol C/m2',  'total macrophyte biomass')
    data%id_LAI = aed_define_sheet_diag_variable('lai','m2/m2',  'macrophyte leaf area density')
-   data%id_MAC_ag = aed_define_sheet_diag_variable('mac_ag','mmolC/m2',  'total above ground macrophyte biomass')
-   data%id_MAC_bg = aed_define_sheet_diag_variable('mac_bg','mmolC/m2',  'total below ground macrophyte biomass')
+   data%id_MAC_ag = aed_define_sheet_diag_variable('mac_ag','mmol C/m2',  'total above ground macrophyte biomass')
+   data%id_MAC_bg = aed_define_sheet_diag_variable('mac_bg','mmol C/m2',  'total below ground macrophyte biomass')
 
    ! Register environmental dependencies
    data%id_tem = aed_locate_global('temperature')
@@ -436,6 +436,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    _DIAG_VAR_S_(data%id_mac_ag) = zero_
    _DIAG_VAR_S_(data%id_mac_bg) = zero_
    _DIAG_VAR_S_(data%id_lai) = zero_
+   _DIAG_VAR_S_(data%id_gpp) = zero_
 
    DO mphy_i=1,data%num_mphy
       ! Retrieve current (local) state variable values
@@ -476,11 +477,13 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      _DIAG_VAR_S_(data%id_mac_bg) = _DIAG_VAR_S_(data%id_mac_bg) + mphy*(data%mphydata(mphy_i)%f_bg)
      _DIAG_VAR_S_(data%id_lai) = _DIAG_VAR_S_(data%id_lai) +       &
                    (one_ - exp(-data%mphydata(mphy_i)%k_omega * mphy*(one_-data%mphydata(mphy_i)%f_bg)))
+
+     _DIAG_VAR_S_(data%id_gpp) = _DIAG_VAR_S_(data%id_gpp) + primprod(mphy_i)*mphy*secs_per_day
+
    ENDDO
 
    ! Export diagnostic variables
    _DIAG_VAR_S_(data%id_diag_par)= par
-   _DIAG_VAR_S_(data%id_gpp) = SUM(primprod)*secs_per_day
 !   IF( SUM(respiration(:)) > 1e-5 ) THEN
 !     _DIAG_VAR_S_(data%id_p2r)  = (SUM(primprod(:))/data%num_mphy) / (SUM(respiration(:))/data%num_mphy)
 !   ELSE

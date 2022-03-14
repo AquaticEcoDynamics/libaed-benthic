@@ -240,7 +240,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
        ! Register group as a state variable
        data%id_p(i) = aed_define_variable(                                     &
                               TRIM(data%malgs(i)%p_name),                      &
-                              'mmol/m**3',                                     &
+                              'mmol C/m3',                                     &
                               'macroalgae '//TRIM(data%malgs(i)%p_name),       &
                               pd(list(i))%p0,                                  &
                              !pd(list(i))%p_initial,                           &
@@ -256,7 +256,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
          IF (data%malgs(i)%settling == _MOB_STOKES_) THEN
            data%id_rho(i) = aed_define_variable(                               &
                               TRIM(data%malgs(i)%p_name)//'_rho',              &
-                              'kg/m**3',                                       &
+                              'kg/m3',                                         &
                              'macroalgae '//TRIM(data%malgs(i)%p_name)//'_rho',&
                               (data%min_rho+data%max_rho)/2.,                  &
                               minimum=data%min_rho,                            &
@@ -273,7 +273,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
           ! Register IN group as a state variable
           data%id_in(i) = aed_define_variable(                                 &
                               TRIM(data%malgs(i)%p_name)//'_IN',               &
-                              'mmol/m**3',                                     &
+                              'mmol N/m3',                                     &
                               'macroalgae '//TRIM(data%malgs(i)%p_name)//'_IN',&
                               pd(list(i))%p0*data%malgs(i)%X_ncon,             &
                              !pd(list(i))%p_initial*data%malgs(i)%X_ncon,      &
@@ -291,7 +291,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
           ! Register IP group as a state variable
           data%id_ip(i) = aed_define_variable(                                 &
                               TRIM(data%malgs(i)%p_name)//'_IP',               &
-                              'mmol/m**3',                                     &
+                              'mmol P/m3',                                     &
                               'macroalgae '//TRIM(data%malgs(i)%p_name)//'_IP',&
                               pd(list(i))%p0*data%malgs(i)%X_pcon,             &
                              !pd(list(i))%p_initial*data%malgs(i)%X_pcon,      &
@@ -310,7 +310,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
           data%id_fSal(i) = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_fSal', '-', 'fSal (>1)')
           ! Register vertical velocity diagnostic, where relevant
           IF (data%malgs(i)%settling == _MOB_STOKES_ ) THEN
-            data%id_vvel(i) = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_vvel', 'm/s', 'vertical velocity')
+            data%id_vvel(i) = aed_define_diag_variable( TRIM(data%malgs(i)%p_name)//'_vvel', 'm/d', 'vertical velocity')
           ENDIF
        ENDIF
 
@@ -318,7 +318,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
        IF (data%malgs(i)%settling == _MOB_ATTACHED_) THEN
          data%id_pben(i) = aed_define_sheet_variable(                          &
                                 TRIM(data%malgs(i)%p_name)//'_ben',            &
-                                'mmolC/m**2',                                  &
+                                'mmol C/m2',                                   &
                                 'macroalgae '//TRIM(data%malgs(i)%p_name),     &
                                 pd(list(i))%p_initial,                         &
                                 minimum=pd(list(i))%p0,                        &
@@ -333,7 +333,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
             ! Register IP group as a state variable
             data%id_ipben(i) = aed_define_sheet_variable(                      &
                               TRIM(data%malgs(i)%p_name)//'_IP_ben',           &
-                              'mmol/m**2',                                     &
+                              'mmol P/m2',                                     &
                               'macroalgae '//TRIM(data%malgs(i)%p_name)//'_IP_ben',&
                               pd(list(i))%p_initial*data%malgs(i)%X_pcon,      &
                               minimum=minNut)
@@ -347,7 +347,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
            ! Register IN group as a state variable
            data%id_inben(i) = aed_define_sheet_variable(                       &
                             TRIM(data%malgs(i)%p_name)//'_IN_ben',             &
-                            'mmol/m**2',                                       &
+                            'mmol N/m2',                                       &
                             'macroalgae '//TRIM(data%malgs(i)%p_name)//'_IN_ben',&
                             pd(list(i))%p_initial*data%malgs(i)%X_ncon,        &
                             minimum=minNut)
@@ -553,19 +553,19 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    ENDIF
 
    ! Register diagnostic variables
-   data%id_TMALG   = aed_define_diag_variable('tmalg','g DW/m**2', 'MAG: total macroalgal biomass')
-   data%id_TIN     = aed_define_diag_variable('in','mmol/m**3', 'MAG: total macroalgal nitrogen')
-   data%id_TIP     = aed_define_diag_variable('ip','mmol/m**3', 'MAG: total macroalgal phosphorus')
-   data%id_mag_ben = aed_define_sheet_diag_variable('mag_ben','mmol/m**2/d', 'BEN MAG: total C biomass')
-   data%id_min_ben = aed_define_sheet_diag_variable('ip_ben','mmol/m**2/d', 'BEN MAG: total N biomass')
-   data%id_mip_ben = aed_define_sheet_diag_variable('in_ben','mmol/m**2/d', 'BEN MAG: total P biomass')
+   data%id_TMALG   = aed_define_diag_variable('tmalg','g dw/m2', 'MAG: total macroalgal biomass')
+   data%id_TIN     = aed_define_diag_variable('in','mmol N/m3', 'MAG: total macroalgal nitrogen')
+   data%id_TIP     = aed_define_diag_variable('ip','mmol P/m3', 'MAG: total macroalgal phosphorus')
+   data%id_mag_ben = aed_define_sheet_diag_variable('mag_ben','mmol C/m2/d', 'BEN MAG: total C biomass')
+   data%id_min_ben = aed_define_sheet_diag_variable('ip_ben','mmol P/m2/d', 'BEN MAG: total N biomass')
+   data%id_mip_ben = aed_define_sheet_diag_variable('in_ben','mmol N/m2/d', 'BEN MAG: total P biomass')
 
-   data%id_GPP = aed_define_diag_variable('gpp','mmol/m**3/d', 'MAG: macroalgal gross primary production')
-   data%id_PUP = aed_define_diag_variable('pup','mmol/m**3/d', 'MAG: macroalgal phosphorous uptake')
-   data%id_NUP = aed_define_diag_variable('nup','mmol/m**3/d','MAG: macroalgal nitrogen uptake')
-   data%id_NCP = aed_define_diag_variable('nmp','mmol/m**3/d',  'net macroalgal production')
-   data%id_gpp_ben = aed_define_sheet_diag_variable('gpp_ben','mmol/m**2/d', 'BEN MAG: macroalgal gross primary production')
-   data%id_nmp_ben = aed_define_sheet_diag_variable('nmp_ben','mmol/m**2/d', 'BEN MAG: net macroalgal production')
+   data%id_GPP = aed_define_diag_variable('gpp','mmol C/m3/d', 'MAG: macroalgal gross primary production')
+   data%id_PUP = aed_define_diag_variable('pup','mmol P/m3/d', 'MAG: macroalgal phosphorous uptake')
+   data%id_NUP = aed_define_diag_variable('nup','mmol N/m3/d', 'MAG: macroalgal nitrogen uptake')
+   data%id_NCP = aed_define_diag_variable('nmp','mmol C/m3/d', 'net macroalgal production')
+   data%id_gpp_ben = aed_define_sheet_diag_variable('gpp_ben','mmol C/m2/d', 'BEN MAG: macroalgal gross primary production')
+   data%id_nmp_ben = aed_define_sheet_diag_variable('nmp_ben','mmol C/m2/d', 'BEN MAG: net macroalgal production')
 
    IF ( simMalgHSI>0 ) &
      data%id_mhsi = aed_define_sheet_diag_variable('HSI','-', 'MAG: macroalgae habitat suitability')
@@ -575,7 +575,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
      data%id_tem_avg = aed_define_sheet_diag_variable('cgm_tavg','-', 'MAG: cgm temperature average')
      data%id_par_avg = aed_define_sheet_diag_variable('cgm_lavg','-', 'MAG: cgm light average')
      data%id_tau_avg = aed_define_sheet_diag_variable('cgm_savg','-', 'MAG: cgm stress average')
-     data%id_rsp_ben = aed_define_sheet_diag_variable('rsp_ben','mmol/m**2/d', 'BEN MAG: macroalgal respiration')
+     data%id_rsp_ben = aed_define_sheet_diag_variable('rsp_ben','mmol C/m2/d', 'BEN MAG: macroalgal respiration')
    ENDIF
 
    IF ( diag_level >= 10 ) THEN
@@ -1473,7 +1473,7 @@ SUBROUTINE aed_mobility_macroalgae(data,column,layer_idx,mobility)
       END SELECT
       ! set global mobility array
       mobility(data%id_p(mag_i)) = vvel
-      IF( diag_level >= 10  .AND. data%id_vvel(mag_i)>0) _DIAG_VAR_(data%id_vvel(mag_i)) = vvel
+      IF( diag_level >= 10  .AND. data%id_vvel(mag_i)>0) _DIAG_VAR_(data%id_vvel(mag_i)) = vvel*secs_per_day
     ENDDO
 END SUBROUTINE aed_mobility_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
