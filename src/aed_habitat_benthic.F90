@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2016 - 2021 -  The University of Western Australia               #
+!#  Copyright 2016 - 2022 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -121,7 +121,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
 ! Initialise the AED HABITAT module
 !
 !  Here, the aed namelist is read and the variables exported
-!  are registered with AED2.
+!  are registered with AED.
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    INTEGER,INTENT(in) :: namlst

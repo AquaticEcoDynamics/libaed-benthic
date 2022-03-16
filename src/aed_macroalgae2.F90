@@ -10,12 +10,12 @@
 !#                                                                             #
 !#  Copyright 2017 - 2022 -  The University of Western Australia               #
 !#                                                                             #
-!#   AED2 is free software: you can redistribute it and/or modify              #
+!#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
 !#   the Free Software Foundation, either version 3 of the License, or         #
 !#   (at your option) any later version.                                       #
 !#                                                                             #
-!#   AED2 is distributed in the hope that it will be useful,                   #
+!#   AED is distributed in the hope that it will be useful,                    #
 !#   but WITHOUT ANY WARRANTY; without even the implied warranty of            #
 !#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
 !#   GNU General Public License for more details.                              #
@@ -373,7 +373,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 ! Initialise the macroalgae biogeochemical model
 !
 !  Here, the aed_macroalgae namelist is read and the variables exported
-!  by the model are registered with AED2.
+!  by the model are registered with AED.
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CLASS (aed_macroalgae2_data_t),INTENT(inout) :: data
