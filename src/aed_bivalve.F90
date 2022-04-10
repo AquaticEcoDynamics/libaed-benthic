@@ -665,7 +665,7 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    matz = _STATE_VAR_S_(data%id_sed_zone)
 
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
-   IF ( .NOT. data%initFromDensity ) THEN
+   IF ( data%initFromDensity ) THEN
       IF ( _DIAG_VAR_S_(data%id_bnum) <1e-3 ) RETURN
    ENDIF
 
