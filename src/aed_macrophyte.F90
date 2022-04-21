@@ -84,32 +84,32 @@ MODULE aed_macrophyte
       !# Variable identifiers
       INTEGER,ALLOCATABLE :: id_mphy(:)
       INTEGER :: id_par, id_tem, id_sal, id_dz, id_extc, id_I_0
-      INTEGER :: id_diag_par, id_gpp, id_p2r, id_mac, id_sed_zone
-      INTEGER :: id_MAC_ag, id_MAC_bg, id_lai
-      INTEGER :: n_zones
+      INTEGER :: id_d_par, id_gpp, id_p2r, id_mac, id_sed_zone
+      INTEGER :: id_mac_ag, id_mac_bg, id_lai, id_root_d, id_root_o
       INTEGER :: id_atem,id_theta
       AED_REAL,ALLOCATABLE :: active_zones(:)
 
       !# Model parameters
       INTEGER  :: num_mphy
-      TYPE(macrophyte_params_t),DIMENSION(:),ALLOCATABLE :: mphydata
+      INTEGER  :: n_zones
       LOGICAL  :: simMacFeedback, simStaticBiomass
+      TYPE(macrophyte_params_t),DIMENSION(:),ALLOCATABLE :: mphydata
+      AED_REAL :: bg_gpp_frac,coef_bm_hgt
 
      CONTAINS
          PROCEDURE :: define             => aed_define_macrophyte
+         PROCEDURE :: initialize_benthic => aed_initialize_benthic_macrophyte
          PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macrophyte
-         PROCEDURE :: calculate_riparian => aed_calculate_riparian_macrophyte
-!        PROCEDURE :: mobility           => aed_mobility_macrophyte
-!        PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
-!        PROCEDURE :: delete             => aed_delete_macrophyte
+        !PROCEDURE :: calculate_riparian => aed_calculate_riparian_macrophyte
          PROCEDURE :: bio_drag           => aed_bio_drag_macrophyte
+         PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
    END TYPE
 
 
    INTEGER, PARAMETER :: SUBMERGED = 1
-   INTEGER, PARAMETER :: EMERGENT = 2
-   INTEGER, PARAMETER :: FLOATING = 3
-   INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
+   INTEGER, PARAMETER :: EMERGENT  = 2
+   INTEGER, PARAMETER :: FLOATING  = 3
+   INTEGER            :: diag_level = 10     ! 0 = no diagnostic outputs
                                              ! 1 = basic diagnostic outputs
                                              ! 2 = flux rates, and supporitng
                                              ! 3 = other metrics
@@ -135,9 +135,8 @@ INTEGER FUNCTION load_csv(dbase, md)
    CHARACTER(len=32),POINTER,DIMENSION(:) :: csvnames
    CHARACTER(len=32) :: name
    TYPE(AED_SYMBOL),DIMENSION(:),ALLOCATABLE :: values
-   INTEGER :: idx_col = 0
+   INTEGER :: idx_col = 0, ret = 0
    LOGICAL :: meh
-   INTEGER :: ret = 0
 !
 !BEGIN
 !-------------------------------------------------------------------------------
@@ -187,8 +186,7 @@ INTEGER FUNCTION load_csv(dbase, md)
       ENDDO
    ENDDO
 
-   meh = aed_csv_close(unit)
-   !# don't care if close fails
+   meh = aed_csv_close(unit) !# don't care if close fails
 
    IF (ASSOCIATED(csvnames)) DEALLOCATE(csvnames)
    IF (ALLOCATED(values))    DEALLOCATE(values)
@@ -270,10 +268,9 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
        ! Register group as a state variable
        data%id_mphy(i) = aed_define_sheet_variable(                    &
                               md(list(i))%m_name,                      &
-                              'mmol C/m2', 'macrophyte',               &
+                              'mmol C/m2', 'macrophyte biomass',       &
                               md(list(i))%m0,                          &
                               minimum=zero_)
-
     ENDDO
 END SUBROUTINE aed_macrophyte_load_params
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -303,10 +300,13 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: active_zones(MAX_ZONES)
    LOGICAL            :: simMacFeedback = .FALSE.
    LOGICAL            :: simStaticBiomass = .FALSE.
+   AED_REAL           :: bg_gpp_frac = 0.1
+   AED_REAL           :: coef_bm_hgt = 1e-5
 !  %% END NAMELIST   %%  /aed_macrophyte/
 
    NAMELIST /aed_macrophyte/ num_mphy, the_mphy, dbase, n_zones, active_zones, &
-                              simMacFeedback, simStaticBiomass
+                              simMacFeedback, simStaticBiomass,                &
+                              bg_gpp_frac,coef_bm_hgt
 
 !-----------------------------------------------------------------------
 !BEGIN
@@ -322,6 +322,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
    data%simMacFeedback = simMacFeedback
    data%simStaticBiomass = simStaticBiomass
+   data%bg_gpp_frac = bg_gpp_frac  ! make this species specific
+   data%coef_bm_hgt = coef_bm_hgt  ! make this species specific
 
    data%n_zones = n_zones
    IF (n_zones > 0) THEN
@@ -337,7 +339,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    ! Macrophyte state variable allocated in here
    CALL aed_macrophyte_load_params(data, dbase, num_mphy, the_mphy)
 
-  ! CALL aed_bio_temp_function(data%num_phytos,              &
+  !CALL aed_bio_temp_function(data%num_phytos,                &
   !                             data%phytos%theta_growth,     &
   !                             data%phytos%T_std,            &
   !                             data%phytos%T_opt,            &
@@ -349,23 +351,26 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
 
    ! Register diagnostic variables
-   data%id_diag_PAR = aed_define_sheet_diag_variable('par','W/m2','benthic light intensity')
-   data%id_GPP = aed_define_sheet_diag_variable('gpp','mmol C/m2/d',  'benthic plant productivity')
-   data%id_P2R = aed_define_sheet_diag_variable('p_r','-',  'macrophyte p:r ratio')
-   data%id_MAC = aed_define_sheet_diag_variable('mac','mmol C/m2',  'total macrophyte biomass')
-   data%id_LAI = aed_define_sheet_diag_variable('lai','m2/m2',  'macrophyte leaf area density')
-   data%id_MAC_ag = aed_define_sheet_diag_variable('mac_ag','mmol C/m2',  'total above ground macrophyte biomass')
-   data%id_MAC_bg = aed_define_sheet_diag_variable('mac_bg','mmol C/m2',  'total below ground macrophyte biomass')
+   data%id_d_par  = aed_define_sheet_diag_variable('par','W/m2','benthic light intensity')
+   data%id_gpp    = aed_define_sheet_diag_variable('gpp','mmol C/m2/d','benthic plant productivity')
+   data%id_p2r    = aed_define_sheet_diag_variable('npp','/d','macrophyte net productivity')
+   data%id_mac    = aed_define_sheet_diag_variable('mac_ben','mmol C/m2','total macrophyte biomass')
+   data%id_lai    = aed_define_sheet_diag_variable('mac_lai','m2/m2','macrophyte leaf area density')
+   data%id_mac_ag = aed_define_sheet_diag_variable('mac_ag','mmol C/m2','total above ground macrophyte biomass')
+   data%id_mac_bg = aed_define_sheet_diag_variable('mac_bg','mmol C/m2','total below ground macrophyte biomass')
+   data%id_root_d = aed_define_sheet_diag_variable('mac_root_depth','m','mean depth of roots below the sediment surface')
+   data%id_root_o = aed_define_sheet_diag_variable('mac_root_o2','mmol O2/m2','mean O2 injection rate of roots into sediment')
 
    ! Register environmental dependencies
-   data%id_tem = aed_locate_global('temperature')
-   data%id_sal = aed_locate_global('salinity')
-   data%id_par = aed_locate_global('par')
-   data%id_I_0 = aed_locate_sheet_global('par_sf')
-   data%id_dz = aed_locate_global('layer_ht')
+   data%id_tem  = aed_locate_global('temperature')
    data%id_extc = aed_locate_global('extc_coef')
+   data%id_sal  = aed_locate_global('salinity')
+   data%id_dz   = aed_locate_global('layer_ht')
+   data%id_par  = aed_locate_global('par')
    data%id_sed_zone = aed_locate_sheet_global('sed_zone')
-   data%id_atem = aed_locate_sheet_global('air_temp')
+   data%id_atem     = aed_locate_sheet_global('air_temp')
+   data%id_I_0      = aed_locate_sheet_global('par_sf')
+
 END SUBROUTINE aed_define_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -397,6 +402,54 @@ LOGICAL FUNCTION in_zone_set(matz, active_zones)
 END FUNCTION in_zone_set
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #endif
+
+
+!###############################################################################
+SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
+!-------------------------------------------------------------------------------
+! Routine to initialize bottom diagnostics, and other checks
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_macrophyte_data_t),INTENT(in) :: data
+   TYPE (aed_column_t),INTENT(inout) :: column(:)
+   INTEGER,INTENT(in) :: layer_idx
+!
+!LOCALS
+   INTEGER  :: mphy_i
+   AED_REAL :: matz, mphy
+!-------------------------------------------------------------------------------
+!BEGIN
+
+   ! Check to ensure this cell/zone is colonisable
+   matz = _STATE_VAR_S_(data%id_sed_zone)
+   IF ( .NOT. in_zone_set(matz, data%active_zones) ) THEN
+     _DIAG_VAR_S_(data%id_mac) = zero_
+     _DIAG_VAR_S_(data%id_mac_ag) = zero_
+     _DIAG_VAR_S_(data%id_mac_bg) = zero_
+     _DIAG_VAR_S_(data%id_lai) = zero_
+     _DIAG_VAR_S_(data%id_gpp) = zero_
+     _DIAG_VAR_S_(data%id_root_o) = zero_
+     _DIAG_VAR_S_(data%id_root_d) = 0.01
+     RETURN
+   ENDIF
+
+   ! Set initial diagnostics
+   _DIAG_VAR_S_(data%id_mac) = zero_
+   DO mphy_i=1,data%num_mphy
+       mphy = _STATE_VAR_S_(data%id_mphy(mphy_i))
+       _DIAG_VAR_S_(data%id_mac) = _DIAG_VAR_S_(data%id_mac) + mphy
+       _DIAG_VAR_S_(data%id_mac_ag) = _DIAG_VAR_S_(data%id_mac_ag) + mphy*(one_-data%mphydata(mphy_i)%f_bg)
+       _DIAG_VAR_S_(data%id_mac_bg) = _DIAG_VAR_S_(data%id_mac_bg) + mphy*(data%mphydata(mphy_i)%f_bg)
+       _DIAG_VAR_S_(data%id_lai) = _DIAG_VAR_S_(data%id_lai) +       &
+                     (one_ - exp(-data%mphydata(mphy_i)%k_omega * mphy*(one_-data%mphydata(mphy_i)%f_bg)))
+   ENDDO
+   _DIAG_VAR_S_(data%id_gpp) = zero_
+   _DIAG_VAR_S_(data%id_root_o) = zero_
+   _DIAG_VAR_S_(data%id_root_d) = MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01)
+
+END SUBROUTINE aed_initialize_benthic_macrophyte
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 !###############################################################################
 SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
@@ -450,6 +503,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       fT   = 1. ! / fTemp_function(temp,     ) !1.
       fSal = fSal_function(salinity,10.,72.,123.,230.)
 
+      ! Primary productivity
       primprod(mphy_i) = data%mphydata(mphy_i)%R_growth * fI * fT * fSal
 
       ! Respiration and general metabolic loss
@@ -463,7 +517,6 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
       IF( .NOT.data%simStaticBiomass ) THEN
         mphy_flux = (primprod(mphy_i) - respiration(mphy_i)) *  mphy
-
         ! Set bottom fluxes for the pelagic (change per surface area per second)
         _FLUX_VAR_B_(data%id_mphy(mphy_i)) = _FLUX_VAR_B_(data%id_mphy(mphy_i)) + mphy_flux
       ENDIF
@@ -482,14 +535,17 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    ENDDO
 
+   _DIAG_VAR_S_(data%id_root_o) = _DIAG_VAR_S_(data%id_gpp) * data%bg_gpp_frac    !mmolO2/m2/d
+   _DIAG_VAR_S_(data%id_root_d) = MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01) !m
+
    ! Export diagnostic variables
-   _DIAG_VAR_S_(data%id_diag_par)= par
+   _DIAG_VAR_S_(data%id_d_par)= par
+   _DIAG_VAR_S_(data%id_p2r)  = SUM(primprod) - SUM(respiration)
 !   IF( SUM(respiration(:)) > 1e-5 ) THEN
 !     _DIAG_VAR_S_(data%id_p2r)  = (SUM(primprod(:))/data%num_mphy) / (SUM(respiration(:))/data%num_mphy)
 !   ELSE
 !     _DIAG_VAR_S_(data%id_p2r)  = 9999.
 !   ENDIF
-   _DIAG_VAR_S_(data%id_p2r)  = SUM(primprod) - SUM(respiration)
 
 
 END SUBROUTINE aed_calculate_benthic_macrophyte
@@ -655,7 +711,7 @@ SUBROUTINE aed_calculate_riparian_macrophyte(data,column,layer_idx,pc_wet)
    ENDDO
 
    ! Export diagnostic variables
-   IF( pc_wet <1.0 ) _DIAG_VAR_S_(data%id_diag_par)= Io
+   IF( pc_wet <1.0 ) _DIAG_VAR_S_(data%id_d_par)= Io
    _DIAG_VAR_S_(data%id_gpp) = zero_ !_DIAG_VAR_S_(data%id_gpp) + SUM(primprod)*secs_per_day
 
 

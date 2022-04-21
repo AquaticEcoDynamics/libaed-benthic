@@ -76,6 +76,7 @@ MODULE aed_macroalgae2
       INTEGER :: id_slough_trig, id_tem_avg, id_tau_avg, id_par_avg, id_gpp_ben, id_rsp_ben, id_nmp_ben
       INTEGER :: id_mhsi
       INTEGER :: id_mag_ben, id_min_ben, id_mip_ben
+      INTEGER :: id_swi_c, id_swi_n, id_swi_p
 
       !# Model parameters and options
       TYPE(phyto_data_t),DIMENSION(:),ALLOCATABLE :: malgs
@@ -566,6 +567,10 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%id_NCP = aed_define_diag_variable('nmp','mmol C/m3/d', 'net macroalgal production')
    data%id_gpp_ben = aed_define_sheet_diag_variable('gpp_ben','mmol C/m2/d', 'BEN MAG: macroalgal gross primary production')
    data%id_nmp_ben = aed_define_sheet_diag_variable('nmp_ben','mmol C/m2/d', 'BEN MAG: net macroalgal production')
+
+   data%id_swi_c = aed_define_sheet_diag_variable('mag_swi_c','mmol C/m2/d', 'MAG C flux to the SWI')
+   data%id_swi_n = aed_define_sheet_diag_variable('mag_swi_n','mmol N/m2/d', 'MAG N flux to the SWI')
+   data%id_swi_p = aed_define_sheet_diag_variable('mag_swi_p','mmol P/m2/d', 'MAG P flux to the SWI')
 
    IF ( simMalgHSI>0 ) &
      data%id_mhsi = aed_define_sheet_diag_variable('HSI','-', 'MAG: macroalgae habitat suitability')
@@ -1399,6 +1404,12 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
      ENDIF
 
    ENDDO
+
+   _DIAG_VAR_S_(data%id_swi_c) = -0.0100
+   _DIAG_VAR_S_(data%id_swi_n) = -0.0010
+   _DIAG_VAR_S_(data%id_swi_p) = -0.0001
+
+
 
 END SUBROUTINE aed_calculate_benthic_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
