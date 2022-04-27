@@ -174,7 +174,7 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
    CHARACTER(len=32),POINTER,DIMENSION(:) :: csvnames
    CHARACTER(len=32) :: name
    TYPE(AED_SYMBOL),DIMENSION(:),ALLOCATABLE :: values
-   INTEGER :: idx_col = 0
+   INTEGER :: idx_col = 0, idx_pry
    LOGICAL :: meh
    INTEGER :: ret = 0
 !
@@ -239,14 +239,19 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
             CASE ('K_BDO')                ; bivalve_param(dcol)%K_BDO        = extract_double(values(ccol))
             CASE ('KDO')                  ; bivalve_param(dcol)%KDO          = extract_double(values(ccol))
             CASE ('num_prey')             ; bivalve_param(dcol)%num_prey     = extract_integer(values(ccol))
-            CASE ('prey(1)%bivalve_prey') ; CALL copy_name(values(ccol), bivalve_param(dcol)%prey(1)%bivalve_prey)
-            CASE ('prey(1)%Pbiv_prey')    ; bivalve_param(dcol)%prey(1)%Pbiv_prey = extract_double(values(ccol))
-            CASE ('prey(2)%bivalve_prey') ; CALL copy_name(values(ccol), bivalve_param(dcol)%prey(3)%bivalve_prey)
-            CASE ('prey(2)%Pbiv_prey')    ; bivalve_param(dcol)%prey(2)%Pbiv_prey = extract_double(values(ccol))
-            CASE ('prey(3)%bivalve_prey') ; CALL copy_name(values(ccol), bivalve_param(dcol)%prey(3)%bivalve_prey)
-            CASE ('prey(3)%Pbiv_prey')    ; bivalve_param(dcol)%prey(3)%Pbiv_prey = extract_double(values(ccol))
 
-            CASE DEFAULT ; print *, 'Unknown row "', TRIM(name), '"'
+            CASE DEFAULT
+                 idx_pry = indexed_field('prey(', ')%bivalve_prey', MAX_BVLV_PREY, name)
+                 IF ( idx_pry > 0 ) THEN
+                       CALL copy_name(values(ccol), bivalve_param(dcol)%prey(idx_pry)%bivalve_prey)
+                 ELSE
+                    idx_pry = indexed_field('prey(', ')%Pbiv_prey', MAX_BVLV_PREY, name)
+                    IF ( idx_pry > 0 ) THEN
+                       bivalve_param(dcol)%prey(idx_pry)%Pbiv_prey = extract_double(values(ccol))
+                    ELSE
+                       print *, 'Unknown row "', TRIM(name), '"'
+                    ENDIF
+                 ENDIF
          END SELECT
       ENDDO
    ENDDO
