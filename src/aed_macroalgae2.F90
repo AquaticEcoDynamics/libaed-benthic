@@ -142,10 +142,11 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
    INTEGER  :: i,tfil
    AED_REAL :: minNut
 
-   TYPE(phyto_param_t) :: pd(MAX_PHYTO_TYPES)
+   TYPE(phyto_param_t),ALLOCATABLE :: pd(:)
    NAMELIST /malgae_data/ pd    ! %% phyto_params_t - see aed_bio_utils
 !-------------------------------------------------------------------------------
 !BEGIN
+    ALLOCATE(pd(MAX_PHYTO_TYPES))
     tfil = find_free_lun()
     open(tfil,file=dbase, status='OLD', iostat=status)
     IF (status /= 0) STOP 'Cannot open malgae_data namelist file: ' !,dbase
@@ -364,6 +365,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
 
        ENDIF
     ENDDO
+    DEALLOCATE(pd)
 END SUBROUTINE aed_macroalgae_load_params
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

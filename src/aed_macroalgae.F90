@@ -245,10 +245,11 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
    INTEGER  :: i,tfil
    AED_REAL :: minNut
 
-   TYPE(phyto_param_t) :: pd(MAX_PHYTO_TYPES)
+   TYPE(phyto_param_t),ALLOCATABLE :: pd(:)
    NAMELIST /malgae_data/ pd    ! %% phyto_param_t - see aed_bio_utils
 !-------------------------------------------------------------------------------
 !BEGIN
+    ALLOCATE(pd(MAX_PHYTO_TYPES))
     SELECT CASE (param_file_type(dbase))
        CASE (CSV_TYPE)
            status = load_csv(dbase, pd)
@@ -477,6 +478,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
 
        ENDIF
     ENDDO
+    DEALLOCATE(pd)
 END SUBROUTINE aed_macroalgae_load_params
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

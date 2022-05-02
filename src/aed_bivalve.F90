@@ -283,10 +283,11 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
    INTEGER  :: i,j,tfil,sort_i(MAX_BVLV_PREY)
    AED_REAL :: Pbiv_prey(MAX_BVLV_PREY)
 
-   TYPE(bivalve_params_t)  :: bivalve_param(MAX_BVLV_TYPES)
+   TYPE(bivalve_params_t),ALLOCATABLE :: bivalve_param(:)
    NAMELIST /bivalve_params/ bivalve_param   ! %% bivalve_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
+    ALLOCATE(bivalve_param(MAX_BVLV_TYPES))
     SELECT CASE (param_file_type(dbase))
        CASE (CSV_TYPE)
            status = load_csv(dbase, bivalve_param)
@@ -380,6 +381,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
                               minimum=bivalve_param(list(i))%min)
     ENDDO
 !
+    DEALLOCATE(bivalve_param)
 END SUBROUTINE aed_bivalve_load_params
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
