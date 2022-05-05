@@ -395,7 +395,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    data%id_E_Io        = aed_locate_sheet_global('par_sf')
    data%id_E_airtemp   = aed_locate_sheet_global('air_temp')
    data%id_E_stress    = aed_locate_sheet_global('taub')
-   data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
+  !data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
 END SUBROUTINE aed_define_habitat_benthic
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -403,8 +403,8 @@ END SUBROUTINE aed_define_habitat_benthic
 !###############################################################################
 SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
 !-------------------------------------------------------------------------------
-! Calculate pelagic bottom fluxes and benthic sink and source terms of AED habitat.
-! Everything in units per surface area (not volume!) per time.
+! Calculate benthic habitat calculations
+!
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CLASS (aed_habitat_benthic_data_t),INTENT(in) :: data
