@@ -210,10 +210,11 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
    INTEGER  :: i,tfil
    AED_REAL :: minNut
 
-   TYPE(macrophyte_params_t) :: md(MAX_PHYTO_TYPES)
+   TYPE(macrophyte_params_t),ALLOCATABLE :: md(:)
    NAMELIST /macrophyte_data/ md  ! %% type : macrophyte_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
+    ALLOCATE(md(MAX_PHYTO_TYPES))
     SELECT CASE (param_file_type(dbase))
        CASE (CSV_TYPE)
            status = load_csv(dbase, md)
@@ -272,6 +273,7 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
                               md(list(i))%m0,                          &
                               minimum=zero_)
     ENDDO
+    DEALLOCATE(md)
 END SUBROUTINE aed_macrophyte_load_params
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
