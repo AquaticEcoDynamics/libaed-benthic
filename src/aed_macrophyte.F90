@@ -569,7 +569,7 @@ SUBROUTINE aed_light_extinction_macrophyte(data, column, layer_idx, extinction)
    AED_REAL,INTENT(inout) :: extinction
 !
 !LOCALS
-   AED_REAL :: dz,mphy,matz
+   AED_REAL :: dz, mphy = 0., matz
    INTEGER  :: mphy_i
 !
 !-------------------------------------------------------------------------------
