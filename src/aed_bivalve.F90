@@ -161,13 +161,14 @@ CONTAINS
 
 
 !###############################################################################
-INTEGER FUNCTION load_csv(dbase,bivalve_param)
+INTEGER FUNCTION load_csv(dbase, bivalve_param, dbsize)
 !-------------------------------------------------------------------------------
    USE aed_csv_reader
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CHARACTER(len=*),INTENT(in) :: dbase
    TYPE(bivalve_params_t),INTENT(out) :: bivalve_param(MAX_BVLV_TYPES)
+   INTEGER,INTENT(out) :: dbsize
 !
 !LOCALS
    INTEGER :: unit, nccols, ccol, dcol
@@ -180,6 +181,7 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
 !
 !BEGIN
 !-------------------------------------------------------------------------------
+   dbsize = 0
    unit = aed_csv_read_header(dbase, csvnames, nccols)
    IF (unit <= 0) THEN
       load_csv = -1
@@ -262,6 +264,7 @@ INTEGER FUNCTION load_csv(dbase,bivalve_param)
    IF (ASSOCIATED(csvnames)) DEALLOCATE(csvnames)
    IF (ALLOCATED(values))    DEALLOCATE(values)
 
+   dbsize = nccols-1
    load_csv = ret
 END FUNCTION load_csv
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -280,17 +283,18 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
 !LOCALS
    INTEGER  :: status
 
-   INTEGER  :: i,j,tfil,sort_i(MAX_BVLV_PREY)
+   INTEGER  :: i, j, dbsize, tfil,sort_i(MAX_BVLV_PREY)
    AED_REAL :: Pbiv_prey(MAX_BVLV_PREY)
 
    TYPE(bivalve_params_t),ALLOCATABLE :: bivalve_param(:)
    NAMELIST /bivalve_params/ bivalve_param   ! %% bivalve_params_t - see above
 !-------------------------------------------------------------------------------
 !BEGIN
+    dbsize = MAX_BVLV_TYPES !# nml cant give us a dbsize (maybe need to check name?)
     ALLOCATE(bivalve_param(MAX_BVLV_TYPES))
     SELECT CASE (param_file_type(dbase))
        CASE (CSV_TYPE)
-           status = load_csv(dbase, bivalve_param)
+           status = load_csv(dbase, bivalve_param, dbsize)
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
            tfil = find_free_lun()
@@ -306,6 +310,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
     data%num_biv = count
     allocate(data%bivalves(count))
     DO i=1,count
+       IF ( list(i) < 1 .OR. list(i) > dbsize ) EXIT  !# bad index, exit the loop
        ! General
        data%bivalves(i)%name          = bivalve_param(list(i))%name
        data%bivalves(i)%initial_conc  = bivalve_param(list(i))%initial_conc
