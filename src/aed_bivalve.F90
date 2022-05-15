@@ -297,20 +297,28 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
            status = load_csv(dbase, bivalve_param, dbsize)
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
+           bivalve_param%name = ''
            tfil = find_free_lun()
            open(tfil,file=dbase, status='OLD',iostat=status)
            IF (status /= 0) STOP 'Error opening bivalves_params namelist file'
            read(tfil,nml=bivalve_params,iostat=status)
            close(tfil)
+           dbsize = 0
+           DO i=1,MAX_BVLV_TYPES
+              IF (bivalve_param(i)%name == '') EXIT
+
+              dbsize = dbsize + 1
+           ENDDO
        CASE DEFAULT
            print *,'Unknown file type "',TRIM(dbase),'"'; status=1
     END SELECT
     IF (status /= 0) STOP 'Error reading namelist bivalves_params'
 
-    data%num_biv = count
+    data%num_biv = 0
     allocate(data%bivalves(count))
     DO i=1,count
        IF ( list(i) < 1 .OR. list(i) > dbsize ) EXIT  !# bad index, exit the loop
+       data%num_biv = data%num_biv + 1
        ! General
        data%bivalves(i)%name          = bivalve_param(list(i))%name
        data%bivalves(i)%initial_conc  = bivalve_param(list(i))%initial_conc
@@ -433,7 +441,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    CHARACTER(len=64)  :: pc_target_variable = '' !particulate carbon target variable
    CHARACTER(len=64)  :: do_uptake_variable = '' !oxy uptake variable
    CHARACTER(len=64)  :: ss_uptake_variable = '' !sus. solids uptake variable
-   CHARACTER(len=128) :: dbase = 'aed_bivalve_pars.nml'
+   CHARACTER(len=128) :: dbase = 'aed_bivalve_pars.csv'
 
 ! %% From Module Globals
 !  LOGICAL  :: extra_diag = .false.      !## Obsolete Use diag_level = 10
@@ -507,7 +515,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 
 
    !Register link to prey state variables
-   DO biv_i = 1,num_biv
+   DO biv_i = 1,data%num_biv
       phy_i = 0
       DO prey_i = 1,data%bivalves(biv_i)%num_prey
           data%bivalves(biv_i)%id_prey(prey_i) = aed_locate_variable( &
