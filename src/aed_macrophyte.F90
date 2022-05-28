@@ -583,7 +583,7 @@ SUBROUTINE aed_light_extinction_macrophyte(data, column, layer_idx, extinction)
       ! Retrieve current (local) state variable values
       dz   = _STATE_VAR_(data%id_dz)  ! dz = 0.5
       mphy = _STATE_VAR_S_(data%id_mphy(mphy_i)) *       &
-                   (one_-mphy*data%mphydata(mphy_i)%f_bg) ! above ground density of macrophyte group i
+                   (one_-data%mphydata(mphy_i)%f_bg) ! above ground density of macrophyte group i
 
       ! Self-shading depending on amount of carbon in water volume
       extinction = extinction + (data%mphydata(mphy_i)%KeMAC * (mphy/dz) )
