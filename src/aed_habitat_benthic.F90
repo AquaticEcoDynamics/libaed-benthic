@@ -828,10 +828,10 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
      ELSE
        ! Wet cell
        rupp_salt = ruppia_salinity(salt, "turion")
-       rupp_temp = ruppia_temp(temp, "turion")
-       rupp_lght = one_
+       rupp_temp = ruppia_temp    (temp, "turion")
+       rupp_lght = ruppia_light   (light,"turion")
        rupp_falg = one_
-       rupp_dess = ruppia_depth(depth, "turion")
+       rupp_dess = ruppia_depth   (depth,"turion")
 
      ENDIF
      !IF( .NOT. _STATE_VAR_S_(data%id_E_matz)==in_zone_set ) rupp_matz = zero_
@@ -853,10 +853,10 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
     ELSE
       ! Wet cell
       rupp_salt = ruppia_salinity(salt, "sprout")
-      rupp_temp = ruppia_temp(temp, "sprout")
-      rupp_lght = ruppia_light(light, "sprout")
-      rupp_falg = ruppia_filalgae(fa, "sprout")
-      rupp_dess = ruppia_depth(depth, "sprout")
+      rupp_temp = ruppia_temp    (temp, "sprout")
+      rupp_lght = ruppia_light   (light,"sprout")
+      rupp_falg = ruppia_filalgae(fa,   "sprout")
+      rupp_dess = ruppia_depth   (depth,"sprout")
 
     ENDIF
     ! overall habitat suitability for sprouting
@@ -872,7 +872,7 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
     IF( pc_wet < 0.1 ) THEN
       ! Dry cell - set dessication factor
 
-      rupp_dess = zero_    ! maybe need a time counter here.
+      rupp_dess = one_    ! maybe need a time counter here.
 
     ELSE
       ! Wet cell
@@ -1163,8 +1163,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
          ! COORONG GENERATION II
 
          IF( TRIM(stage)=="adult"  .OR. &
-            !TRIM(stage)=="seed"   .OR. &
-            !TRIM(stage)=="sprout" .OR. &
+             TRIM(stage)=="seed"   .OR. &
+             TRIM(stage)=="sprout" .OR. &
              TRIM(stage)=="flower" .OR. &
              TRIM(stage)=="turion"      ) THEN
 
@@ -1175,11 +1175,11 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
            ! >30 unsuitable
            IF( temp<=4. ) THEN
             ruppia_temp = zero_
-           ELSE IF ( temp>4. .AND. temp<=20.  ) THEN
-            ruppia_temp = 0. + ( (temp-4.)/(20.-4.) )
-           ELSE IF ( temp>20. .AND. temp<=23. ) THEN
+          ELSE IF ( temp>4. .AND. temp<=12.  ) THEN
+            ruppia_temp = 0. + ( (temp-4.)/(12.-4.) )
+          ELSE IF ( temp>12. .AND. temp<=23. ) THEN
             ruppia_temp = one_
-           ELSE IF ( temp>23. .AND. temp<=30. ) THEN
+          ELSE IF ( temp>23. .AND. temp<=30. ) THEN
             ruppia_temp = 1. - ( (temp-23.)/(30.-23.) )
            ELSE IF ( temp>30. ) THEN
             ruppia_temp = zero_
@@ -1224,6 +1224,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
      ! COORONG GENERATION II
 
      IF( TRIM(stage)=="sprout" .OR. &
+         TRIM(stage)=="turion" .OR. &
+         TRIM(stage)=="flower" .OR. &
          TRIM(stage)=="adult"  ) THEN
        !   0 - 5 unsuitable
        !   5 - 36 suboptimal
