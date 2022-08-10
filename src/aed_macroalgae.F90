@@ -2006,9 +2006,13 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
    !----------------------------------------------------------------------------
    !-- Update moving average for daily temp
    !   (averaged over the past 1 day)
-   _DIAG_VAR_S_(data%id_tem_avg) = _DIAG_VAR_S_(data%id_tem_avg) &
+   IF ( data%simCGM >0 ) THEN
+     _DIAG_VAR_S_(data%id_tem_avg) = _DIAG_VAR_S_(data%id_tem_avg) &
                                 * (1-(DTday/TempAvgTime)) + temp*(DTday/TempAvgTime)
-   AvgTemp = _DIAG_VAR_S_(data%id_tem_avg)
+     AvgTemp = _DIAG_VAR_S_(data%id_tem_avg)
+   ELSE
+     AvgTemp = 0.
+   ENDIF
 
    sf = zero_
 
@@ -2030,9 +2034,13 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
       !-------------------------------------------------------------------------
       !-- Update moving avg for daily light (averaged over the photo-period, PP)
 
-      _DIAG_VAR_S_(data%id_par_avg) = _DIAG_VAR_S_(data%id_par_avg) &
+      IF ( data%simCGM >0 ) THEN
+        _DIAG_VAR_S_(data%id_par_avg) = _DIAG_VAR_S_(data%id_par_avg) &
                           * (1-(DTday/LgtAvgTime)) + macroPAR_Top*(DTday/LgtAvgTime)
-      AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83   ! AvgLight in uE for CGM
+        AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83   ! AvgLight in uE for CGM
+      ELSE
+        AvgLight = 0.
+      ENDIF
 
       !-------------------------------------------------------------------------
       !-- Self-shading
@@ -2234,24 +2242,33 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
    bottom_stress = MIN( _STATE_VAR_S_(data%id_taub), 100. )
 
    !-- Update moving average for stress (averaged over the past 2 hrs)
-   _DIAG_VAR_S_(data%id_tau_avg) = _DIAG_VAR_S_(data%id_tau_avg) &
-                        * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
-   AvgStress = _DIAG_VAR_S_(data%id_tau_avg)
+   IF ( data%simCGM >0 ) THEN
+      AvgStress = _DIAG_VAR_S_(data%id_tau_avg) &
+                            * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
+      _DIAG_VAR_S_(data%id_tau_avg) = AvgStress
+   ELSE
+      AvgStress = 0.
+   ENDIF
 
    !-- Retrieve current (local) state variable values.
    malg = _STATE_VAR_S_(data%id_pben(cgm))
-   slough_trigger = _DIAG_VAR_S_(data%id_slough_trig)
 
-   !-- Check if growth phase; if so clip to 0
-   IF(slough_trigger > zero_) _DIAG_VAR_S_(data%id_slough_trig) = zero_
+   IF ( data%simCGM >0 ) THEN
+     slough_trigger = _DIAG_VAR_S_(data%id_slough_trig)
 
-   !-- Slough off weakened filaments (those with cumulative respiration excess)
-   IF(slough_trigger < data%slough_stress) THEN
-       hf = 0.95/DTsec
-       _DIAG_VAR_S_(data%id_slough_trig) = zero_
-       RETURN
+     !-- Check if growth phase; if so clip to 0
+     IF(slough_trigger > zero_) _DIAG_VAR_S_(data%id_slough_trig) = zero_
+
+     !-- Slough off weakened filaments (those with cumulative respiration excess)
+     IF(slough_trigger < data%slough_stress) THEN
+         hf = 0.95/DTsec
+         _DIAG_VAR_S_(data%id_slough_trig) = zero_
+         RETURN
+     ELSE
+         hf = zero_
+     ENDIF
    ELSE
-       hf = zero_
+     slough_trigger = 0.
    ENDIF
 
    !-- Sloughing of even healthy filaments if the shear stress is high enough
@@ -2260,7 +2277,11 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
       !-------------------------------------------------------------------------
       ! Depth (light) based carrying capacity amount, computed empirically with
       ! *0.25 to get from g DM to g C, /12 to get mol C, and 1e3 to get to mmol
-      AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83 ! AvgLight in uE for CGM
+      IF ( data%simCGM >0 ) THEN
+        AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83 ! AvgLight in uE for CGM
+      ELSE
+        AvgLight = 0.
+      ENDIF
       X_maxp = ( 1.18 * AvgLight - 58.7 ) * data%malgs(cgm)%Xcc * 1e3 / 12.
 
       ! Daily slough rate
@@ -2273,7 +2294,8 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
       IF (hf*DTsec>0.95) hf = 0.95/DTsec    ! no more than 95% slough in one interval
 
       !-- Update the malg and slough variables with following the slough event
-      _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) * 0.5
+      IF ( data%simCGM >0 ) &
+        _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) * 0.5
    ENDIF
 
 END SUBROUTINE cgm_slough_cladophora
