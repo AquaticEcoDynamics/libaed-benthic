@@ -1541,6 +1541,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          IF (diag_level>9) THEN
           !_DIAG_VAR_S_(data%id_fSal_ben(mag_i)) = one_
          ENDIF
+        ! print *,'sss',malg,matz,primprod(mag_i)
 
        ENDIF
 
@@ -2096,6 +2097,8 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
      !rf = 0.44 * prlt * 4.52
       rf= zero_
      !IF (diag_level>9) _DIAG_VAR_S_(data%id_fSal_ben(cgm)) = 0.44 * prlt * 4.52
+
+     print *,'cgm',pplt, lf, AvgLight
 
     ELSE
       !-------------------------------------------------------------------------
