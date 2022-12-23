@@ -32,6 +32,9 @@ incdir=include
 ifeq ($(F90),)
   F90=gfortran
 endif
+ifeq ($(MDEBUG),true)
+  DEBUG=true
+endif
 
 ifeq ($(SINGLE),true)
   TARGET=lib/libaed-benthic_s.a
@@ -44,6 +47,7 @@ else
 endif
 
 INCLUDES=-I../libaed-water/${incdir}  -I../libaed-water/${moddir}
+MDBG_FFLAGS=""
 
 ifeq ($(F90),ifort)
   INCLUDES+=-I/opt/intel/include
@@ -69,6 +73,7 @@ else ifeq ($(F90),flang)
   FFLAGS+=-r8
 else
   DEBUG_FFLAGS=-g -fbacktrace
+  MDBG_FFLAGS=-fsanitize=address
   OPT_FFLAGS=-O3
   FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008 $(DEFINES) $(INCLUDES)
   FFLAGS+=-fall-intrinsics -Wno-unused -Wno-unused-dummy-argument -fno-range-check -Wno-integer-division
@@ -95,8 +100,14 @@ ifeq ($(SINGLE),true)
   FFLAGS += -DSINGLE=1
 endif
 
-
-FFLAGS+=$(DEBUG_FFLAGS) $(OPT_FFLAGS)
+ifeq ($(DEBUG),true)
+  FFLAGS+=$(DEBUG_FFLAGS)
+  ifeq ($(MDEBUG),true)
+    FFLAGS+=$(MDBG_FFLAGS)
+  endif
+else
+  FFLAGS+=$(OPT_FFLAGS)
+endif
 
 OBJS=${objdir}/aed_bivalve.o \
      ${objdir}/aed_habitat_benthic.o \
