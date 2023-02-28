@@ -70,14 +70,15 @@ MODULE aed_macroalgae
       INTEGER :: id_Siexctarget,id_Simorttarget,id_Siupttarget
       INTEGER :: id_DOupttarget
       INTEGER :: id_par, id_I_0, id_extc, id_taub, id_sedzone
-      INTEGER :: id_tem, id_sal, id_dz, id_dens
-      INTEGER :: id_GPP, id_NMP, id_PPR, id_NPR, id_dPAR, id_dHGT
+      INTEGER :: id_tem, id_sal, id_dz, id_dens, id_yearday, id_depth, id_dt
+      INTEGER :: id_GPP, id_NMP, id_PPR, id_NPR, id_dPAR, id_bPAR, id_dHGT
       INTEGER :: id_TMALG, id_dEXTC, id_TIN, id_TIP, id_MPB, id_d_MPB, id_d_BPP
       INTEGER :: id_NUP, id_PUP, id_CUP
       INTEGER :: id_mhsi
       INTEGER :: id_mag_ben, id_min_ben, id_mip_ben
       INTEGER :: id_nup_ben, id_pup_ben, id_gpp_ben, id_rsp_ben, id_nmp_ben
-      INTEGER :: id_slough_trig, id_tem_avg, id_tau_avg, id_par_avg, id_slg_ben
+      INTEGER :: id_slough_trig, id_slough_tsta, id_slough_days
+      INTEGER :: id_tem_avg, id_tau_avg, id_par_avg, id_slg_ben, id_par_bot, id_gpp_bot
       INTEGER :: id_swi_c, id_swi_n, id_swi_p
 
       !# Model parameters and options
@@ -92,7 +93,7 @@ MODULE aed_macroalgae
 
       AED_REAL, ALLOCATABLE :: active_zones(:)
       AED_REAL :: min_rho,max_rho
-      AED_REAL :: slough_stress, slough_burial
+      AED_REAL :: slough_stress, slough_burial, slough_rate
       LOGICAL  :: simMalgFeedback
       INTEGER  :: simSloughing
       INTEGER  :: simMalgHSI
@@ -111,9 +112,10 @@ MODULE aed_macroalgae
    END TYPE
 
    ! MODULE GLOBALS
-   AED_REAL, PARAMETER :: DTday       = (15./60.)/24.  ! 15 minutes
+   AED_REAL :: DTday       = (15./60.)/24.  ! 15 minutes
    AED_REAL, PARAMETER :: StrAvgTime  = 2.0/24.0       !  2 hours
-   AED_REAL, PARAMETER :: LgtAvgTime  = 0.5            ! 12 hours
+   !AED_REAL, PARAMETER :: LgtAvgTime  = 0.5            ! 12 hours
+   AED_REAL, PARAMETER :: LgtAvgTime  =  2.0/24.0       !  2 hours
    AED_REAL, PARAMETER :: TempAvgTime = 1.0            !  1 day
    AED_REAL :: dtlim = 900
    AED_REAL :: macroHgt, macroExt = zero_
@@ -374,7 +376,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
            data%simCGM = i
             ! If sloughing is requested for CGM force to 2 ... for now
            IF(data%simSloughing>0) data%simSloughing = 2
-           IF(data%simSloughing>0) data%malgs(i)%slough_model = 2
+           IF(data%simSloughing>0 .and. (data%malgs(i)%slough_model < 2 .or. data%malgs(i)%slough_model > 4)) data%malgs(i)%slough_model = 2
        ENDIF
 
        !-- Group requires a water column / pelagic pool
@@ -555,7 +557,8 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    AED_REAL           :: min_rho = 900.
    AED_REAL           :: max_rho = 1200.
    AED_REAL           :: slough_stress = -1.0
-   AED_REAL           :: slough_burial = 0.0
+   AED_REAL           :: slough_burial = zero_
+   AED_REAL           :: slough_rate = 0.08 ! %/day
    INTEGER            :: simMalgHSI = 0
    INTEGER            :: simSloughing = 0
    INTEGER            :: n_zones = 0
@@ -583,7 +586,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
                     dbase, zerolimitfudgefactor,slough_stress,simSloughing,    &
                      simMalgHSI, n_zones, active_zones, simMalgFeedback,       &
                     extra_debug, extra_diag, diag_level, tau_0, dtlim,         &
-                    growth_form, slough_model, slough_burial
+                    growth_form, slough_model, slough_burial, slough_rate
 !-----------------------------------------------------------------------
 !BEGIN
 
@@ -609,6 +612,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%simSloughing = simSloughing
    data%slough_stress = slough_stress
    data%slough_burial = slough_burial / secs_per_day
+   data%slough_rate = slough_rate / secs_per_day
 
    data%simMalgFeedback = simMalgFeedback
    PRINT *,'          NOTE - macroalgae feedbacks to water column properties: ',simMalgFeedback
@@ -719,14 +723,18 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 
    IF ( data%simCGM >0 ) THEN
      data%id_slough_trig = aed_define_sheet_diag_variable('cgm_sltg','-', 'MAG: cgm slough trigger')
+     data%id_slough_tsta = aed_define_sheet_diag_variable('cgm_slst','-', 'MAG: cgm slough start day')
+     data%id_slough_days = aed_define_sheet_diag_variable('cgm_sldy','-', 'MAG: cgm slough dark days')
      data%id_tem_avg = aed_define_sheet_diag_variable('cgm_tavg','-', 'MAG: cgm temperature average')
      data%id_par_avg = aed_define_sheet_diag_variable('cgm_lavg','-', 'MAG: cgm light average')
+     data%id_par_bot = aed_define_sheet_diag_variable('cgm_parb','-', 'MAG: cgm light bottom')
      data%id_tau_avg = aed_define_sheet_diag_variable('cgm_savg','-', 'MAG: cgm stress average')
+     data%id_gpp_bot  = aed_define_sheet_diag_variable('gpp_bot','/day', 'MAG: GPP at canopy base')
    ENDIF
 
    IF (diag_level>9) THEN
      data%id_dEXTC = aed_define_diag_variable('extc','/m','MAG: extinction due to macroalgae')
-     data%id_dPAR  = aed_define_sheet_diag_variable('parc','%', 'MAG: PAR reaching the bottom canopy')
+     data%id_dPAR  = aed_define_sheet_diag_variable('parc','%', 'MAG: PAR reaching the top of canopy')
      data%id_dHGT  = aed_define_sheet_diag_variable('hgtc','m', 'MAG: height of macroalgal canopy')
    ENDIF
 
@@ -739,8 +747,11 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%id_par     = aed_locate_global('par')
    data%id_I_0     = aed_locate_sheet_global('par_sf')
    data%id_taub    = aed_locate_sheet_global('taub')
+   data%id_depth   = aed_locate_sheet_global('col_depth') 
    data%id_sedzone = aed_locate_sheet_global('sed_zone')
-
+   data%id_yearday = aed_locate_sheet_global('yearday') 
+   data%id_dt      = aed_locate_sheet_global('timestep')  
+   
 END SUBROUTINE aed_define_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -785,10 +796,13 @@ SUBROUTINE aed_initialize_benthic_macroalgae(data, column, layer_idx)
      RETURN
    ENDIF
    IF ( data%simCGM >0 ) THEN
-     _DIAG_VAR_S_(data%id_tem_avg) = 4.     !_STATE_VAR_S_(data%id_tem)
-     _DIAG_VAR_S_(data%id_tau_avg) = 0.001  !_STATE_VAR_S_(data%id_taub)
-     _DIAG_VAR_S_(data%id_par_avg) = 0.1    !_STATE_VAR_S_(data%id_par)
-   ENDIF
+     _DIAG_VAR_S_(data%id_tem_avg) = 4.      !_STATE_VAR_S_(data%id_tem)
+     _DIAG_VAR_S_(data%id_tau_avg) = 0.001   !_STATE_VAR_S_(data%id_taub)
+     _DIAG_VAR_S_(data%id_par_avg) = 0.1     !_STATE_VAR_S_(data%id_par)
+     _DIAG_VAR_S_(data%id_slough_days) = 0.0 !
+     _DIAG_VAR_S_(data%id_slough_tsta) = 0.0 !
+     _DIAG_VAR_S_(data%id_slough_trig) = 0.0 !
+    ENDIF
 
 END SUBROUTINE aed_initialize_benthic_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1253,7 +1267,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-  DTsec = DTday * secs_per_day
+   DTday = _STATE_VAR_S_(data%id_dt)/secs_per_day
+   DTsec = DTday * secs_per_day
 
   !-- Benthic light fraction and extinction, for diagnostics
   extc  = _STATE_VAR_  (data%id_extc)    ! extinction coefficient of bottom cell
@@ -1520,8 +1535,12 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        ELSE ! group check for CGM
 
          !-- User has selected the special CGM approach (Cladophora Growth Model)
-         CALL cgm_calculate_benthic_cladophora(data,column,layer_idx,mag_i,&
-             primprod(mag_i),respiration(mag_i),puptake(mag_i,1),nuptake(mag_i,1),INi,IPi)
+         CALL cladophora_calculate_cgm(data,column,layer_idx,mag_i,         &
+                                               primprod(mag_i),             &
+                                               respiration(mag_i),          &
+                                               puptake(mag_i,1),            &
+                                               nuptake(mag_i,1),            &
+                                               INi,IPi)
 
 
          exudation(mag_i)  = MAX( zero_,primprod(mag_i)*data%malgs(mag_i)%f_pr )      ! /second
@@ -1578,7 +1597,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
        !# Update the INTERNAL PHOSPHORUS biomass of the attached macroalgae
        IF (data%malgs(mag_i)%simIPDynamics /= 0) THEN
-          !IPi = _STATE_VAR_S_(data%id_ipben(mag_i))
+          IPi = _STATE_VAR_S_(data%id_ipben(mag_i))
           flux = (sum(-puptake(mag_i,:)) - pexcretion(mag_i) - pmortality(mag_i))
           available = MAX( zero_, IPi-data%malgs(mag_i)%X_pmin*malg )
           IF ( -flux*dtlim > available  ) flux = -0.99*available/dtlim
@@ -1619,7 +1638,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
        !# Redistribute biomass into the water column if sloughing occurs.
        IF( data%simSloughing >0 .and. data%malgs(mag_i)%slough_model >0 ) THEN
-         IF( data%malgs(mag_i)%slough_model == 1) THEN
+         
+        IF( data%malgs(mag_i)%slough_model == 1) THEN
           ! The Coorong Ulva approach
           IF( bottom_stress>data%malgs(mag_i)%tau_0*2. ) THEN
             slough_frac = 0.3
@@ -1628,26 +1648,37 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
           ELSE
             slough_frac = 0.0
           ENDIF
+
          ELSEIF( data%malgs(mag_i)%slough_model == 2) THEN
            ! The Erie CGM approach
-           CALL cgm_slough_cladophora(data,column,layer_idx,mag_i,data%malgs(mag_i)%resuspension,slough_frac)
+           CALL cladophora_slough_cgm(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+         ELSEIF( data%malgs(mag_i)%slough_model == 3) THEN
+            ! The Erie GLCMv3 approach
+            CALL cladophora_slough_glcmv3(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+         ELSEIF( data%malgs(mag_i)%slough_model == 4) THEN
+            ! The Erie AED (hybrid) approach
+            CALL cladophora_slough_aed(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+         
          ELSE
            ! No sloughing
            slough_frac = zero_
          ENDIF
 
-         _FLUX_VAR_B_(data%id_pben(mag_i)) = _FLUX_VAR_B_(data%id_pben(mag_i)) - (slough_frac*malg)/DTsec
-         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) + ((slough_frac*malg)/depth)/DTsec
+         ! Now apply the rate of sloughing to the benthic biomass variable, and add to water pool
+         _FLUX_VAR_B_(data%id_pben(mag_i)) = _FLUX_VAR_B_(data%id_pben(mag_i)) - (slough_frac*malg) !/DTsec
+         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) + ((slough_frac*malg)/depth) !/DTsec
          IF (data%malgs(mag_i)%simIPDynamics /= 0) THEN
-          _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) - (slough_frac*IPi)/DTsec
-          _FLUX_VAR_(data%id_ip(mag_i)) = _FLUX_VAR_(data%id_ip(mag_i)) + ((slough_frac*IPi)/depth)/DTsec
+          _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) - (slough_frac*_STATE_VAR_S_(data%id_ipben(mag_i))) !/DTsec
+          _FLUX_VAR_(data%id_ip(mag_i)) = _FLUX_VAR_(data%id_ip(mag_i)) + ((slough_frac*IPi)/depth) !/DTsec
          ENDIF
          IF (data%malgs(mag_i)%simINDynamics /= 0) THEN
-          _FLUX_VAR_B_(data%id_inben(mag_i)) = _FLUX_VAR_B_(data%id_inben(mag_i)) - (slough_frac*INi)/DTsec
-          _FLUX_VAR_(data%id_in(mag_i)) = _FLUX_VAR_(data%id_in(mag_i)) + ((slough_frac*INi)/depth)/DTsec
+          _FLUX_VAR_B_(data%id_inben(mag_i)) = _FLUX_VAR_B_(data%id_inben(mag_i)) - (slough_frac*INi) !/DTsec
+          _FLUX_VAR_(data%id_in(mag_i)) = _FLUX_VAR_(data%id_in(mag_i)) + ((slough_frac*INi)/depth) !/DTsec
          ENDIF
          IF (diag_level>1) THEN
-          _DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac*malg/DTsec)*secs_per_day
+          !_DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac*malg/DTsec)*secs_per_day
+!          _DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac/DTsec)*secs_per_day
+          _DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac)*secs_per_day
          ENDIF
 
 
@@ -1842,7 +1873,7 @@ SUBROUTINE aed_light_extinction_macroalgae(data,column,layer_idx,extinction)
 !BEGIN
 
      ! Self-shading with explicit contribution from macroalgae biomass
-     extinction = extinction + _DIAG_VAR_(data%id_dEXTC)
+     extinction = extinction !+ _DIAG_VAR_(data%id_dEXTC)
 
 END SUBROUTINE aed_light_extinction_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1897,7 +1928,7 @@ END SUBROUTINE aed_bio_drag_macroalgae
 
 
 !###############################################################################
-SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
+SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
                                                             pu,nu,mag_in,mag_ip)
 !-------------------------------------------------------------------------------
 ! Calculate benthic cladophora productivity, based on the Cladophora Growth
@@ -1949,7 +1980,8 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
    AED_REAL :: lght, pplt, prlt, pf_MB
    AED_REAL :: macroPAR_Top, macroPAR_Bot
    AED_REAL :: AvgTemp, AvgLight
-   AED_REAL :: sf,tf,lf
+   AED_REAL :: sf,tf,lf 
+   AED_REAL :: hour
 !
 !-------------------------------------------------------------------------------
 !BEGIN
@@ -1977,17 +2009,19 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
    ! Retrieve (local) cladophora in gDM/m2 (Xcc=1/0.25 to convert to DM)
    malg = _STATE_VAR_S_(data%id_pben(cgm)) * (12. / 1e3) / data%malgs(cgm)%Xcc
 
-   ! Empirical formulation from Higgin's CGM model
-   macroHgt = (1./100.) * 1.467 * ( malg )**0.425
+   
+   macroHgt = (1./100.) * 1.467 * ( malg )**0.425   ! Formulation from Higgin's CGM model
+   !macroHgt = (1./100.) * 1.9415 * ( malg )**0.4138 ! Formulation from S Malkin; GLCMv3 model
+
    macroExt = 7.840 * ( malg )**0.240   ! Higgins et al 2006 Fig 6
 
    macroPAR_Top = MAX( MIN( par*exp(-extc*( MAX(dz-macroHgt,zero_))),Io), zero_)
    macroPAR_Bot = MAX( macroPAR_Top * exp(-(extc+macroExt)*macroHgt), zero_)
-   !macroPAR_Bot = par * exp(-(extc+macroExt)*(dz-macroHgt))
 
    IF(diag_level>9) _DIAG_VAR_(data%id_dEXTC)  = macroExt
    IF(diag_level>9) _DIAG_VAR_S_(data%id_dHGT) = macroHgt
    IF(diag_level>9) _DIAG_VAR_S_(data%id_dPAR) = macroPAR_Top
+   IF(diag_level>9) _DIAG_VAR_S_(data%id_par_bot) = macroPAR_Bot
 
    !----------------------------------------------------------------------------
    !-- MACROALGAL C, N, P
@@ -2043,6 +2077,8 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
         AvgLight = 0.
       ENDIF
 
+      !print *,'AvgLight',macroPAR_Top, extc, AvgLight
+
       !-------------------------------------------------------------------------
       !-- Self-shading
 
@@ -2081,7 +2117,11 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
            + a14 * temp * lght * lght * lght &
            + a15 * lght * lght * lght * lght
 
-      pf = (data%malgs(cgm)%R_growth * pplt * 5.43) * sf * lf
+      pplt = pplt*5.43
+      
+      IF (data%malgs(cgm)%lightModel == 3) pplt = PhotoRate(lght,temp)
+
+      pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
 
       !-------------------------------------------------------------------------
       !-- Now light and temperature function for daytime respiration
@@ -2103,10 +2143,10 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
            + b15 * lght * lght * lght * lght
 
      !rf = 0.44 * prlt * 4.52
-      rf= zero_
+     rf= zero_
      !IF (diag_level>9) _DIAG_VAR_S_(data%id_fSal_ben(cgm)) = 0.44 * prlt * 4.52
 
-     print *,'cgm',pplt, lf, AvgLight
+     !print *,'cgm',pplt, lf, AvgLight
 
     ELSE
       !-------------------------------------------------------------------------
@@ -2133,19 +2173,17 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
     !   by division by macroalgae biomass for the nutrient limitation / uptake
 
     !-- Compute the internal phosphorus ratio
-    IF(malg>zero_) THEN
-      pu = mag_ip/malg
-    ELSE
-      pu = data%malgs(cgm)%X_pmin
-    ENDIF
+    pu = data%malgs(cgm)%X_pmin 
+    IF( malg>zero_ ) pu = mag_ip/malg
 
     Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
 
     frp = _STATE_VAR_(data%id_Pupttarget(1))
 
-    !-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf
-    pu = data%malgs(cgm)%R_puptake * tf * (frp/(frp + data%malgs(cgm)%K_P)) &
-                          * (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
+    !-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf 
+    pu = data%malgs(cgm)%R_puptake * tf                                                &
+                                   * (frp/(frp + data%malgs(cgm)%K_P))                 &
+                                   * (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
 
     !---------------------------------------------------------------------------
     !-- Get the INTERNAL NITROGEN stores for the macroalgae groups.
@@ -2153,11 +2191,8 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
     !   by division by macroalgae biomass for the nitrogen limitation
 
     !-- Get the internal nitrogen ratio.
-    IF(malg>zero_) THEN
-      nu = mag_in/malg
-    ELSE
-      nu = data%malgs(cgm)%X_nmin
-    ENDIF
+    nu = data%malgs(cgm)%X_nmin
+    IF(malg>zero_) nu = mag_in/malg
 
     !-- Macroalgae nitrogen uptake
     nu = 16*pu  ! Overwritten above to match C
@@ -2201,21 +2236,36 @@ SUBROUTINE cgm_calculate_benthic_cladophora(data,column,layer_idx,cgm,pf,rf, &
 
     pf_MB = (data%malgs(cgm)%R_growth * pplt * 5.43) * sf - rf
 
+    _DIAG_VAR_S_(data%id_gpp_bot) = pf_MB
+
+!    IF(malg > data%malgs(cgm)%p0) THEN
+!      !-- SloughTrigger = SloughTrigger + pf_MB * DTday
+!      !_FLUX_VAR_B_(data%id_slough_trig) = _FLUX_VAR_B_(data%id_slough_trig) + pf_MB
+!      _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + pf_MB*DTday*secs_per_day
+!    ENDIF
+
+    ! Daily reset of bottom filament checker
+    hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0) 
+
+    IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_ 
+
+    ! Increment bottom filament checker if pf_MB <0 
     IF(malg > data%malgs(cgm)%p0) THEN
       !-- SloughTrigger = SloughTrigger + pf_MB * DTday
-      !_FLUX_VAR_B_(data%id_slough_trig) = _FLUX_VAR_B_(data%id_slough_trig) + pf_MB
-      _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + pf_MB*DTday*secs_per_day
+      IF( pf_MB < zero_ ) & 
+        _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
     ENDIF
 
+    !print *,'hr',hour, pf_MB,_DIAG_VAR_S_(data%id_slough_trig)
     sf = one_
 
-END SUBROUTINE cgm_calculate_benthic_cladophora
+END SUBROUTINE cladophora_calculate_cgm
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 
 !###############################################################################
-SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
+SUBROUTINE cladophora_slough_cgm(data,column,layer_idx,cgm,slough_rate,hf)
 !-------------------------------------------------------------------------------
 ! Compute the fraction of cladophora biomass that is detatched due to
 !  sloughing if the stress is enough
@@ -2247,7 +2297,7 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
    !-- Update moving average for stress (averaged over the past 2 hrs)
    IF ( data%simCGM >0 ) THEN
       AvgStress = _DIAG_VAR_S_(data%id_tau_avg) &
-                            * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
+                * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
       _DIAG_VAR_S_(data%id_tau_avg) = AvgStress
    ELSE
       AvgStress = 0.
@@ -2274,7 +2324,7 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
      slough_trigger = 0.
    ENDIF
 
-   !-- Sloughing of even healthy filaments if the shear stress is high enough
+   !-- Sloughing of healthy filaments if the shear stress is high enough
    IF(malg>data%malgs(cgm)%p0 .AND. slough_trigger<-0.001 .AND. AvgStress>data%malgs(cgm)%tau_0)THEN
 
       !-------------------------------------------------------------------------
@@ -2292,16 +2342,585 @@ SUBROUTINE cgm_slough_cladophora(data,column,layer_idx,cgm,slough_rate,hf)
       ! hf = 0.242 * exp(-0.3187 * DEPTH) * AvgStress / PCm  * malg / X_maxp
       hf = (AvgStress - data%malgs(cgm)%tau_0) * MIN( malg/MAX(X_maxp,data%malgs(cgm)%p0),one_ )
 
-      hf = slough_rate * hf / secs_per_day  ! daily biomass fraction sloughed per sec
+      hf = slough_rate * hf   ! daily biomass fraction sloughed per sec
 
       IF (hf*DTsec>0.95) hf = 0.95/DTsec    ! no more than 95% slough in one interval
 
       !-- Update the malg and slough variables with following the slough event
       IF ( data%simCGM >0 ) &
-        _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) * 0.5
+        _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) * hf*DTsec/malg ! 0.5
    ENDIF
 
-END SUBROUTINE cgm_slough_cladophora
+END SUBROUTINE cladophora_slough_cgm
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+!###############################################################################
+SUBROUTINE cladophora_calculate_glcmv3(data,column,layer_idx,cgm,              & 
+                                                           u_canopy,r_canopy,  &
+                                                           pu,nu,mag_in,mag_ip )
+!-------------------------------------------------------------------------------
+! Calculate benthic cladophora productivity, based on the GLCMv3.
+!   Units per surface area (not volume!)
+!   and switch between mmol C/m2, and the original model which is in g DM/m2.
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+CLASS (aed_macroalgae_data_t),INTENT(in) :: data
+TYPE (aed_column_t),INTENT(inout) :: column(:)
+INTEGER,INTENT(in) :: layer_idx,cgm
+AED_REAL, INTENT(inout) :: u_canopy,r_canopy,pu,nu,mag_in,mag_ip
+!
+!LOCALS
+!
+AED_REAL :: malg
+AED_REAL :: matz, extc, dz, par, Io, temp, salinity, frp
+AED_REAL :: AvgTemp, AvgLight
+AED_REAL :: lght, pplt, prlt, pf_MB
+
+AED_REAL :: X_maxp, Kq
+AED_REAL :: macroPAR_Top, macroPAR_Bot
+AED_REAL :: sf,tf,lf
+AED_REAL :: fRIT, Rb, FuIT
+
+AED_REAL :: Q, X, S, Iz, Imat, X_layer, X_left, X_calc, S_calc, Q_layer, fQ, Qmin, rho, U, R, Rmax, pu_canopy, hour, unet_canopy, umax, unet, pf, rf
+INTEGER :: layer, total_layers
+!
+!-------------------------------------------------------------------------------
+!BEGIN
+
+
+   !----------------------------------------------------------------------------
+   !-- Check this cell is in an active zone for cladophoras
+   matz = _STATE_VAR_S_(data%id_sedzone)
+   IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
+
+   !-- Retrieve current environmental conditions
+   salinity = _STATE_VAR_(data%id_sal)        ! local salinity
+   temp = _STATE_VAR_(data%id_tem)            ! local temperature
+   extc = _STATE_VAR_(data%id_extc)           ! extinction coefficent
+   par = MAX(_STATE_VAR_(data%id_par),zero_)  ! photosynthetically active radn
+   Io = MAX(_STATE_VAR_S_(data%id_I_0),zero_) ! surface (incident) shortwave radn
+   dz = _STATE_VAR_(data%id_dz)               ! dz = cell/layer thickness
+
+   !----------------------------------------------------------------------------
+   !-- MACROALGAL BED DEPTH AND EXTINCTION
+   !## Resolve the benthic light climate
+   !   par = top of cells
+   !   macroPAR_Top = top of macroalgal bed
+   !   macroPAR_Bot = bottom of macroalgal bed
+
+   ! Retrieve (local) cladophora in gDM/m2 (Xcc=1/0.25 to convert to DM)
+   malg = _STATE_VAR_S_(data%id_pben(cgm)) * (12. / 1e3) / data%malgs(cgm)%Xcc
+
+   macroHgt = (1./100.) * 1.9415 * ( malg )**0.4138 ! Formulation from S Malkin; GLCMv3 model
+   macroExt = 68. ! 7.840 * ( malg )**0.240   ! Higgins et al 2006 Fig 6
+   macroPAR_Top = MAX( MIN( par*exp(-extc*( MAX(dz-macroHgt,zero_))),Io), zero_)
+   macroPAR_Bot = MAX( macroPAR_Top * exp(-(extc+macroExt)*macroHgt), zero_)
+
+   IF(diag_level>9) _DIAG_VAR_(data%id_dEXTC)  = macroExt
+   IF(diag_level>9) _DIAG_VAR_S_(data%id_dHGT) = macroHgt
+   IF(diag_level>9) _DIAG_VAR_S_(data%id_dPAR) = macroPAR_Top
+   IF(diag_level>9) _DIAG_VAR_S_(data%id_par_bot) = macroPAR_Bot
+
+   !----------------------------------------------------------------------------
+   !-- MACROALGAL C, N, P
+   !## Get the CGM (cladophora) group concentrations
+   malg = _STATE_VAR_S_(data%id_pben(cgm))      ! cladophora biomass (mmolC/m2)
+   mag_in = data%malgs(cgm)%X_ncon * malg       ! cladophora biomass (mmolN/m2)
+   IF(data%malgs(cgm)%simINDynamics/=0) mag_in = _STATE_VAR_S_(data%id_inben(cgm)) 
+   mag_ip = data%malgs(cgm)%X_pcon * malg       ! cladophora biomass (mmolP/m2)
+   IF(data%malgs(cgm)%simIPDynamics/=0) mag_ip = _STATE_VAR_S_(data%id_ipben(cgm)) 
+
+   !----------------------------------------------------------------------------
+   !-- Update moving average for daily temp
+   !   (averaged over the past 1 day)
+   IF ( data%simCGM >0 ) THEN
+     _DIAG_VAR_S_(data%id_tem_avg) = _DIAG_VAR_S_(data%id_tem_avg) &
+                * (1-(DTday/TempAvgTime)) + temp*(DTday/TempAvgTime)
+     AvgTemp = _DIAG_VAR_S_(data%id_tem_avg)
+   ELSE
+     AvgTemp = 0.
+   ENDIF
+
+   !----------------------------------------------------------------------------
+   ! Calculate current Q and Q limitation factor
+   Q = mag_ip/malg * 100;
+   X = malg
+
+   ! Light attenuation through water depth - bed height, top of the mat
+   Iz = macroPAR_Top
+
+   ! Mat depth / canopy height (in cm) (biomass density of each layer in canopy)
+   X_layer = X / MAX( macroHgt*100. ,1.)
+
+   ! Count the number of 1cm layers in the algae mat (canopy height/mat thickness)
+   ! Start with 1 layer
+   Total_layers =  1
+   DO WHILE ( X >= X_layer )
+     Total_layers = Total_layers + 1
+     X = X - X_layer
+   ENDDO
+   ! Biomass left after filling each layer to its capacity
+   X_left = X
+
+   unet_canopy = zero_
+   ! First, fill canopy layers with biomass and P mass
+   DO layer = 1,Total_layers
+     IF (layer == 1) THEN 
+       ! Leftover X goes into the top layer
+       X_calc = X_left
+     else 
+       ! Fill each layer with constant amount
+       X_calc = X_layer
+     endif
+
+     ! Fill each layer with P mass
+     S_calc = Q * X_calc/100.
+
+     ! Calculate Q limitation factor
+     Q_layer = S_calc/X_calc * 100
+     fQ = 1 - (Qmin/Q_layer)
+
+     ! P uptake: Michaelis-Menten, linear at low Q,
+     ! retaining high km = 125 ug/L
+     ! P uptake rate (%P/hr)(%P/s)
+     rho = (0.012 * (Q_layer**(-2.3))) * (frp / (frp+ 125))   /secs_per_day   ! %P/s
+
+     ! Light extinction through the algae mat
+     ! Substract 1 cm for light at top of layer and convert
+     ! into meters
+     Imat = Iz * exp( -macroExt * (layer - 1) / 100.)
+
+     ! Gross growth rate depending on light,
+     ! temperature and store P (1/hr)(1/s)
+     fuIT = PhotoRate(Imat, AvgTemp)
+     u = umax * fQ * fuIT / secs_per_day;
+
+     ! Total respiration = RIT + Rbasal (1/hr)(1/s)
+     fRIT = RespRate(Imat, AvgTemp);
+     Rb = BasalResp(AvgTemp);
+     r = (Rmax * fRIT + Rb) / secs_per_day;
+
+     ! Interval u and r in the current layer
+     u_canopy = u_canopy + u * X_calc 
+     r_canopy = r_canopy + r * X_calc 
+     pu_canopy = pu_canopy + (rho / 100 * X_calc - r * S_calc) 
+
+enddo 
+
+u_canopy = u_canopy / X
+r_canopy = r_canopy / X
+pu_canopy = pu_canopy / S
+
+
+! Daily reset of bottom filament checker
+hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0) 
+
+IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_ 
+
+! Increment bottom filament checker, if unet <0 
+IF(malg > data%malgs(cgm)%p0) THEN
+  !-- SloughTrigger = SloughTrigger * DTday
+  unet = u_canopy-r_canopy
+  IF( (unet) < zero_ ) & 
+    _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
+ENDIF
+
+
+
+!-------------------------------------------------------------------------
+!-- Calculate the nutrient limitation (phosphorus & nitrogen) and
+!   find the most limiting
+IF (malg > zero_) THEN
+  sf = mag_ip/malg
+ENDIF
+IF (sf > zero_) THEN
+  sf = 1.0 - (data%malgs(cgm)%X_pmin/sf)
+ENDIF
+IF (diag_level>9) _DIAG_VAR_S_(data%id_fPho_ben(cgm)) =  sf
+
+!-------------------------------------------------------------------------
+!-- Update moving avg for daily light (averaged over the photo-period, PP)
+
+IF ( data%simCGM >0 ) THEN
+  _DIAG_VAR_S_(data%id_par_avg) = _DIAG_VAR_S_(data%id_par_avg) &
+    * (1-(DTday/LgtAvgTime)) + macroPAR_Top*(DTday/LgtAvgTime)
+  AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83   ! AvgLight in uE for CGM
+ELSE
+  AvgLight = 0.
+ENDIF
+
+!-------------------------------------------------------------------------
+!-- Self-shading
+
+! Depth (light) based carrying capacity amount, computed empirically with
+! *Xcc to convert g DM to g C, /12 to get to molC, and 1e3 to get to mmol
+X_maxp = ( 1.18 * AvgLight - 58.7 ) * data%malgs(cgm)%Xcc * 1e3 / 12.
+
+lf = 1.
+IF(malg>100. .AND. AvgLight>60. ) lf = 1.0 - malg/X_maxp
+
+IF(lf < zero_) lf = zero_  ;  IF(lf > one_) lf = one_
+IF(diag_level>9) _DIAG_VAR_S_(data%id_fI_ben(cgm)) =  lf
+
+IF(diag_level>9) _DIAG_VAR_S_(data%id_fSal_ben(cgm)) = macroPAR_Bot/MAX(macroPAR_Top,1.)
+
+!-------------------------------------------------------------------------
+!-- Now light and temperature function for photosynthesis
+
+temp = AvgTemp
+lght = AvgLight  !MIN(600.0,AvgLight)/1235.0      ! Capped at 600: Higgins et al 2006
+pplt = PhotoRate(lght,temp)
+pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
+
+!-------------------------------------------------------------------------
+!-- Now light and temperature function for daytime respiration
+
+! Total respiration = RIT + Rbasal (1/hr)
+fRIT = RespRate(lght,temp);
+Rb = BasalResp(temp);
+rf = (data%malgs(cgm)%R_Resp * fRIT + Rb) ;
+
+
+!---------------------------------------------------------------------------
+!-- Get the temperature function for nutrient uptake
+temp = AvgTemp
+IF(temp < 18.0)THEN
+tf = exp((temp-18.0)/39.00)
+ELSE
+tf = exp((18.0-temp)/18.75)
+ENDIF
+IF (diag_level>9) _DIAG_VAR_S_(data%id_fT_ben(cgm)) =  tf
+
+!---------------------------------------------------------------------------
+!-- Get the INTERNAL PHOSPHORUS stores for the macroalgae groups.
+!   Recall that int. nutrient is in mol and must be converted to molP/molC
+!   by division by macroalgae biomass for the nutrient limitation / uptake
+
+!-- Compute the internal phosphorus ratio
+pu = data%malgs(cgm)%X_pmin 
+IF( malg>zero_ ) pu = mag_ip/malg
+
+Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
+
+frp = _STATE_VAR_(data%id_Pupttarget(1))
+
+!-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf 
+pu = data%malgs(cgm)%R_puptake * tf                                                &
+* (frp/(frp + data%malgs(cgm)%K_P))                 &
+* (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
+
+!---------------------------------------------------------------------------
+!-- Get the INTERNAL NITROGEN stores for the macroalgae groups.
+!   Recall that internal nutrient is in g and must be converted to g N/g C
+!   by division by macroalgae biomass for the nitrogen limitation
+
+!-- Get the internal nitrogen ratio.
+nu = data%malgs(cgm)%X_nmin
+IF(malg>zero_) nu = mag_in/malg
+
+!-- Macroalgae nitrogen uptake
+nu = 16*pu  ! Overwritten above to match C
+
+IF (diag_level>9) _DIAG_VAR_S_(data%id_fNit_ben(cgm)) =  one_
+
+!nu = data%malgdata(i)%R_nuptake  * malg * tf * (INmax(bb) - nu) &
+!    / (INmax(bb)-INmin(bb)) * (nit + amm) ) / (nit + amm + KN(bb))
+
+!-- Update the internal nitrogen store
+!_FLUX_VAR_B_(data%id_mag_in(mag_i)) =  _FLUX_VAR_B_(data%id_mag_in(mag_i))&
+!                                      +  nu * malg
+IF(data%malgs(cgm)%simINDynamics/=0) &
+_STATE_VAR_S_(data%id_inben(cgm)) =  0.9 * data%malgs(cgm)%X_nmax * malg
+
+
+!---------------------------------------------------------------------------
+!-- As base of filaments dies, sloughing of live cells into the water occurs
+
+
+!-------------------------------------------------------------------------
+!-- Now light and temperature function for photosynthesis
+
+temp = AvgTemp
+lght = macroPAR_Bot  !MIN(600.0,AvgLight)/1235.0      ! Capped at 600: Higgins et al 2006
+pplt = PhotoRate(lght,temp)
+pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
+
+!-------------------------------------------------------------------------
+!-- Now light and temperature function for daytime respiration
+
+! Total respiration = RIT + Rbasal (1/hr)
+fRIT = RespRate(lght,temp);
+Rb = BasalResp(temp);
+rf = (data%malgs(cgm)%R_resp * fRIT + Rb) ;
+
+pf_MB = pf-rf
+
+_DIAG_VAR_S_(data%id_slough_trig) = pf_MB
+
+IF(malg > data%malgs(cgm)%p0) THEN
+  !-- SloughTrigger = SloughTrigger + pf_MB * DTday
+  IF( pf_MB < 0 ) & 
+    _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday * secs_per_day)
+ENDIF
+
+sf = one_
+
+END SUBROUTINE cladophora_calculate_glcmv3
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+!###############################################################################
+SUBROUTINE cladophora_slough_glcmv3(data,column,layer_idx,cgm,slough_rate,L)
+  !-------------------------------------------------------------------------------
+  ! Compute the fraction of cladophora biomass that is detatched due to
+  !  sloughing if the stress is enough
+  !-------------------------------------------------------------------------------
+  !ARGUMENTS
+     CLASS (aed_macroalgae_data_t),INTENT(in) :: data
+     TYPE (aed_column_t),INTENT(inout) :: column(:)
+     INTEGER,INTENT(in) :: layer_idx,cgm
+     AED_REAL,INTENT(in) :: slough_rate
+     AED_REAL,INTENT(out) :: L
+  !
+  !LOCALS
+     ! Environment
+     AED_REAL :: yearday, depth
+     ! State
+     AED_REAL :: tstart, dark_days, slough_trigger
+     ! Parameters
+     AED_REAL :: Lmax, f1, f2, a, b, tend
+     AED_REAL, PARAMETER :: tdur = 30
+  !-------------------------------------------------------------------------------
+  !BEGIN
+  
+     yearday= _STATE_VAR_S_(data%id_yearday) 
+     depth  = _STATE_VAR_S_(data%id_depth) 
+
+     tstart = _DIAG_VAR_S_(data%id_slough_tsta)
+     dark_days = _DIAG_VAR_S_(data%id_slough_days)
+     slough_trigger = _DIAG_VAR_S_(data%id_slough_trig) ! Set in calculate_glcmv3/cgm
+
+     L = zero_
+
+     !-- Slough off weakened filaments (those with cumulative respiration excess)
+     Lmax = slough_rate  ! 0.08/d 
+  
+     ! Sloughing from physical factors
+     f1 = 0.4635 * exp(-0.3054 * depth)  + 0.5365;
+ 
+     IF( slough_trigger > 0.999 ) THEN
+      ! The whole day has been dark, with cumulative respiration deficit 
+      dark_days = dark_days + 1.
+     ELSE IF ( mod(yearday, 1.0) > (0.999-DTday) ) THEN
+      ! Its the end of the day, but slough trigger<1 : the darkness is over!
+      dark_days = zero_
+      tstart = zero_
+    ENDIF 
+  
+     !-- Check if resp or growth phase; if + clip to 0, else count days
+     IF(dark_days > 0.998 .and. dark_days < 1.002 ) THEN
+       tstart = yearday;
+     ELSEIF(dark_days > 1.) THEN
+       tend = tstart + tdur
+       a = 12/tdur
+       b = 6 * (tstart + tend) / (tstart - tend)
+       f2 = 1/ (1 + exp(-(a * yearday + b)))
+       L = Lmax * f1 * f2
+     ELSEIF(dark_days < 0.99)  THEN
+       f2 = zero_
+       L = zero_
+     ENDIF
+
+     _DIAG_VAR_S_(data%id_slough_days) = dark_days
+     _DIAG_VAR_S_(data%id_slough_tsta) = tstart
+  
+END SUBROUTINE cladophora_slough_glcmv3
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+!###############################################################################
+SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
+  !-------------------------------------------------------------------------------
+  ! Compute the fraction of cladophora biomass that is detatched due to
+  !  sloughing, if the stress is enough and depending on filament health
+  !-------------------------------------------------------------------------------
+  !ARGUMENTS
+     CLASS (aed_macroalgae_data_t),INTENT(in) :: data
+     TYPE (aed_column_t),INTENT(inout) :: column(:)
+     INTEGER,INTENT(in) :: layer_idx,cgm
+     AED_REAL,INTENT(in) :: slough_rate
+     AED_REAL,INTENT(out) :: L
+  !
+  !LOCALS
+     ! Environment
+     AED_REAL :: yearday, depth
+     ! State
+     AED_REAL :: malg, tstart, dark_days, slough_trigger
+     ! Parameters
+     AED_REAL :: Lmax, f1, f2, a, b, tend, tau_crit, X_maxp, bottom_stress, AvgStress
+     AED_REAL, PARAMETER :: tdur = 30
+     AED_REAL, PARAMETER :: tau_ref = 0.01
+  !-------------------------------------------------------------------------------
+  !BEGIN
+    
+    depth  = _STATE_VAR_S_(data%id_depth) 
+    tstart = _DIAG_VAR_S_(data%id_slough_tsta)
+    yearday = _STATE_VAR_S_(data%id_yearday) 
+    dark_days = _DIAG_VAR_S_(data%id_slough_days)
+    slough_trigger = _DIAG_VAR_S_(data%id_slough_trig)  ! Set in calculate_glcmv3/cgm
+
+    !----------------------------------------------------------------------------
+   !-- Retrieve current bottom shear stress condition within the cell
+   bottom_stress = MIN( _STATE_VAR_S_(data%id_taub), 10. )
+
+   !-- Update moving average for stress (averaged over the past 2 hrs)
+   IF ( data%simCGM >0 ) THEN
+      AvgStress = _DIAG_VAR_S_(data%id_tau_avg) &
+                * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
+      _DIAG_VAR_S_(data%id_tau_avg) = AvgStress
+   ELSE
+      AvgStress = 0.
+   ENDIF
+
+     
+    !-- Initialise slough rate estimate to zero
+    L = zero_
+
+    !-- Define maximum sloughing 
+    Lmax = slough_rate  ! 0.08/d 
+  
+    !-------------------------------------------------------------------------
+    !-- Physical controls on sloughing depends on shear and filament health
+    tau_crit =  MAX( data%malgs(cgm)%tau_0 * (one_ - MIN(dark_days/tdur,one_)), 0.005)
+
+    !-- Depth/ light based carrying capacity amount, computed empirically with
+    ! *0.25 to get from g DM to g C, /12 to get mol C, and 1e3 to get to mmol
+    
+    ! AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83 ! AvgLight in uE for CGM
+    ! X_maxp = ( 1.18 * AvgLight - 58.7 )  * data%malgs(cgm)%Xcc * 1e3 / 12.
+   ! Retrieve (local) cladophora in gDM/m2 (Xcc=1/0.25 to convert to DM)
+
+    malg = _STATE_VAR_S_(data%id_pben(cgm)) * (12. / 1e3) / data%malgs(cgm)%Xcc
+
+    X_maxp = 1230 * exp(-0.55 * depth) !* data%malgs(cgm)%Xcc * 1e3 / 12.
+
+    f1 = 0.3
+    IF(AvgStress>tau_crit) THEN
+      f1 = MIN( f1 + (AvgStress - tau_crit)/tau_ref * MIN( malg/MAX(X_maxp,data%malgs(cgm)%p0),one_ ), 5.)
+    ENDIF
+
+    !-------------------------------------------------------------------------
+    !-- Physiological controls on filament health and susceptibility to slough
+    IF( slough_trigger > 0.999 ) THEN
+      ! The whole day has been dark, with cumulative respiration deficit 
+      dark_days = dark_days + 1.
+     ELSE IF ( mod(yearday, 1.0) > (0.999-DTday)  ) THEN
+      ! Its the end of the day, but slough trigger<1 : the darkness is over!
+      dark_days = zero_
+      tstart = zero_
+    ENDIF 
+  
+     !-- Check if resp or growth phase; if + clip to 0, else count days
+     IF(dark_days > 0.998 .and. dark_days < 1.002 ) THEN
+       tstart = yearday;
+     ELSEIF(dark_days > 1.) THEN
+       tend = tstart + tdur
+       a = 12/tdur
+       b = 6 * (tstart + tend) / (tstart - tend)
+       f2 = 1/ (1 + exp(-(a * yearday + b)))
+       L = Lmax * f1 * f2
+     ELSEIF(dark_days < 0.99)  THEN
+       f2 = zero_
+       L = zero_
+     ENDIF
+
+     _DIAG_VAR_S_(data%id_slough_days) = dark_days
+     _DIAG_VAR_S_(data%id_slough_tsta) = tstart
+  
+END SUBROUTINE cladophora_slough_aed
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+!###############################################################################
+FUNCTION BasalResp(temp) RESULT(Rb)
+  !-------------------------------------------------------------------------------
+  !% Kuzynski et al. (2020)
+  !-------------------------------------------------------------------------------
+  !ARGUMENTS
+  AED_REAL,INTENT(in) :: temp
+  AED_REAL :: Rb
+
+  AED_REAL, PARAMETER :: Rb_a = 0.07
+  AED_REAL, PARAMETER :: Rb_Theta = 1.04
+
+  Rb = Rb_a * Rb_Theta ** (temp - 20.)
+
+END FUNCTION BasalResp
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!###############################################################################
+FUNCTION RespRate(lgt,temp) RESULT(fRIT)
+  !-------------------------------------------------------------------------------
+  !% Kuzynski et al. (2020)
+  !-------------------------------------------------------------------------------
+  !ARGUMENTS
+  AED_REAL,INTENT(in) :: lgt,temp
+  AED_REAL :: fRIT
+
+  AED_REAL :: Rmax, R_alpha
+  AED_REAL, PARAMETER :: R_a = 0.1
+  AED_REAL, PARAMETER :: R_Theta = 1.03
+  AED_REAL, PARAMETER :: R_T = 20
+  AED_REAL, PARAMETER :: R_alpha_a = 0.00168
+  AED_REAL, PARAMETER :: R_alpha_b = 2.5
+
+  AED_REAL, PARAMETER :: Rmax_modeled = 0.187
+
+  Rmax = R_a * R_Theta ** (temp - R_T);
+  R_alpha = R_alpha_a * (temp / (temp + R_alpha_b));
+
+  fRIT = (Rmax * (1 - exp(-R_alpha * lgt / Rmax))) / Rmax_modeled;
+
+END FUNCTION RespRate
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!###############################################################################
+FUNCTION PhotoRate(lgt,temp) RESULT(fuIT)
+!-------------------------------------------------------------------------------
+!% Kuzynski et al. (2020)
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+  AED_REAL,INTENT(in) :: lgt,temp
+  AED_REAL :: fuIT
+!
+!LOCALS
+  AED_REAL :: Pmax,u_alpha,u_beta
+
+  AED_REAL, PARAMETER :: Pmax_a    = 0.34;
+  AED_REAL, PARAMETER :: Pmax_b    = 3.1;
+  AED_REAL, PARAMETER :: u_alpha_a = 0.55;
+  AED_REAL, PARAMETER :: u_alpha_b = 0.001;
+  AED_REAL, PARAMETER :: u_alpha_c = 0.048;
+  AED_REAL, PARAMETER :: u_beta_a  = 1E-17;
+  AED_REAL, PARAMETER :: u_beta_b  = 9.3;
+
+  AED_REAL, PARAMETER :: umax_modeled = 0.28778;
+
+!-------------------------------------------------------------------------------
+!BEGIN
+
+  Pmax = Pmax_a * (temp / (temp + Pmax_b));
+  u_alpha = u_alpha_a * (1 - exp(-u_alpha_b * temp / u_alpha_a))  &
+          * exp(-u_alpha_c * temp / u_alpha_a);
+  u_beta = u_beta_a * temp ** u_beta_b;
+
+  fuIT = (Pmax * (1 - exp(-u_alpha * lgt / Pmax)) * exp(-u_beta * lgt / Pmax)) / umax_modeled;
+
+END FUNCTION PhotoRate
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
