@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2013 - 2022 -  The University of Western Australia               #
+!#  Copyright 2013 - 2023 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -43,6 +43,10 @@ MODULE aed_benthic
    USE aed_macroalgae
    USE aed_macroalgae2
    USE aed_habitat_benthic
+   USE aed_habitat_ruppia
+   USE aed_habitat_chara
+   USE aed_habitat_galaxiid
+   USE aed_habitat_seagrass
 
    IMPLICIT NONE
 
@@ -73,11 +77,15 @@ FUNCTION aed_new_ben_model(modelname) RESULT(model)
    NULLIFY(model)
 
    SELECT CASE (modelname)
-      CASE ('aed_bivalve');         prefix = 'BIV'; ALLOCATE(aed_bivalve_data_t::model)
-      CASE ('aed_macroalgae');      prefix = 'MAG'; ALLOCATE(aed_macroalgae_data_t::model)
-      CASE ('aed_macroalgae2');     prefix = 'MA2'; ALLOCATE(aed_macroalgae2_data_t::model)
-      CASE ('aed_macrophyte');      prefix = 'MAC'; ALLOCATE(aed_macrophyte_data_t::model)
-      CASE ('aed_habitat_benthic'); prefix = 'HAB'; ALLOCATE(aed_habitat_benthic_data_t::model)
+      CASE ('aed_bivalve');          prefix = 'BIV'; ALLOCATE(aed_bivalve_data_t::model)
+      CASE ('aed_macroalgae');       prefix = 'MAG'; ALLOCATE(aed_macroalgae_data_t::model)
+      CASE ('aed_macroalgae2');      prefix = 'MA2'; ALLOCATE(aed_macroalgae2_data_t::model)
+      CASE ('aed_macrophyte');       prefix = 'MAC'; ALLOCATE(aed_macrophyte_data_t::model)
+      CASE ('aed_habitat_benthic');  prefix = 'HAB'; ALLOCATE(aed_habitat_benthic_data_t::model)
+      CASE ('aed_habitat_ruppia');   prefix = 'HBR'; ALLOCATE(aed_habitat_ruppia_data_t::model)
+      CASE ('aed_habitat_chara');    prefix = 'HBC'; ALLOCATE(aed_habitat_chara_data_t::model)
+      CASE ('aed_habitat_galaxiid'); prefix = 'HBG'; ALLOCATE(aed_habitat_galaxiid_data_t::model)
+      CASE ('aed_habitat_seagrass'); prefix = 'HBS'; ALLOCATE(aed_habitat_seagrass_data_t::model)
    END SELECT
 
    IF (ASSOCIATED(model)) THEN

@@ -9,7 +9,7 @@
 #                                                                             #
 #      http://aquatic.science.uwa.edu.au/                                     #
 #                                                                             #
-#  Copyright 2013 - 2022 -  The University of Western Australia               #
+#  Copyright 2013 - 2023 -  The University of Western Australia               #
 #                                                                             #
 #   AED is free software: you can redistribute it and/or modify               #
 #   it under the terms of the GNU General Public License as published by      #
@@ -111,6 +111,10 @@ endif
 
 OBJS=${objdir}/aed_bivalve.o \
      ${objdir}/aed_habitat_benthic.o \
+     ${objdir}/aed_habitat_ruppia.o \
+     ${objdir}/aed_habitat_chara.o \
+     ${objdir}/aed_habitat_galaxiid.o \
+     ${objdir}/aed_habitat_seagrass.o \
      ${objdir}/aed_macroalgae.o \
      ${objdir}/aed_macroalgae2.o \
      ${objdir}/aed_macrophyte.o \
