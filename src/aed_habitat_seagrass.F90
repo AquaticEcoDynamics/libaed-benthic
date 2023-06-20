@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2021 - 2023 -  The University of Western Australia               #
+!#  Copyright 2023 - The University of Western Australia                       #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -26,7 +26,7 @@
 !#                                                                             #
 !#   -----------------------------------------------------------------------   #
 !#                                                                             #
-!# Created March 2021                                                          #
+!# Created March 2023                                                          #
 !#                                                                             #
 !###############################################################################
 
@@ -36,7 +36,6 @@
 MODULE aed_habitat_seagrass
 !-------------------------------------------------------------------------------
 ! aed_habitat_seagrass --- seagrass habitat model
-!
 !-------------------------------------------------------------------------------
    USE aed_core
    USE aed_util
@@ -46,6 +45,25 @@ MODULE aed_habitat_seagrass
    PRIVATE
 !
    PUBLIC aed_habitat_seagrass_data_t
+!
+   TYPE :: env_t
+      AED_REAL :: env
+      AED_REAL :: value
+   END TYPE
+
+   TYPE :: env_var_t
+      CHARACTER(40) :: name
+      INTEGER :: id_env
+      INTEGER :: n_env
+      TYPE(env_t),ALLOCATABLE :: envs(:)
+   END TYPE
+
+   TYPE :: seagrass_params_t
+      CHARACTER(40) :: name
+      INTEGER :: n_funcs
+      TYPE(env_var_t),ALLOCATABLE :: funcs(:)
+   END TYPE
+
 !
    TYPE,extends(aed_model_data_t) :: aed_habitat_seagrass_data_t
       INTEGER :: num_habitats
@@ -64,7 +82,7 @@ MODULE aed_habitat_seagrass
 
       !# Environment variables
       INTEGER :: id_E_temp, id_E_salt, id_E_bathy, id_E_matz, id_E_depth
-      INTEGER :: id_E_nearlevel, id_E_extc, id_E_Io, id_E_stress, id_E_airtemp
+      INTEGER :: id_E_nearlevel, id_E_extc, id_E_Io !, id_E_stress, id_E_airtemp
 
       !# Model switches
 !     LOGICAL :: simBirdForaging,simBenthicProd,simFishTolerance,simGalaxiidSpawning
@@ -74,6 +92,9 @@ MODULE aed_habitat_seagrass
 !     LOGICAL :: simCrocEggs,simPassiflora
       INTEGER :: simRuppiaHabitat
 
+      INTEGER :: n_grasses
+      TYPE(seagrass_params_t),ALLOCATABLE :: grasses(:)
+
       !# Model parameters
       AED_REAL, ALLOCATABLE :: mtox_lims(:)
       INTEGER :: num_mtox
@@ -82,7 +103,7 @@ MODULE aed_habitat_seagrass
      CONTAINS
          PROCEDURE :: define             => aed_define_habitat_seagrass
 !        PROCEDURE :: calculate          => aed_calculate_habitat_seagrass
-!        PROCEDURE :: calculate_seagrass  => aed_calculate_benthic_habitat_seagrass
+!        PROCEDURE :: calculate_seagrass => aed_calculate_benthic_habitat_seagrass
          PROCEDURE :: calculate_riparian => aed_calculate_riparian_habitat_seagrass
 !        PROCEDURE :: mobility           => aed_mobility_habitat_seagrass
 !        PROCEDURE :: light_extinction   => aed_light_extinction_habitat_seagrass
@@ -93,16 +114,182 @@ MODULE aed_habitat_seagrass
 !-------------------------------------------------------------------------------
 !MODULE VARIABLES
    AED_REAL, PARAMETER :: DDT = 0.25/24.    ! Currently assuming 15 min timestep
-   LOGICAL :: extra_diag = .false.
-   INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
-                                             ! 1 = basic diagnostic outputs
-                                             ! 2 = flux rates, and supporitng
-                                             ! 3 = other metrics
-                                             !10 = all debug & checking outputs
+   INTEGER :: diag_level = 10               ! 0 = no diagnostic outputs
+                                            ! 1 = basic diagnostic outputs
+                                            ! 2 = flux rates, and supporitng
+                                            ! 3 = other metrics
+                                            !10 = all debug & checking outputs
 
 !===============================================================================
 CONTAINS
 
+
+!###############################################################################
+INTEGER FUNCTION load_csv(dbase, seagrass_param, dbsize)
+!-------------------------------------------------------------------------------
+   USE aed_csv_reader
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CHARACTER(len=*),INTENT(in) :: dbase
+   TYPE(seagrass_params_t),INTENT(out) :: seagrass_param(:)
+   INTEGER,INTENT(out) :: dbsize
+!
+!LOCALS
+   INTEGER :: unit, nccols
+   CHARACTER(len=32) :: name
+   TYPE(AED_SYMBOL),DIMENSION(:),ALLOCATABLE :: values
+   LOGICAL :: meh, start
+   INTEGER :: n_grs = 0, g_no, i, n, env_no = 0
+!
+!BEGIN
+!-------------------------------------------------------------------------------
+   dbsize = 0
+   unit = aed_rcsv_open(dbase, nccols)
+   IF (unit <= 0) THEN
+      load_csv = -1
+      RETURN !# No file found
+   ENDIF
+
+   ALLOCATE(values(nccols))
+
+   !# Do one pass to count the number of entries
+   start = .true.
+   DO WHILE ( aed_rcsv_read_row(unit, values) > 0 )
+      IF (values(1)%length > 0) THEN
+         CALL copy_name(values(1), name)
+         IF ( start ) THEN
+            print *,"Counting: ", name
+            n_grs = n_grs + 1
+         ENDIF
+         start = .false.
+      ELSE
+         start = .true.
+      ENDIF
+   ENDDO
+   print*,"load_csv found ",n_grs," entries"
+
+   meh = aed_rcsv_close(unit)
+   !# don't care if close fails
+
+   !# Now a second pass to actually read the data
+   unit = aed_rcsv_open(dbase, nccols)
+   IF (unit <= 0) THEN
+      load_csv = -1
+      RETURN !# No file found
+   ENDIF
+
+   start = .true. ; g_no = 0
+   DO WHILE ( g_no < n_grs )
+      n = aed_rcsv_read_row(unit, values)
+      IF (values(1)%length > 0) THEN
+         ! do some stuff ....
+         CALL copy_name(values(1), name)
+         IF ( start ) THEN
+            print *,"Decoding: ", name
+            g_no = g_no + 1
+            n = aed_rcsv_read_row(unit, values) ! probbaly a comment, should check
+            CALL copy_name(values(1), name)
+            IF ( name(1:1) == '!' ) THEN
+               n = aed_rcsv_read_row(unit, values)
+            ENDIF
+            CALL copy_name(values(1), seagrass_param(g_no)%name)
+            seagrass_param(g_no)%n_funcs = (n / 2)
+            ALLOCATE(seagrass_param(g_no)%funcs(seagrass_param(g_no)%n_funcs))
+            DO i = 1, seagrass_param(g_no)%n_funcs
+               CALL copy_name(values((i*2)-1), seagrass_param(g_no)%funcs(i)%name)
+               seagrass_param(g_no)%funcs(i)%id_env = 0
+            ENDDO
+            seagrass_param(g_no)%funcs(i)%n_env = extract_integer(values(i*2))
+            ALLOCATE(seagrass_param(g_no)%funcs(i)%envs(seagrass_param(g_no)%funcs(i)%n_env))
+            env_no = 0
+         ELSE
+            env_no = env_no + 1
+            DO i = 1, seagrass_param(g_no)%n_funcs
+               IF ( env_no <= seagrass_param(g_no)%funcs(i)%n_env ) THEN
+                  seagrass_param(g_no)%funcs(i)%envs(env_no)%env   = extract_double(values((i*2)-1))
+                  seagrass_param(g_no)%funcs(i)%envs(env_no)%value = extract_double(values((i*2)))
+               ENDIF
+            ENDDO
+         ENDIF
+         start = .false.
+      ELSE
+         start = .true.
+      ENDIF
+   ENDDO
+
+   meh = aed_rcsv_close(unit)
+   !# don't care if close fails
+
+   IF (ALLOCATED(values)) DEALLOCATE(values)
+
+   dbsize = n_grs
+   load_csv = 0
+END FUNCTION load_csv
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+!###############################################################################
+SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_habitat_seagrass_data_t),INTENT(inout) :: data
+   CHARACTER(len=*),INTENT(in) :: dbase
+   INTEGER,INTENT(in)          :: count   !Number of seagrass groups
+   CHARACTER(40),INTENT(in)    :: list(*) !List of seagrass groups to simulate
+!
+!LOCALS
+   INTEGER  :: status
+   INTEGER  :: i, j, k, dbsize
+
+   TYPE(seagrass_params_t),ALLOCATABLE :: seagrass_param(:)
+!-------------------------------------------------------------------------------
+!BEGIN
+    dbsize = MAX_BVLV_TYPES !# nml cant give us a dbsize (maybe need to check name?)
+    ALLOCATE(seagrass_param(MAX_BVLV_TYPES))
+
+    IF (param_file_type(dbase) == CSV_TYPE ) THEN
+       status = load_csv(dbase, seagrass_param, dbsize)
+    ELSE
+       print *,'Unknown file type "',TRIM(dbase),'"'; status=1
+    ENDIF
+
+    IF (status /= 0) STOP 'Error reading seagrass database'
+
+    ALLOCATE(data%grasses(count))
+    DO i=1,count
+       DO j=1,dbsize
+          IF ( list(i) == seagrass_param(j)%name ) THEN
+             data%grasses(i) = seagrass_param(j)
+             seagrass_param(j)%name = ''
+             DO K=1,seagrass_param(j)%n_funcs
+                data%grasses(i)%funcs(k)%id_env = &
+                              aed_locate_global(data%grasses(i)%funcs(k)%name)
+             ENDDO
+          ENDIF
+       ENDDO
+    ENDDO
+
+    !# Now cleanup the unused database entries
+    DO j=1,dbsize
+       IF ( seagrass_param(j)%name /= '' ) THEN
+          DO K=1,seagrass_param(j)%n_funcs
+             DEALLOCATE(seagrass_param(j)%funcs(k)%envs)
+          ENDDO
+          DEALLOCATE(seagrass_param(j)%funcs)
+       ENDIF
+    ENDDO
+
+    DO i=1,count
+       print*,"Grass Name: ", TRIM(data%grasses(i)%name)
+       print*,"Funcs:"
+       DO k=1,data%grasses(i)%n_funcs
+          print*,"   name: ",data%grasses(i)%funcs(k)%name
+       ENDDO
+    ENDDO
+
+    DEALLOCATE(seagrass_param)
+END SUBROUTINE aed_seagrass_load_params
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 !###############################################################################
@@ -118,32 +305,26 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    CLASS (aed_habitat_seagrass_data_t),INTENT(inout) :: data
 !
 !LOCALS
-   INTEGER :: i, z, status, num_mtox
+   INTEGER :: i, status, num_mtox
 
 !  %% NAMELIST   %%  /aed_habitat_seagrass/
-   LOGICAL           :: simBenthicProd = .FALSE.
-   LOGICAL           :: simCyanoRisk = .FALSE.
-   LOGICAL           :: simMetalTox = .FALSE.
-   INTEGER           :: simRuppiaHabitat = 1
-   AED_REAL          :: mtox_lims(10)
-   CHARACTER(len=40) :: mtox_vars(10)
+   LOGICAL            :: simBenthicProd = .FALSE.
+   LOGICAL            :: simCyanoRisk = .FALSE.
+   LOGICAL            :: simMetalTox = .FALSE.
+   INTEGER            :: simRuppiaHabitat = 1
+   AED_REAL           :: mtox_lims(10)
+   CHARACTER(len=40)  :: mtox_vars(10)
+
+   CHARACTER(len=30)  :: seagrass_list(10)
+   CHARACTER(len=128) :: dbase = 'seagrass_threshold.csv'
 
 ! %% From Module Globals
-!  LOGICAL :: extra_diag = .false.      !## Obsolete Use diag_level = 10
 !  INTEGER :: diag_level = 10
 !  %% END NAMELIST   %%  /aed_habitat_seagrass/
 
-   CHARACTER(len=64) :: bird_acid_link, bird_habs_link, bird_aass_link, bird_rveg_link, bird_bveg_link
-   CHARACTER(len=64) :: fshsi_veg_link, fshsi_oxy_link, fshsi_otrc_link
-   CHARACTER(len=64) :: chsi_otrc_link, chsi_oxy_link, chsi_veg_link
-   CHARACTER(len=64) :: chhsi_salg_link,chhsi_falg_link
-   CHARACTER(len=64) :: chhsi_ncs1_link,chhsi_ncs2_link,chhsi_tau0_link
-   CHARACTER(len=64) :: crhsi_ncs1_link,crhsi_ncs2_link
-   CHARACTER(len=64) :: crhsi_stmp_link,crhsi_svwc_link,crhsi_pass_link
-   CHARACTER(len=64) :: pshsi_stmp_link,pshsi_svwc_link,pshsi_veg1_link,pshsi_veg2_link
-   CHARACTER(len=64) :: pshsi_ncs1_link, pshsi_ncs2_link
+   INTEGER :: n_grasses
+
    CHARACTER(len=64) :: rhsi_salg_link, rhsi_falg_link
-   CHARACTER(len=40) :: mtox_acid_link, mtox_aass_link
 
    NAMELIST /aed_habitat_seagrass/ &
                            simBenthicProd,   &
@@ -151,7 +332,8 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
                            simRuppiaHabitat, &
                            simMetalTox, mtox_vars, mtox_lims,   &
                            rhsi_falg_link, rhsi_salg_link,      &
-                           extra_diag, diag_level
+                           dbase, n_grasses, seagrass_list,     &
+                           diag_level
 !
 !-------------------------------------------------------------------------------
 !BEGIN
@@ -171,8 +353,6 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
 
    print *,"          ... # habitat templates simulated: ",data%num_habitats
 
-   IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
-
    !----------------------------------------------------------------------------
    ! Define variables and dependencies
 
@@ -181,8 +361,8 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    IF( simMetalTox ) THEN
      data%id_mtox =  aed_define_sheet_diag_variable('toxicity','-', 'Suitability')
 
-     mtox_acid_link = 'CAR_pH'
-     mtox_aass_link = 'ASS_uzaass'
+!    mtox_acid_link = 'CAR_pH'
+!    mtox_aass_link = 'ASS_uzaass'
 
      mtox_vars = '' ;  mtox_lims = 1.0
      num_mtox = 0
@@ -204,11 +384,7 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    data%id_rhtr =  aed_define_sheet_diag_variable('seagrass_hsi_turion', '-', 'Ruppia Habitat Suitability - turion formation')
    data%id_rhsp =  aed_define_sheet_diag_variable('seagrass_hsi_sprout', '-', 'Ruppia Habitat Suitability - turion sprouting')
    data%id_rhtd =  aed_define_sheet_diag_variable('seagrass_hsi_dormant','-', 'Ruppia Habitat Suitability - turion viability')
-  !data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
-  !data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
 
-!    rhsi_falg_link = 'MAG_ulva_ben'
-!    rhsi_salg_link = 'MAG_ulva'
    IF (rhsi_falg_link .EQ. "") THEN
        STOP 'need to set rhsi_falg_link and rhsi_salg_link'
    ENDIF
@@ -240,6 +416,12 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
    data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
 
+   ! Register variables and store parameter values in our own derived type
+   ! NB: all rates must be provided in values per day,
+   ! and are converted in aed_seagrass_load_params to values per second.
+   data%n_grasses = 0
+   CALL aed_seagrass_load_params(data, dbase, n_grasses, seagrass_list)
+
    ! Register environmental dependencies
    data%id_E_salt  = aed_locate_global('salinity')
    data%id_E_extc  = aed_locate_global('extc_coef')
@@ -248,8 +430,8 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    data%id_E_bathy     = aed_locate_sheet_global('bathy')
    data%id_E_matz      = aed_locate_sheet_global('material')
    data%id_E_Io        = aed_locate_sheet_global('par_sf')
-   data%id_E_airtemp   = aed_locate_sheet_global('air_temp')
-   data%id_E_stress    = aed_locate_sheet_global('taub')
+!  data%id_E_airtemp   = aed_locate_sheet_global('air_temp')
+!  data%id_E_stress    = aed_locate_sheet_global('taub')
   !data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
 END SUBROUTINE aed_define_habitat_seagrass
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -269,15 +451,18 @@ SUBROUTINE aed_calculate_riparian_habitat_seagrass(data,column,layer_idx,pc_wet)
 !
 !LOCALS
    ! Environment
-   AED_REAL :: temp, salt, wlevel, extc, bathy, matz, Io, Ig, vel, stress, tau0, stem05, stem25
+!  AED_REAL :: temp, salt, wlevel, extc, bathy, matz, Io, vel, stress, tau0, stem05, stem25
+   AED_REAL :: temp, salt, extc, Io, matz, vel
 
    ! State
-   AED_REAL :: depth, ph, hab, sdepth, uzaass, aass, conc, mtox, turb, grav, stem, svwc
+!  AED_REAL :: depth, ph, hab, sdepth, uzaass, aass, conc, mtox, turb, grav, stem, svwc
+   AED_REAL :: depth
 
    ! Temporary variables
    INTEGER  :: i
-   AED_REAL :: bird_acid, bird_soil, bird_rveg, bird_bveg, bird_salt, bird_dept, bird_habs
-   AED_REAL :: euphotic, drytime, light
+!  AED_REAL :: bird_acid, bird_soil, bird_rveg, bird_bveg, bird_salt, bird_dept, bird_habs
+!  AED_REAL :: euphotic, drytime, light
+   AED_REAL :: euphotic
 
    ! Parameters
    AED_REAL, PARAMETER :: crit_soil_acidity = 100.000
@@ -289,16 +474,17 @@ SUBROUTINE aed_calculate_riparian_habitat_seagrass(data,column,layer_idx,pc_wet)
    AED_REAL, PARAMETER :: crit_leg_depth = 0.12
    AED_REAL, PARAMETER :: crit_hab_conc = 500.
 
-   AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem
+!  AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem
 
    AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp =0.,falg,rhtd=1.0
-   AED_REAL :: pshpl, pshfl, pshsd, pass, height
-   AED_REAL :: crns = 0.,creg = 0.,crht = 0.,crml = 0.
+!  AED_REAL :: pshpl, pshfl, pshsd, pass, height
+!  AED_REAL :: crns = 0.,creg = 0.,crht = 0.,crml = 0.
    AED_REAL :: limitation(6,6)
 
 !-------------------------------------------------------------------------------
 !BEGIN
-    matz = 0.0 ; salt = 0.0 ; euphotic = 0.0 ; bathy = 0.0  !## CAB [-Wmaybe-uninitialized]
+!   matz = 0.0 ; salt = 0.0 ; euphotic = 0.0 ; bathy = 0.0  !## CAB [-Wmaybe-uninitialized]
+    matz = 0.0 ; euphotic = 0.0  !## CAB [-Wmaybe-uninitialized]
 
     depth = _STATE_VAR_(data%id_E_depth)  ! metres
     salt  = _STATE_VAR_(data%id_E_salt)   ! salinity g/L
@@ -311,7 +497,8 @@ SUBROUTINE aed_calculate_riparian_habitat_seagrass(data,column,layer_idx,pc_wet)
 
     CALL seagrass_habitat_suitability(data,&
                                     rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,&
-                                    depth,salt,temp,extc,falg,Io,vel,pc_wet,&
+                                  ! depth,salt,temp,extc,falg,Io,vel,pc_wet,&
+                                    depth,salt,temp,extc,falg,pc_wet,&
                                     limitation)
 
     _DIAG_VAR_S_(data%id_rhpl) = rhpl
@@ -349,14 +536,16 @@ END SUBROUTINE aed_calculate_riparian_habitat_seagrass
 
 
 !###############################################################################
-SUBROUTINE seagrass_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,salt,temp,extc,fa,Io,vel,pc_wet,limitation)
+!SUBROUTINE seagrass_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,salt,temp,extc,fa,Io,vel,pc_wet,limitation)
+SUBROUTINE seagrass_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,salt,temp,extc,fa,pc_wet,limitation)
 !-------------------------------------------------------------------------------
 ! Get the light extinction coefficient due to biogeochemical variables
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CLASS (aed_habitat_seagrass_data_t),INTENT(in) :: data
    AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp,rhtd
-   AED_REAL :: depth,salt,temp,extc,fa,Io,vel,pc_wet
+!  AED_REAL :: depth,salt,temp,extc,fa,Io,vel,pc_wet
+   AED_REAL :: depth,salt,temp,extc,fa,pc_wet
    AED_REAL :: limitation(:,:)
 !
 !LOCALS
