@@ -8,7 +8,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2017 - 2022 -  The University of Western Australia               #
+!#  Copyright 2017 - 2023 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -38,11 +38,10 @@ MODULE aed_macroalgae
 !  aed_macroalgae --- macroalgae biogeochemical model
 !-------------------------------------------------------------------------------
    USE aed_core
-   USE aed_util,ONLY : find_free_lun, &
-                        exp_integral, &
-                        aed_bio_temp_function, &
-                        fTemp_function,fSal_function, &
-                        water_viscosity, in_zone_set
+   USE aed_util,ONLY : exp_integral, &
+                       aed_bio_temp_function, &
+                       fTemp_function,fSal_function, &
+                       water_viscosity, in_zone_set
    USE aed_bio_utils
 
    IMPLICIT NONE
@@ -262,8 +261,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
            status = load_csv(dbase, pd)
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
-           tfil = find_free_lun()
-           open(tfil,file=dbase, status='OLD', iostat=status)
+           open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
            IF (status /= 0) STOP 'Cannot open malgae_data namelist file: ' !,dbase
            read(tfil,nml=malgae_data,iostat=status)
            close(tfil)

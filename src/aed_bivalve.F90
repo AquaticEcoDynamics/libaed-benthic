@@ -11,7 +11,7 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015 - 2022 -  The University of Western Australia               #
+!#  Copyright 2015 - 2023 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -298,8 +298,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
            bivalve_param%name = ''
-           tfil = find_free_lun()
-           open(tfil,file=dbase, status='OLD',iostat=status)
+           open(NEWUNIT=tfil,file=dbase, status='OLD',iostat=status)
            IF (status /= 0) STOP 'Error opening bivalves_params namelist file'
            read(tfil,nml=bivalve_params,iostat=status)
            close(tfil)
