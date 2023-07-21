@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2015 - 2022 -  The University of Western Australia               #
+!#  Copyright 2015 - 2023 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -131,7 +131,7 @@ INTEGER FUNCTION load_csv(dbase, md)
    TYPE(macrophyte_params_t) :: md(MAX_PHYTO_TYPES)
 !
 !LOCALS
-   INTEGER :: unit, nccols, ccol
+   INTEGER :: unit, nccols, ccol, dcol
    CHARACTER(len=32),POINTER,DIMENSION(:) :: csvnames
    CHARACTER(len=32) :: name
    TYPE(AED_SYMBOL),DIMENSION(:),ALLOCATABLE :: values
@@ -150,36 +150,37 @@ INTEGER FUNCTION load_csv(dbase, md)
 
    DO WHILE ( aed_csv_read_row(unit, values) )
       DO ccol=2,nccols
-         md(ccol)%m_name = csvnames(ccol)
+         dcol = ccol-1
+         md(dcol)%m_name = csvnames(ccol)
 
          CALL copy_name(values(1), name)
          SELECT CASE (name)
-            CASE ('m0')           ; md(ccol)%m0           = extract_double(values(ccol))
-            CASE ('R_growth')     ; md(ccol)%R_growth     = extract_double(values(ccol))
-            CASE ('fT_Method')    ; md(ccol)%fT_Method    = extract_integer(values(ccol))
-            CASE ('theta_growth') ; md(ccol)%theta_growth = extract_double(values(ccol))
-            CASE ('T_std')        ; md(ccol)%T_std        = extract_double(values(ccol))
-            CASE ('T_opt')        ; md(ccol)%T_opt        = extract_double(values(ccol))
-            CASE ('T_max')        ; md(ccol)%T_max        = extract_double(values(ccol))
-            CASE ('lightModel')   ; md(ccol)%lightModel   = extract_integer(values(ccol))
-            CASE ('I_K')          ; md(ccol)%I_K          = extract_double(values(ccol))
-            CASE ('I_S')          ; md(ccol)%I_S          = extract_double(values(ccol))
-            CASE ('KeMAC')        ; md(ccol)%KeMAC        = extract_double(values(ccol))
-            CASE ('f_pr')         ; md(ccol)%f_pr         = extract_double(values(ccol))
-            CASE ('R_resp')       ; md(ccol)%R_resp       = extract_double(values(ccol))
-            CASE ('theta_resp')   ; md(ccol)%theta_resp   = extract_double(values(ccol))
-            CASE ('salTol')       ; md(ccol)%salTol       = extract_integer(values(ccol))
-            CASE ('S_bep')        ; md(ccol)%S_bep        = extract_double(values(ccol))
-            CASE ('S_maxsp')      ; md(ccol)%S_maxsp      = extract_double(values(ccol))
-            CASE ('S_opt')        ; md(ccol)%S_opt        = extract_double(values(ccol))
-            CASE ('K_CD')         ; md(ccol)%K_CD         = extract_double(values(ccol))
-            CASE ('f_bg')         ; md(ccol)%f_bg         = extract_double(values(ccol))
-            CASE ('k_omega')      ; md(ccol)%k_omega      = extract_double(values(ccol))
-            CASE ('Xcc')          ; md(ccol)%Xcc          = extract_double(values(ccol))
-            CASE ('K_N')          ; md(ccol)%K_N          = extract_double(values(ccol))
-            CASE ('X_ncon')       ; md(ccol)%X_ncon       = extract_double(values(ccol))
-            CASE ('K_P')          ; md(ccol)%K_P          = extract_double(values(ccol))
-            CASE ('X_pcon')       ; md(ccol)%X_pcon       = extract_double(values(ccol))
+            CASE ('m0')           ; md(dcol)%m0           = extract_double(values(ccol))
+            CASE ('R_growth')     ; md(dcol)%R_growth     = extract_double(values(ccol))
+            CASE ('fT_Method')    ; md(dcol)%fT_Method    = extract_integer(values(ccol))
+            CASE ('theta_growth') ; md(dcol)%theta_growth = extract_double(values(ccol))
+            CASE ('T_std')        ; md(dcol)%T_std        = extract_double(values(ccol))
+            CASE ('T_opt')        ; md(dcol)%T_opt        = extract_double(values(ccol))
+            CASE ('T_max')        ; md(dcol)%T_max        = extract_double(values(ccol))
+            CASE ('lightModel')   ; md(dcol)%lightModel   = extract_integer(values(ccol))
+            CASE ('I_K')          ; md(dcol)%I_K          = extract_double(values(ccol))
+            CASE ('I_S')          ; md(dcol)%I_S          = extract_double(values(ccol))
+            CASE ('KeMAC')        ; md(dcol)%KeMAC        = extract_double(values(ccol))
+            CASE ('f_pr')         ; md(dcol)%f_pr         = extract_double(values(ccol))
+            CASE ('R_resp')       ; md(dcol)%R_resp       = extract_double(values(ccol))
+            CASE ('theta_resp')   ; md(dcol)%theta_resp   = extract_double(values(ccol))
+            CASE ('salTol')       ; md(dcol)%salTol       = extract_integer(values(ccol))
+            CASE ('S_bep')        ; md(dcol)%S_bep        = extract_double(values(ccol))
+            CASE ('S_maxsp')      ; md(dcol)%S_maxsp      = extract_double(values(ccol))
+            CASE ('S_opt')        ; md(dcol)%S_opt        = extract_double(values(ccol))
+            CASE ('K_CD')         ; md(dcol)%K_CD         = extract_double(values(ccol))
+            CASE ('f_bg')         ; md(dcol)%f_bg         = extract_double(values(ccol))
+            CASE ('k_omega')      ; md(dcol)%k_omega      = extract_double(values(ccol))
+            CASE ('Xcc')          ; md(dcol)%Xcc          = extract_double(values(ccol))
+            CASE ('K_N')          ; md(dcol)%K_N          = extract_double(values(ccol))
+            CASE ('X_ncon')       ; md(dcol)%X_ncon       = extract_double(values(ccol))
+            CASE ('K_P')          ; md(dcol)%K_P          = extract_double(values(ccol))
+            CASE ('X_pcon')       ; md(dcol)%X_pcon       = extract_double(values(ccol))
 
             CASE DEFAULT ; print *, 'Unknown row "', TRIM(name), '"'
          END SELECT
@@ -219,8 +220,7 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
        CASE (CSV_TYPE)
            status = load_csv(dbase, md)
        CASE (NML_TYPE)
-           tfil = find_free_lun()
-           open(tfil,file=dbase, status='OLD', iostat=status)
+           open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
            IF (status /= 0) STOP 'Cannot open macrophyte_data namelist file for macrophytes'
            read(tfil,nml=macrophyte_data,iostat=status)
            close(tfil)
@@ -268,7 +268,7 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
 
        ! Register group as a state variable
        data%id_mphy(i) = aed_define_sheet_variable(                    &
-                              md(list(i))%m_name,                      &
+                              TRIM(md(list(i))%m_name),                &
                               'mmol C/m2', 'macrophyte biomass',       &
                               md(list(i))%m0,                          &
                               minimum=zero_)
@@ -375,35 +375,6 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
 END SUBROUTINE aed_define_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-#if 0
-!# Already in aed_util
-!###############################################################################
-LOGICAL FUNCTION in_zone_set(matz, active_zones)
-!-------------------------------------------------------------------------------
-!ARGUMENTS
-   AED_REAL,INTENT(in) :: matz
-   AED_REAL,INTENT(in) :: active_zones(:)
-!
-!LOCALS
-   INTEGER :: i, l
-   LOGICAL :: res
-!BEGIN
-!-------------------------------------------------------------------------------
-   res = .FALSE.
-   l = size(active_zones)
-   DO i=1,l
-      IF ( active_zones(i) == matz ) THEN
-         res = .TRUE.
-         EXIT
-      ENDIF
-   ENDDO
-
-   in_zone_set = res
-END FUNCTION in_zone_set
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#endif
 
 
 !###############################################################################

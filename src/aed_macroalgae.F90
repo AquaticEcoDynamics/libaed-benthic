@@ -8,7 +8,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2017 - 2022 -  The University of Western Australia               #
+!#  Copyright 2017 - 2023 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -38,11 +38,10 @@ MODULE aed_macroalgae
 !  aed_macroalgae --- macroalgae biogeochemical model
 !-------------------------------------------------------------------------------
    USE aed_core
-   USE aed_util,ONLY : find_free_lun, &
-                        exp_integral, &
-                        aed_bio_temp_function, &
-                        fTemp_function,fSal_function, &
-                        water_viscosity, in_zone_set
+   USE aed_util,ONLY : exp_integral, &
+                       aed_bio_temp_function, &
+                       fTemp_function,fSal_function, &
+                       water_viscosity, in_zone_set
    USE aed_bio_utils
 
    IMPLICIT NONE
@@ -262,8 +261,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
            status = load_csv(dbase, pd)
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
-           tfil = find_free_lun()
-           open(tfil,file=dbase, status='OLD', iostat=status)
+           open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
            IF (status /= 0) STOP 'Cannot open malgae_data namelist file: ' !,dbase
            read(tfil,nml=malgae_data,iostat=status)
            close(tfil)
@@ -376,7 +374,8 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
            data%simCGM = i
             ! If sloughing is requested for CGM force to 2 ... for now
            IF(data%simSloughing>0) data%simSloughing = 2
-           IF(data%simSloughing>0 .and. (data%malgs(i)%slough_model < 2 .or. data%malgs(i)%slough_model > 4)) data%malgs(i)%slough_model = 2
+           IF(data%simSloughing>0 .and. (data%malgs(i)%slough_model < 2 .or. data%malgs(i)%slough_model > 4)) &
+              data%malgs(i)%slough_model = 2
        ENDIF
 
        !-- Group requires a water column / pelagic pool
@@ -1666,14 +1665,18 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
          ! Now apply the rate of sloughing to the benthic biomass variable, and add to water pool
          _FLUX_VAR_B_(data%id_pben(mag_i)) = _FLUX_VAR_B_(data%id_pben(mag_i)) - (slough_frac*malg) !/DTsec
-         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) + ((slough_frac*malg)/depth) !/DTsec
+         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) +              &
+                                                     ((slough_frac*malg)/depth) !/DTsec
          IF (data%malgs(mag_i)%simIPDynamics /= 0) THEN
-          _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) - (slough_frac*_STATE_VAR_S_(data%id_ipben(mag_i))) !/DTsec
-          _FLUX_VAR_(data%id_ip(mag_i)) = _FLUX_VAR_(data%id_ip(mag_i)) + ((slough_frac*IPi)/depth) !/DTsec
+          _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) - &
+                                                     (slough_frac*_STATE_VAR_S_(data%id_ipben(mag_i))) !/DTsec
+          _FLUX_VAR_(data%id_ip(mag_i)) = _FLUX_VAR_(data%id_ip(mag_i)) +           &
+                                                     ((slough_frac*IPi)/depth) !/DTsec
          ENDIF
          IF (data%malgs(mag_i)%simINDynamics /= 0) THEN
           _FLUX_VAR_B_(data%id_inben(mag_i)) = _FLUX_VAR_B_(data%id_inben(mag_i)) - (slough_frac*INi) !/DTsec
-          _FLUX_VAR_(data%id_in(mag_i)) = _FLUX_VAR_(data%id_in(mag_i)) + ((slough_frac*INi)/depth) !/DTsec
+          _FLUX_VAR_(data%id_in(mag_i)) = _FLUX_VAR_(data%id_in(mag_i)) + &
+                                                     ((slough_frac*INi)/depth) !/DTsec
          ENDIF
          IF (diag_level>1) THEN
           !_DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac*malg/DTsec)*secs_per_day
@@ -1686,7 +1689,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          slough_burial = data%slough_burial ! rate per sec
 
          slough = _STATE_VAR_(data%id_p(mag_i)) ! local slough density
-         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) - (slough_burial*slough)  !/depth
+         _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) - &
+                                                     (slough_burial*slough)  !/depth
 
          slough_in = slough * data%malgs(mag_i)%X_ncon
          IF (data%malgs(mag_i)%simINDynamics /= 0) THEN
@@ -2383,7 +2387,8 @@ AED_REAL :: macroPAR_Top, macroPAR_Bot
 AED_REAL :: sf,tf,lf
 AED_REAL :: fRIT, Rb, FuIT
 
-AED_REAL :: Q, X, S, Iz, Imat, X_layer, X_left, X_calc, S_calc, Q_layer, fQ, Qmin, rho, U, R, Rmax, pu_canopy, hour, unet_canopy, umax, unet, pf, rf
+AED_REAL :: Q, X, S, Iz, Imat, X_layer, X_left, X_calc, S_calc, Q_layer, fQ
+AED_REAL :: Qmin, rho, U, R, Rmax, pu_canopy, hour, unet_canopy, umax, unet, pf, rf
 INTEGER :: layer, total_layers
 !
 !-------------------------------------------------------------------------------

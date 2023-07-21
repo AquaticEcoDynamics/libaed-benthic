@@ -438,7 +438,7 @@ SUBROUTINE aed_calculate_riparian_habitat_galaxiid(data,column,layer_idx,pc_wet)
 
    AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem
 
-   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp =0.,falg,rhtd=1.0
+   AED_REAL :: rhpl=0.,rhfl=0.,rhsd=0.,rhtr=0.,rhsp =0.,falg,rhtd=1.0
    AED_REAL :: pshpl, pshfl, pshsd, pass, height
    AED_REAL :: crns = 0.,creg = 0.,crht = 0.,crml = 0.
    AED_REAL :: limitation(6,6)
@@ -446,6 +446,7 @@ SUBROUTINE aed_calculate_riparian_habitat_galaxiid(data,column,layer_idx,pc_wet)
 !-------------------------------------------------------------------------------
 !BEGIN
    matz = 0.0 ; salt = 0.0 ; euphotic = 0.0 ; bathy = 0.0  !## CAB [-Wmaybe-uninitialized]
+   limitation = 0.                                         !## CAB [-Wmaybe-uninitialized]
 
 
       !---------------------------------------------------------------------------+

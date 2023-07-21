@@ -52,7 +52,7 @@ MDBG_FFLAGS=""
 ifeq ($(F90),ifort)
   INCLUDES+=-I/opt/intel/include
   DEBUG_FFLAGS=-g -traceback
-  OPT_FFLAGS=-O3
+  OPT_FFLAGS=-O3 -qopenmp
   FFLAGS=-fPIC -warn all -module ${moddir} -static-intel -mp1 -stand f08 -warn nounused $(DEFINES) $(INCLUDES)
   FFLAGS+=-module ../libaed-water/mod
   ifeq ($(WITH_CHECKS),true)
@@ -76,7 +76,8 @@ else
   MDBG_FFLAGS=-fsanitize=address
   OPT_FFLAGS=-O3
   FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008 $(DEFINES) $(INCLUDES)
-  FFLAGS+=-fall-intrinsics -Wno-unused -Wno-unused-dummy-argument -fno-range-check -Wno-integer-division
+# FFLAGS+=-fall-intrinsics -Wno-unused -Wno-unused-dummy-argument -fno-range-check -Wno-integer-division
+  FFLAGS+=-fall-intrinsics -fno-range-check -Wno-integer-division
   ifeq ($(WITH_CHECKS),true)
     FFLAGS+=-fcheck=all
   endif
