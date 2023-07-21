@@ -47,6 +47,10 @@
 		<File RelativePath="..\src\aed_benthic.F90"/>
 		<File RelativePath="..\src\aed_bivalve.F90"/>
 		<File RelativePath="..\src\aed_habitat_benthic.F90"/>
+		<File RelativePath="..\src\aed_habitat_chara.F90"/>
+		<File RelativePath="..\src\aed_habitat_galaxiid.F90"/>
+		<File RelativePath="..\src\aed_habitat_ruppia.F90"/>
+		<File RelativePath="..\src\aed_habitat_seagrass.F90"/>
 		<File RelativePath="..\src\aed_macroalgae.F90"/>
 		<File RelativePath="..\src\aed_macroalgae2.F90"/>
 		<File RelativePath="..\src\aed_macrophyte.F90"/></Filter></Files>
