@@ -1803,7 +1803,7 @@ SUBROUTINE aed_mobility_macroalgae(data,column,layer_idx,mobility)
 
    DO mag_i=1,data%num_malgae
 
-      IF (data%id_p(mag_i)>0) CYCLE
+      IF (data%id_p(mag_i)<=0) CYCLE
 
       SELECT CASE (data%malgs(mag_i)%settling)
 
