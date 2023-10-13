@@ -226,7 +226,7 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
    CLASS (aed_habitat_seagrass_data_t),INTENT(inout) :: data
    CHARACTER(len=*),INTENT(in) :: dbase
    INTEGER,INTENT(in)          :: count   !Number of seagrass groups
-   CHARACTER(40),INTENT(in)    :: list(*) !List of seagrass groups to simulate
+   CHARACTER(30),INTENT(in)    :: list(*) !List of seagrass groups to simulate
 !
 !LOCALS
    INTEGER  :: status
