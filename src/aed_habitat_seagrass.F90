@@ -143,21 +143,26 @@ INTEGER FUNCTION load_csv(dbase, seagrass_param, dbsize)
 
    ALLOCATE(values(nccols))
 
+! print*,'############################################################'
    !# Do one pass to count the number of entries
    start = .true.
    DO WHILE ( aed_rcsv_read_row(unit, values) > 0 )
       IF (values(1)%length > 0) THEN
          CALL copy_name(values(1), name)
          IF ( start ) THEN
-            print *,"Counting: ", name
+            print *,"Counting: '", TRIM(name), "'"
             n_grs = n_grs + 1
+! else
+! print *,"Ignoring: '", TRIM(name), "' length = ", values(1)%length
          ENDIF
          start = .false.
       ELSE
+! print*,"zero length"
          start = .true.
       ENDIF
    ENDDO
    print*,"load_csv found ",n_grs," entries"
+! print*,'############################################################'
 
    meh = aed_rcsv_close(unit)
    !# don't care if close fails
@@ -180,7 +185,7 @@ INTEGER FUNCTION load_csv(dbase, seagrass_param, dbsize)
             g_no = g_no + 1
             n = aed_rcsv_read_row(unit, values) ! probbaly a comment, should check
             CALL copy_name(values(1), name)
-            IF ( name(1:1) == '!' ) THEN
+            IF ( name(1:1) == '!' ) THEN        !# yes, it was a comment
                n = aed_rcsv_read_row(unit, values)
             ENDIF
             CALL copy_name(values(1), seagrass_param(g_no)%name)
@@ -189,9 +194,9 @@ INTEGER FUNCTION load_csv(dbase, seagrass_param, dbsize)
             DO i = 1, seagrass_param(g_no)%n_funcs
                CALL copy_name(values((i*2)-1), seagrass_param(g_no)%funcs(i)%name)
                seagrass_param(g_no)%funcs(i)%id_env = 0
+               seagrass_param(g_no)%funcs(i)%n_env = extract_integer(values(i*2))
+               ALLOCATE(seagrass_param(g_no)%funcs(i)%envs(seagrass_param(g_no)%funcs(i)%n_env))
             ENDDO
-            seagrass_param(g_no)%funcs(i)%n_env = extract_integer(values(i*2))
-            ALLOCATE(seagrass_param(g_no)%funcs(i)%envs(seagrass_param(g_no)%funcs(i)%n_env))
             env_no = 0
          ELSE
             env_no = env_no + 1
@@ -225,8 +230,8 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
 !ARGUMENTS
    CLASS (aed_habitat_seagrass_data_t),INTENT(inout) :: data
    CHARACTER(len=*),INTENT(in) :: dbase
-   INTEGER,INTENT(in)          :: count   !Number of seagrass groups
-   CHARACTER(30),INTENT(in)    :: list(*) !List of seagrass groups to simulate
+   INTEGER,INTENT(in)          :: count   ! Number of seagrass groups
+   CHARACTER(30),INTENT(in)    :: list(*) ! List of seagrass groups to simulate
 !
 !LOCALS
    INTEGER  :: status
@@ -248,6 +253,9 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
 
     ALLOCATE(data%grasses(count))
     DO i=1,count
+       data%grasses(i)%name = ''
+       data%grasses(i)%n_funcs = 0
+!print*,"looking for ", list(i)
        DO j=1,dbsize
           IF ( list(i) == seagrass_param(j)%name ) THEN
              data%grasses(i) = seagrass_param(j)
@@ -256,6 +264,8 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
                 data%grasses(i)%funcs(k)%id_env = &
                               aed_locate_global(data%grasses(i)%funcs(k)%name)
              ENDDO
+!ELSE
+!print*,"Its not '",TRIM(seagrass_param(j)%name),"'"
           ENDIF
        ENDDO
     ENDDO
@@ -264,9 +274,11 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
     DO j=1,dbsize
        IF ( seagrass_param(j)%name /= '' ) THEN
           DO K=1,seagrass_param(j)%n_funcs
-             DEALLOCATE(seagrass_param(j)%funcs(k)%envs)
+             IF ( ALLOCATED(seagrass_param(j)%funcs(k)%envs) ) &
+                 DEALLOCATE(seagrass_param(j)%funcs(k)%envs)
           ENDDO
-          DEALLOCATE(seagrass_param(j)%funcs)
+          IF ( ALLOCATED(seagrass_param(j)%funcs) ) &
+              DEALLOCATE(seagrass_param(j)%funcs)
        ENDIF
     ENDDO
 
@@ -323,7 +335,7 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    IF (status /= 0) STOP 'Error reading namelist aed_habitat'
 
    ! Update module level switches
-!   data%num_habitats = 0
+    data%num_habitats = 0
 !   data%simBenthicProd   = simBenthicProd   ; IF(simBenthicProd) data%num_habitats=data%num_habitats+1
 !   data%simMetalTox      = simMetalTox      ; IF(simMetalTox) data%num_habitats=data%num_habitats+1
 !   data%simCyanoRisk     = simCyanoRisk     ; IF(simCyanoRisk) data%num_habitats=data%num_habitats+1
@@ -372,9 +384,9 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
    data%id_E_extc  = aed_locate_global('extc_coef')
    data%id_E_temp  = aed_locate_global('temperature')
    data%id_E_depth = aed_locate_global('layer_ht')
-   data%id_E_bathy     = aed_locate_sheet_global('bathy')
-   data%id_E_matz      = aed_locate_sheet_global('material')
-   data%id_E_Io        = aed_locate_sheet_global('par_sf')
+   data%id_E_bathy = aed_locate_sheet_global('bathy')
+   data%id_E_matz  = aed_locate_sheet_global('material')
+   data%id_E_Io    = aed_locate_sheet_global('par_sf')
 END SUBROUTINE aed_define_habitat_seagrass
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
