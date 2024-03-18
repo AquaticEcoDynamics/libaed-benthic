@@ -76,8 +76,8 @@ else
   MDBG_FFLAGS=-fsanitize=address
   OPT_FFLAGS=-O3
   FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008 $(DEFINES) $(INCLUDES)
-# FFLAGS+=-fall-intrinsics -Wno-unused -Wno-unused-dummy-argument -fno-range-check -Wno-integer-division
   FFLAGS+=-fall-intrinsics -fno-range-check -Wno-integer-division
+  FFLAGS+=-Wno-unused-variable -Wno-unused-dummy-argument
   ifeq ($(WITH_CHECKS),true)
     FFLAGS+=-fcheck=all
   endif
