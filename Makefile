@@ -77,7 +77,7 @@ else
   OPT_FFLAGS=-O3
   FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008 $(DEFINES) $(INCLUDES)
   FFLAGS+=-fall-intrinsics -fno-range-check -Wno-integer-division
-  FFLAGS+=-Wno-unused-variable -Wno-unused-dummy-argument
+  FFLAGS+=-Wno-unused-variable -Wno-unused-dummy-argument -Wno-unused-function
   ifeq ($(WITH_CHECKS),true)
     FFLAGS+=-fcheck=all
   endif

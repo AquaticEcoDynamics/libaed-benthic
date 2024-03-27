@@ -1749,6 +1749,11 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          R_aging = 0.08/secs_per_day !/d
          Kaging = 3000.
          malg_min = 3000
+       ELSE !# CAB added because of compiler warning
+         print*,'uninitialised variables in use'
+         R_aging = 0.0 !/d
+         Kaging = 0.
+         malg_min = 0
        ENDIF
 
        IF(malg<malg_min)THEN
