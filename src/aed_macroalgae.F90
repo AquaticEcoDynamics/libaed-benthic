@@ -746,11 +746,11 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%id_par     = aed_locate_global('par')
    data%id_I_0     = aed_locate_sheet_global('par_sf')
    data%id_taub    = aed_locate_sheet_global('taub')
-   data%id_depth   = aed_locate_sheet_global('col_depth') 
+   data%id_depth   = aed_locate_sheet_global('col_depth')
    data%id_sedzone = aed_locate_sheet_global('sed_zone')
-   data%id_yearday = aed_locate_sheet_global('yearday') 
-   data%id_dt      = aed_locate_sheet_global('timestep')  
-   
+   data%id_yearday = aed_locate_sheet_global('yearday')
+   data%id_dt      = aed_locate_sheet_global('timestep')
+
 END SUBROUTINE aed_define_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1637,7 +1637,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
        !# Redistribute biomass into the water column if sloughing occurs.
        IF( data%simSloughing >0 .and. data%malgs(mag_i)%slough_model >0 ) THEN
-         
+
         IF( data%malgs(mag_i)%slough_model == 1) THEN
           ! The Coorong Ulva approach
           IF( bottom_stress>data%malgs(mag_i)%tau_0*2. ) THEN
@@ -1657,7 +1657,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          ELSEIF( data%malgs(mag_i)%slough_model == 4) THEN
             ! The Erie AED (hybrid) approach
             CALL cladophora_slough_aed(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
-         
+
          ELSE
            ! No sloughing
            slough_frac = zero_
@@ -1989,7 +1989,7 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
    AED_REAL :: lght, pplt, prlt, pf_MB
    AED_REAL :: macroPAR_Top, macroPAR_Bot
    AED_REAL :: AvgTemp, AvgLight
-   AED_REAL :: sf,tf,lf 
+   AED_REAL :: sf,tf,lf
    AED_REAL :: hour
 !
 !-------------------------------------------------------------------------------
@@ -2018,7 +2018,7 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
    ! Retrieve (local) cladophora in gDM/m2 (Xcc=1/0.25 to convert to DM)
    malg = _STATE_VAR_S_(data%id_pben(cgm)) * (12. / 1e3) / data%malgs(cgm)%Xcc
 
-   
+
    macroHgt = (1./100.) * 1.467 * ( malg )**0.425   ! Formulation from Higgin's CGM model
    !macroHgt = (1./100.) * 1.9415 * ( malg )**0.4138 ! Formulation from S Malkin; GLCMv3 model
 
@@ -2127,7 +2127,7 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
            + a15 * lght * lght * lght * lght
 
       pplt = pplt*5.43
-      
+
       IF (data%malgs(cgm)%lightModel == 3) pplt = PhotoRate(lght,temp)
 
       pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
@@ -2182,14 +2182,14 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
     !   by division by macroalgae biomass for the nutrient limitation / uptake
 
     !-- Compute the internal phosphorus ratio
-    pu = data%malgs(cgm)%X_pmin 
+    pu = data%malgs(cgm)%X_pmin
     IF( malg>zero_ ) pu = mag_ip/malg
 
     Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
 
     frp = _STATE_VAR_(data%id_Pupttarget(1))
 
-    !-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf 
+    !-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf
     pu = data%malgs(cgm)%R_puptake * tf                                                &
                                    * (frp/(frp + data%malgs(cgm)%K_P))                 &
                                    * (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
@@ -2254,14 +2254,14 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
 !    ENDIF
 
     ! Daily reset of bottom filament checker
-    hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0) 
+    hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0)
 
-    IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_ 
+    IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_
 
-    ! Increment bottom filament checker if pf_MB <0 
+    ! Increment bottom filament checker if pf_MB <0
     IF(malg > data%malgs(cgm)%p0) THEN
       !-- SloughTrigger = SloughTrigger + pf_MB * DTday
-      IF( pf_MB < zero_ ) & 
+      IF( pf_MB < zero_ ) &
         _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
     ENDIF
 
@@ -2366,7 +2366,7 @@ END SUBROUTINE cladophora_slough_cgm
 
 
 !###############################################################################
-SUBROUTINE cladophora_calculate_glcmv3(data,column,layer_idx,cgm,              & 
+SUBROUTINE cladophora_calculate_glcmv3(data,column,layer_idx,cgm,              &
                                                            u_canopy,r_canopy,  &
                                                            pu,nu,mag_in,mag_ip )
 !-------------------------------------------------------------------------------
@@ -2438,9 +2438,9 @@ INTEGER :: layer, total_layers
    !## Get the CGM (cladophora) group concentrations
    malg = _STATE_VAR_S_(data%id_pben(cgm))      ! cladophora biomass (mmolC/m2)
    mag_in = data%malgs(cgm)%X_ncon * malg       ! cladophora biomass (mmolN/m2)
-   IF(data%malgs(cgm)%simINDynamics/=0) mag_in = _STATE_VAR_S_(data%id_inben(cgm)) 
+   IF(data%malgs(cgm)%simINDynamics/=0) mag_in = _STATE_VAR_S_(data%id_inben(cgm))
    mag_ip = data%malgs(cgm)%X_pcon * malg       ! cladophora biomass (mmolP/m2)
-   IF(data%malgs(cgm)%simIPDynamics/=0) mag_ip = _STATE_VAR_S_(data%id_ipben(cgm)) 
+   IF(data%malgs(cgm)%simIPDynamics/=0) mag_ip = _STATE_VAR_S_(data%id_ipben(cgm))
 
    !----------------------------------------------------------------------------
    !-- Update moving average for daily temp
@@ -2477,10 +2477,10 @@ INTEGER :: layer, total_layers
    unet_canopy = zero_
    ! First, fill canopy layers with biomass and P mass
    DO layer = 1,Total_layers
-     IF (layer == 1) THEN 
+     IF (layer == 1) THEN
        ! Leftover X goes into the top layer
        X_calc = X_left
-     else 
+     else
        ! Fill each layer with constant amount
        X_calc = X_layer
      endif
@@ -2513,11 +2513,11 @@ INTEGER :: layer, total_layers
      r = (Rmax * fRIT + Rb) / secs_per_day;
 
      ! Interval u and r in the current layer
-     u_canopy = u_canopy + u * X_calc 
-     r_canopy = r_canopy + r * X_calc 
-     pu_canopy = pu_canopy + (rho / 100 * X_calc - r * S_calc) 
+     u_canopy = u_canopy + u * X_calc
+     r_canopy = r_canopy + r * X_calc
+     pu_canopy = pu_canopy + (rho / 100 * X_calc - r * S_calc)
 
-enddo 
+enddo
 
 u_canopy = u_canopy / X
 r_canopy = r_canopy / X
@@ -2525,15 +2525,15 @@ pu_canopy = pu_canopy / S
 
 
 ! Daily reset of bottom filament checker
-hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0) 
+hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0)
 
-IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_ 
+IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_
 
-! Increment bottom filament checker, if unet <0 
+! Increment bottom filament checker, if unet <0
 IF(malg > data%malgs(cgm)%p0) THEN
   !-- SloughTrigger = SloughTrigger * DTday
   unet = u_canopy-r_canopy
-  IF( (unet) < zero_ ) & 
+  IF( (unet) < zero_ ) &
     _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
 ENDIF
 
@@ -2609,14 +2609,14 @@ IF (diag_level>9) _DIAG_VAR_S_(data%id_fT_ben(cgm)) =  tf
 !   by division by macroalgae biomass for the nutrient limitation / uptake
 
 !-- Compute the internal phosphorus ratio
-pu = data%malgs(cgm)%X_pmin 
+pu = data%malgs(cgm)%X_pmin
 IF( malg>zero_ ) pu = mag_ip/malg
 
 Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
 
 frp = _STATE_VAR_(data%id_Pupttarget(1))
 
-!-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf 
+!-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf
 pu = data%malgs(cgm)%R_puptake * tf                                                &
 * (frp/(frp + data%malgs(cgm)%K_P))                 &
 * (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
@@ -2671,7 +2671,7 @@ _DIAG_VAR_S_(data%id_slough_trig) = pf_MB
 
 IF(malg > data%malgs(cgm)%p0) THEN
   !-- SloughTrigger = SloughTrigger + pf_MB * DTday
-  IF( pf_MB < 0 ) & 
+  IF( pf_MB < 0 ) &
     _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday * secs_per_day)
 ENDIF
 
@@ -2704,9 +2704,9 @@ SUBROUTINE cladophora_slough_glcmv3(data,column,layer_idx,cgm,slough_rate,L)
      AED_REAL, PARAMETER :: tdur = 30
   !-------------------------------------------------------------------------------
   !BEGIN
-  
-     yearday= _STATE_VAR_S_(data%id_yearday) 
-     depth  = _STATE_VAR_S_(data%id_depth) 
+
+     yearday= _STATE_VAR_S_(data%id_yearday)
+     depth  = _STATE_VAR_S_(data%id_depth)
 
      tstart = _DIAG_VAR_S_(data%id_slough_tsta)
      dark_days = _DIAG_VAR_S_(data%id_slough_days)
@@ -2715,20 +2715,20 @@ SUBROUTINE cladophora_slough_glcmv3(data,column,layer_idx,cgm,slough_rate,L)
      L = zero_
 
      !-- Slough off weakened filaments (those with cumulative respiration excess)
-     Lmax = slough_rate  ! 0.08/d 
-  
+     Lmax = slough_rate  ! 0.08/d
+
      ! Sloughing from physical factors
      f1 = 0.4635 * exp(-0.3054 * depth)  + 0.5365;
- 
+
      IF( slough_trigger > 0.999 ) THEN
-      ! The whole day has been dark, with cumulative respiration deficit 
+      ! The whole day has been dark, with cumulative respiration deficit
       dark_days = dark_days + 1.
      ELSE IF ( mod(yearday, 1.0) > (0.999-DTday) ) THEN
       ! Its the end of the day, but slough trigger<1 : the darkness is over!
       dark_days = zero_
       tstart = zero_
-    ENDIF 
-  
+    ENDIF
+
      !-- Check if resp or growth phase; if + clip to 0, else count days
      IF(dark_days > 0.998 .and. dark_days < 1.002 ) THEN
        tstart = yearday;
@@ -2745,7 +2745,7 @@ SUBROUTINE cladophora_slough_glcmv3(data,column,layer_idx,cgm,slough_rate,L)
 
      _DIAG_VAR_S_(data%id_slough_days) = dark_days
      _DIAG_VAR_S_(data%id_slough_tsta) = tstart
-  
+
 END SUBROUTINE cladophora_slough_glcmv3
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -2776,10 +2776,10 @@ SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
      AED_REAL, PARAMETER :: tau_ref = 0.01
   !-------------------------------------------------------------------------------
   !BEGIN
-    
-    depth  = _STATE_VAR_S_(data%id_depth) 
+
+    depth  = _STATE_VAR_S_(data%id_depth)
     tstart = _DIAG_VAR_S_(data%id_slough_tsta)
-    yearday = _STATE_VAR_S_(data%id_yearday) 
+    yearday = _STATE_VAR_S_(data%id_yearday)
     dark_days = _DIAG_VAR_S_(data%id_slough_days)
     slough_trigger = _DIAG_VAR_S_(data%id_slough_trig)  ! Set in calculate_glcmv3/cgm
 
@@ -2796,20 +2796,20 @@ SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
       AvgStress = 0.
    ENDIF
 
-     
+
     !-- Initialise slough rate estimate to zero
     L = zero_
 
-    !-- Define maximum sloughing 
-    Lmax = slough_rate  ! 0.08/d 
-  
+    !-- Define maximum sloughing
+    Lmax = slough_rate  ! 0.08/d
+
     !-------------------------------------------------------------------------
     !-- Physical controls on sloughing depends on shear and filament health
     tau_crit =  MAX( data%malgs(cgm)%tau_0 * (one_ - MIN(dark_days/tdur,one_)), 0.005)
 
     !-- Depth/ light based carrying capacity amount, computed empirically with
     ! *0.25 to get from g DM to g C, /12 to get mol C, and 1e3 to get to mmol
-    
+
     ! AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83 ! AvgLight in uE for CGM
     ! X_maxp = ( 1.18 * AvgLight - 58.7 )  * data%malgs(cgm)%Xcc * 1e3 / 12.
    ! Retrieve (local) cladophora in gDM/m2 (Xcc=1/0.25 to convert to DM)
@@ -2826,14 +2826,14 @@ SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
     !-------------------------------------------------------------------------
     !-- Physiological controls on filament health and susceptibility to slough
     IF( slough_trigger > 0.999 ) THEN
-      ! The whole day has been dark, with cumulative respiration deficit 
+      ! The whole day has been dark, with cumulative respiration deficit
       dark_days = dark_days + 1.
      ELSE IF ( mod(yearday, 1.0) > (0.999-DTday)  ) THEN
       ! Its the end of the day, but slough trigger<1 : the darkness is over!
       dark_days = zero_
       tstart = zero_
-    ENDIF 
-  
+    ENDIF
+
      !-- Check if resp or growth phase; if + clip to 0, else count days
      IF(dark_days > 0.998 .and. dark_days < 1.002 ) THEN
        tstart = yearday;
@@ -2850,7 +2850,7 @@ SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
 
      _DIAG_VAR_S_(data%id_slough_days) = dark_days
      _DIAG_VAR_S_(data%id_slough_tsta) = tstart
-  
+
 END SUBROUTINE cladophora_slough_aed
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
