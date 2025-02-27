@@ -2729,9 +2729,9 @@ SUBROUTINE cladophora_slough_glcmv3(data,column,layer_idx,cgm,slough_rate,L)
        tstart = yearday;
      ELSEIF(dark_days > 1.) THEN
        tend = tstart + tdur
-       a = 12/tdur
-       b = 6 * (tstart + tend) / (tstart - tend)
-       f2 = 1/ (1 + exp(-(a * yearday + b)))
+       a = 12./tdur
+       b = 6. * (tstart + tend) / (tstart - tend)
+       f2 = 1./ (1. + exp(-(a * yearday + b)))
        L = Lmax * f1 * f2
      ELSEIF(dark_days < 0.99)  THEN
        f2 = zero_
