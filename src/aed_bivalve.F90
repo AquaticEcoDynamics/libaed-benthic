@@ -11,7 +11,7 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015 - 2023 -  The University of Western Australia               #
+!#  Copyright 2015 - 2024 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -610,7 +610,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    ! Register environmental dependencies
    data%id_tem = aed_locate_global('temperature')
    data%id_sal = aed_locate_global('salinity')
-   data%id_sed_zone = aed_locate_sheet_global('sed_zone')
+   data%id_sed_zone = aed_locate_global('sed_zones')
 !
 END SUBROUTINE aed_define_bivalve
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -635,7 +635,7 @@ SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
    IF ( .NOT. data%initFromDensity ) RETURN
 
    ! Check to ensure this zone is colonisable
-   matz = _STATE_VAR_S_(data%id_sed_zone)
+   matz = _STATE_VAR_(data%id_sed_zone)
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
 
    ! Get the bivalve density (orgs/m2)
@@ -681,7 +681,7 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    bt = 0.0 ; poc = 0.0 ; pon = 0.0 ; pop = 0.0 ; Ctotal_prey = 0.0   !## CAB [-Wmaybe-uninitialized]
 
    ! Check to ensure this zone is colonisable, and numbers are adequate
-   matz = _STATE_VAR_S_(data%id_sed_zone)
+   matz = _STATE_VAR_(data%id_sed_zone)
 
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
    IF ( data%initFromDensity ) THEN
