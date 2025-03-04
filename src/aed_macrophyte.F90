@@ -766,7 +766,6 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
    ! Check to ensure this cell/zone is colonisable
    matz = _STATE_VAR_S_(data%id_sed_zone)
 
-
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) THEN
      _DIAG_VAR_S_(data%id_mac) = zero_
      _DIAG_VAR_S_(data%id_mac_ag) = zero_
