@@ -93,8 +93,8 @@ MODULE aed_macroalgae
       AED_REAL, ALLOCATABLE :: active_zones(:)
       AED_REAL :: min_rho,max_rho
       AED_REAL :: slough_stress, slough_burial, slough_rate
-      LOGICAL  :: simMalgFeedback, simStaticBiomass
-      INTEGER  :: simSloughing, simAging
+      LOGICAL  :: simMalgFeedback, simStaticBiomass, simAging
+      INTEGER  :: simSloughing
       INTEGER  :: simMalgHSI
       INTEGER  :: simCGM
 
