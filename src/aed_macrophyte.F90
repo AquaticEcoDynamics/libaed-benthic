@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2015 - 2024 -  The University of Western Australia               #
+!#  Copyright 2015 - 2025 -  The University of Western Australia               #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -51,13 +51,16 @@ MODULE aed_macrophyte
 
 !-------------------------------------------------------------------------------
 !  MODULE SPECIES PARAMETER TYPE DEFINITION
-   
+
 !  %% NAMELIST    %% type :  macrophyte_params_t
    TYPE :: macrophyte_params_t
 
        CHARACTER(64) :: m_name
        INTEGER       :: growth_form
+       INTEGER       :: zone_lock
        AED_REAL      :: m_initial
+       AED_REAL      :: m_initial_minb
+       AED_REAL      :: m_initial_mind
        AED_REAL      :: m0
 
        ! Canopy/physical characteristics
@@ -66,7 +69,7 @@ MODULE aed_macrophyte
        AED_REAL      :: shoot_diameter   ! shoot/leaf diameter or blade width
        AED_REAL      :: shoot_length     ! shoot/leaf typical length
        AED_REAL      :: tissue_density   ! shoot/leaf density (kg/m3 of tissue)
-       AED_REAL      :: elastic_modulus  ! shoot/leaf elasticity 
+       AED_REAL      :: elastic_modulus  ! shoot/leaf elasticity
        INTEGER       :: shading_model
        AED_REAL      :: KeMAC
        AED_REAL      :: kA               ! shelf shading effect
@@ -74,7 +77,7 @@ MODULE aed_macrophyte
        AED_REAL      :: sine_blade       ! sine blade shape
        AED_REAL      :: X_ldw            ! leaf length to biomass
        AED_REAL      :: K_ldw            ! half-biomass of leaf to biomass curve
-       AED_REAL      :: X_sdw            ! shoot to biomass ratio 
+       AED_REAL      :: X_sdw            ! shoot to biomass ratio
 
        ! Growth rate options/parameters
        AED_REAL      :: R_growth
@@ -84,7 +87,7 @@ MODULE aed_macrophyte
        AED_REAL      :: T_opt
        AED_REAL      :: T_max
        AED_REAL      :: kTn, aTn, bTn
-       INTEGER       :: light_model         ! Light_model 
+       INTEGER       :: light_model         ! Light_model
        AED_REAL      :: I_K
        AED_REAL      :: I_S
        AED_REAL      :: f_pr
@@ -113,8 +116,8 @@ MODULE aed_macrophyte
        AED_REAL      :: X_ncon
        AED_REAL      :: K_P
        AED_REAL      :: X_pcon
-       AED_REAL      :: k_S
-       AED_REAL      :: k_NPP
+       AED_REAL      :: K_S
+       AED_REAL      :: K_NPP
 
        ! Fruiting/recruitment options/parameters
        INTEGER       :: fruit_model         ! Fruiting
@@ -139,7 +142,7 @@ MODULE aed_macrophyte
       !# Variable identifiers (local and linked)
       INTEGER,ALLOCATABLE :: id_mphya(:),id_mphyb(:),id_mphyf(:)
       INTEGER :: id_epi, id_epib, id_epig, id_epir
-      INTEGER :: id_par, id_tem, id_sal, id_extc, id_I_0, id_yearday, id_vel 
+      INTEGER :: id_par, id_tem, id_sal, id_extc, id_I_0, id_yearday, id_vel
       INTEGER :: id_depth, id_dz
       INTEGER :: id_atem,id_theta
       INTEGER :: id_mac_ag, id_mac_bg, id_root_d, id_root_o, id_mac_tr
@@ -160,15 +163,15 @@ MODULE aed_macrophyte
       INTEGER  :: n_zones
       LOGICAL  :: simMacFeedback, simStaticBiomass
       LOGICAL  :: simEpiphytes, simFruiting, simMacDrag
-      INTEGER  :: drag_model, mac_pattern, mac_mode, mac_initial                          
+      INTEGER  :: drag_model, mac_pattern, mac_mode, mac_initial
       AED_REAL :: water_nutrient_frac
       AED_REAL,ALLOCATABLE :: active_zones(:)
 
       !# Macrophyte module species parameters
       TYPE(macrophyte_params_t),DIMENSION(:),ALLOCATABLE :: mpars
-      
+
       !# Epiphyte sub-module option & parameters
-      INTEGER  :: epi_model      
+      INTEGER  :: epi_model
       AED_REAL :: R_epig, R_epir, R_epib, I_Kepi, epi_max
       AED_REAL :: theta_epi_growth, theta_epi_resp
       AED_REAL :: epi_initial, epi_Xpc, epi_Xnc, epi_K_N, epi_K_P
@@ -176,7 +179,7 @@ MODULE aed_macrophyte
 
 
      CONTAINS      ! Selected AED methods to activate:
-         PROCEDURE :: define             => aed_define_macrophyte 
+         PROCEDURE :: define             => aed_define_macrophyte
          PROCEDURE :: initialize_benthic => aed_initialize_benthic_macrophyte
        ! PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
          PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macrophyte
@@ -189,8 +192,8 @@ MODULE aed_macrophyte
 
 !-------------------------------------------------------------------------------
 !  MODULE WORKING VARIABLES
-  
-   INTEGER :: i 
+
+   INTEGER :: i
    AED_REAL, parameter :: h = 6.626e-34        ! Planck constant, Js
    AED_REAL, parameter :: c = 2.998e8          ! light speed, m/s
    AED_REAL, parameter :: Av= 6.02e23          ! Avagadro number, /mol, convert light capture to units of mol photon/m2/s
@@ -200,7 +203,7 @@ MODULE aed_macrophyte
    AED_REAL :: landaiSUM, ALl
 
    ! clear-sky wave lengths and irradiance at a particular wave-band W/m2/nm, from EMS model
-   AED_REAL, parameter :: wavei(150) = (/ & 
+   AED_REAL, parameter :: wavei(150) = (/ &
        140.00, 150.00, 160.00, 170.00, &
        180.00, 190.00, 200.00, 205.00, 210.00, 215.00, 220.00, &
        225.00, 230.00, 235.00, 240.00, 245.00, 250.00, 255.00, &
@@ -223,8 +226,8 @@ MODULE aed_macrophyte
        3400.00, 3500.00, 3600.00, 3700.00, 3800.00, 3900.00, 4000.00, &
        4100.00, 4200.00, 4300.00, 4400.00, 4500.00, 4600.00, 4700.00, &
        4800.00, 4900.00, 5000.00, 6000.00, 7000.00, 8000.00   /)
-   
-   AED_REAL, parameter :: landai(150) = (/ &  
+
+   AED_REAL, parameter :: landai(150) = (/ &
        0.0000, 0.0001, 0.0000, 0.0004, &
        0.0009,0.0017,0.0030,0.0050,0.0100,0.0180,0.0300,0.0420,0.0520, &
        0.0540,0.0580,0.0640,0.0640,0.1000,0.1300,0.2000,0.2500,0.2200, &
@@ -297,9 +300,12 @@ INTEGER FUNCTION load_csv(dbase, md)
          CALL copy_name(values(1), name)
          SELECT CASE (name)
             CASE ('growth_form')    ; md(dcol)%growth_form  = extract_integer(values(ccol))
+            CASE ('zone_lock')      ; md(dcol)%zone_lock    = extract_integer(values(ccol))
             CASE ('m_initial')      ; md(dcol)%m_initial    = extract_double(values(ccol))
+            CASE ('m_initial_minb') ; md(dcol)%m_initial_minb = extract_double(values(ccol))
+            CASE ('m_initial_mind') ; md(dcol)%m_initial_mind = extract_double(values(ccol))
             CASE ('m0')             ; md(dcol)%m0           = extract_double(values(ccol))
-            
+
             CASE ('drag_model')     ; md(dcol)%drag_model   = extract_integer(values(ccol))
             CASE ('K_CD')           ; md(dcol)%K_CD         = extract_double(values(ccol))
             CASE ('shoot_diameter') ; md(dcol)%shoot_diameter = extract_double(values(ccol))
@@ -335,7 +341,7 @@ INTEGER FUNCTION load_csv(dbase, md)
             CASE ('S_bep')          ; md(dcol)%S_bep        = extract_double(values(ccol))
             CASE ('S_maxsp')        ; md(dcol)%S_maxsp      = extract_double(values(ccol))
             CASE ('S_opt')          ; md(dcol)%S_opt        = extract_double(values(ccol))
-          
+
             CASE ('m_initial_bg')   ; md(dcol)%m_initial_bg = extract_double(values(ccol))
             CASE ('f_bg')           ; md(dcol)%f_bg         = extract_double(values(ccol))
             CASE ('R_resp_bg')      ; md(dcol)%R_resp_bg    = extract_double(values(ccol))
@@ -416,9 +422,12 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
 
     DO i=1,count
        ! Assign parameters from database to simulated groups
-       data%mpars(i)%growth_form    = md(list(i))%growth_form  !!1  !! ; IF(list(i)>6) data%mpars(i)%growth_form   = 2   ! HACK FOR GELERAH
+       data%mpars(i)%growth_form    = md(list(i))%growth_form
+       data%mpars(i)%zone_lock      = md(list(i))%zone_lock
        data%mpars(i)%m_name         = md(list(i))%m_name
        data%mpars(i)%m_initial      = md(list(i))%m_initial
+       data%mpars(i)%m_initial_minb = md(list(i))%m_initial_minb
+       data%mpars(i)%m_initial_mind = md(list(i))%m_initial_mind
        data%mpars(i)%m0             = md(list(i))%m0
 
        data%mpars(i)%drag_model     = md(list(i))%drag_model
@@ -512,7 +521,7 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
 !                             TRIM(md(list(i))%m_name)//'_shhght', '# m', &
 !                              'macrophyte group shoot/leaf length')
 !       ENDIF
-       
+
    ENDDO
     DEALLOCATE(md)
 END SUBROUTINE aed_macrophyte_load_params
@@ -542,10 +551,10 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: num_mphy = 0
    INTEGER            :: the_mphy(MAX_PHYTO_TYPES) = 0
    CHARACTER(len=128) :: dbase = 'aed_macrophyte_pars.nml'
-   
+
    INTEGER            :: n_zones = 0
    INTEGER            :: active_zones(MAX_ZONES)
-   
+
    LOGICAL            :: simStaticBiomass = .FALSE.
    LOGICAL            :: simMacFeedback = .FALSE.
    LOGICAL            :: simEpiphytes = .FALSE.
@@ -582,8 +591,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
                              epi_model,R_epig,R_epib,I_Kepi,epi_max,  &
                              epi_Xnc,epi_Xpc,epi_K_N,epi_K_P,         &
                              theta_epi_growth,theta_epi_resp,         &
-                             mac_initial, epi_initial, diag_level 
-                             
+                             mac_initial, epi_initial, diag_level
+
 !-----------------------------------------------------------------------
 !BEGIN
    print *,"        aed_macrophyte configuration"
@@ -601,7 +610,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
    data%mac_initial = mac_initial
    data%epi_initial = epi_initial
-   
+
    IF( .NOT. simEpiphytes) epi_model = 0; data%epi_model = epi_model
    data%theta_epi_growth = theta_epi_growth ; data%theta_epi_resp = theta_epi_resp
    data%epi_Xpc = epi_Xpc ; data%epi_K_P = epi_K_P
@@ -641,7 +650,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    IF ( simEpiphytes ) THEN
       data%id_epi = aed_define_sheet_variable( 'epiphyte', 'mmol C/m2',       &
                                                'epiphyte biomass',            &
-                                                0.001, 0.001 ) 
+                                                0.001, 0.001 )
       data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
       IF( diag_level > 0) THEN
         data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
@@ -651,7 +660,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
         ENDIF
        ENDIF
    ENDIF
-                           
+
    ! Link to variables from other modules
    IF ( simMacFeedback ) THEN
       data%id_oxy = aed_locate_variable('OXY_oxy')
@@ -660,7 +669,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
       data%id_po4 = aed_locate_variable('PHS_frp')
       data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
    ENDIF
-                            
+
 
    ! Register diagnostic variables, for macrophyte the community canopy
    data%id_d_par  = aed_define_sheet_diag_variable('par','W/m2','light intensity at canopy top')
@@ -678,7 +687,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    IF ( ANY(data%mpars(:)%fruit_model >0) ) THEN
       data%id_mac_fr = aed_define_sheet_diag_variable('mac_fr','mmol C/m2', 'macrophyte community fruit biomass')
       data%id_mac_ft = aed_define_sheet_diag_variable('trn_fr','mmol C/m2/day', 'macrophyte fruit biomass translocation')
-	  data%id_mac_gt = aed_define_sheet_diag_variable('tri_fr','mmol C/m2/day', 'macrophyte fruit growth trigger')
+      data%id_mac_gt = aed_define_sheet_diag_variable('tri_fr','mmol C/m2/day', 'macrophyte fruit growth trigger')
    ENDIF
 
    ! Variables for macrophyte canopy light attenuation
@@ -711,6 +720,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    data%id_atem     = aed_locate_sheet_global('air_temp')
    data%id_yearday  = aed_locate_sheet_global('yearday')
    data%id_I_0      = aed_locate_sheet_global('par_sf')
+   data%id_depth    = aed_locate_sheet_global('col_depth')
 
 
    ! Light spectra pre-processing tasks
@@ -725,8 +735,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
      landaiSUM=landaiSUM+landaimid*(WLint(ww+1)-WLint(ww))
    ENDDO
    ! leaf light absorbance at selected wavelengths; from Baird et al (2016)
-   Wli = (/ 300,  390,  500,  530,  640,  680,  705,  800 /) 
-   ALli= (/ 0.72, 0.72, 0.68, 0.38, 0.38, 0.60, 0.04, 0.0 /) 
+   Wli = (/ 300,  390,  500,  530,  640,  680,  705,  800 /)
+   ALli= (/ 0.72, 0.72, 0.68, 0.38, 0.38, 0.60, 0.04, 0.0 /)
    ! interpolate into fine-resolution wave lengths for further processing
    ALLOCATE (ALlint(501))
    CALL interp_0d(SIZE(Wli),Wli,ALli,SIZE(WLint),WLint,ALlint) ! ALlint=interp1(Wli,ALli,WLint)
@@ -751,10 +761,11 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
    INTEGER  :: mi
    AED_REAL :: matz, mphy
 
-   AED_REAL :: lai_to_biomass, water_depth
+   AED_REAL :: lai_to_biomass, depth
    AED_REAL :: n_stems, v_diameter, v_height
    AED_REAL :: bio_volume, wet_biovolume, dry_biovolume
    AED_REAL :: n_shoots,sh_diameter, sh_height
+   AED_REAL :: minBiomass, maxBiomass, minDepth, maxDepth, scale, offset, a ,biomass
 
    AED_REAL, PARAMETER :: coef_bm_hgt = 0.5
 
@@ -762,7 +773,7 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
 !-------------------------------------------------------------------------------
 !BEGIN
 
-
+   !---------------------------------------------------------------------------
    ! Check to ensure this cell/zone is colonisable
    matz = _STATE_VAR_S_(data%id_sed_zone)
 
@@ -773,37 +784,42 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
      _DIAG_VAR_S_(data%id_canopy_lai) = zero_
      _DIAG_VAR_S_(data%id_gpp) = zero_
      _DIAG_VAR_S_(data%id_root_o) = zero_
-     _DIAG_VAR_S_(data%id_root_d) = 0.01
+     _DIAG_VAR_S_(data%id_root_d) = zero_
+     _DIAG_VAR_S_(data%id_canopy_sh_dens) = zero_
+
+     DO mi=1,data%num_mphy
+      _STATE_VAR_S_(data%id_mphya(mi))  =  zero_
+      _STATE_VAR_S_(data%id_mphyb(mi))  =  zero_
+      IF( data%mpars(mi)%fruit_model >0 ) THEN
+       _STATE_VAR_S_(data%id_mphyf(mi))  =  zero_
+      ENDIF
+     ENDDO
      RETURN
    ENDIF
-   !RETURN
+
+
+   !---------------------------------------------------------------------------
    ! Set initial diagnostics
    _DIAG_VAR_S_(data%id_mac) = zero_
-   
-   DO mi=1,data%num_mphy
-       mphy = _STATE_VAR_S_(data%id_mphya(mi))
-       _DIAG_VAR_S_(data%id_mac) = _DIAG_VAR_S_(data%id_mac) + mphy
-       _DIAG_VAR_S_(data%id_mac_ag) = _DIAG_VAR_S_(data%id_mac_ag) + mphy*(one_-data%mpars(mi)%f_bg)
-       _DIAG_VAR_S_(data%id_mac_bg) = _DIAG_VAR_S_(data%id_mac_bg) + mphy*(data%mpars(mi)%f_bg)
-       _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) +       &
-                     (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
-   ENDDO
+   _DIAG_VAR_S_(data%id_mac_ag) = zero_
+   _DIAG_VAR_S_(data%id_mac_bg) = zero_
+
    _DIAG_VAR_S_(data%id_gpp) = zero_
    _DIAG_VAR_S_(data%id_root_o) = zero_
    _DIAG_VAR_S_(data%id_root_d) = MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * coef_bm_hgt,0.25),0.01)
-   
+
+   _DIAG_VAR_S_(data%id_canopy_biovolume) = zero_
+
    IF ( ANY(data%mpars(:)%fruit_model >0) ) _DIAG_VAR_S_(data%id_mac_gt) = one_
 
    !---------------------------------------------------------------------------
    ! (Re)set local bottom cell macrophyte details with data read in from benthic maps
 
-   _DIAG_VAR_S_(data%id_canopy_biovolume) = zero_
-   water_depth = _STATE_VAR_S_(data%id_dz)   ! incoming cell depth     ! SHOULD IT BE COLUMN?
 
    SELECT CASE (data%mac_initial)
 
       CASE ( 0 )
-         ! no re-initialisation required; use "m_initial" etc
+         ! Re-inforce "m_initial" etc, as read in from parameters
          DO mi=1,data%num_mphy
            _STATE_VAR_S_(data%id_mphya(mi))  =  data%mpars(mi)%m_initial         ! leaf biomass
            _STATE_VAR_S_(data%id_mphyb(mi))  =  data%mpars(mi)%m_initial_bg      ! below-ground biomass
@@ -812,41 +828,69 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
            ENDIF
          ENDDO
 
-         
-   
       CASE ( 1 )
+         ! compute canopy variables from input biomass and depth (Cockburn Sound)
+         depth = _STATE_VAR_S_(data%id_depth)      ! incoming water depth above cell
+
+         DO mi=1,data%num_mphy
+           ! Check if this species/group is locked to grow in a specific zone
+           IF( data%mpars(mi)%zone_lock >0 .and. data%mpars(mi)%zone_lock .ne. INT(matz) ) CYCLE
+
+            !minBiomass = 1.                                    ! min biomass (log10 g DW/m2)
+            minBiomass = data%mpars(mi)%m_initial_minb          ! min biomass from pars file is mmol C/m2
+            minBiomass = LOG10(minBiomass/data%mpars(mi)%X_cdw) ! min biomass (log10 g DW/m2)
+            maxBiomass = data%mpars(mi)%m_initial               ! max biomass from pars file is mmol C/m2
+            maxBiomass = LOG10(maxBiomass/data%mpars(mi)%X_cdw) ! max biomass (log10 g DW/m2)
+            minDepth   = 1.2                                    ! min depth below which is max biomass;
+            maxDepth   = data%mpars(mi)%m_initial_mind          ! max depth above which is 0 biomass; was 13.8
+
+            scale      = 12. / (maxDepth-minDepth)
+            offset     = -6./scale - minDepth
+            a          = (depth+offset)*scale
+            biomass    = minBiomass + exp(-a)/(1.+exp(-a))*(maxBiomass-minBiomass)
+            biomass    = 10.**(biomass)                         ! g DW/m2
+            n_shoots   = biomass * data%mpars(mi)%X_sdw         ! shoots/m2
+
+            _STATE_VAR_S_(data%id_mphya(mi)) = biomass*data%mpars(mi)%X_cdw        ! mmol C/m2  !0.5/12.*1000.
+            _STATE_VAR_S_(data%id_mphyb(mi)) =  data%mpars(mi)%f_bg * _STATE_VAR_S_(data%id_mphya(mi)) ! below-ground biomass
+            IF( data%mpars(mi)%fruit_model >0 ) THEN
+               _STATE_VAR_S_(data%id_mphyf(mi)) = data%mpars(mi)%f_seed * _STATE_VAR_S_(data%id_mphya(mi)) ! fruit biomass
+            ENDIF
+            _DIAG_VAR_S_(data%id_canopy_sh_dens) = _DIAG_VAR_S_(data%id_canopy_sh_dens) + n_shoots
+         ENDDO
+
+      CASE ( 2 )
          ! compute macrophyte group biomass from a single LAI and unit conversion
          lai_to_biomass = 1e6 ! mmol C/m2 / unit LAI
          DO mi=1,data%num_mphy
-           _STATE_VAR_S_(data%id_mphya(mi)) =  &
+            _STATE_VAR_S_(data%id_mphya(mi)) =  &
                            lai_to_biomass * _DIAG_VAR_S_(data%id_canopy_lai) / data%num_mphy
          END DO
 
-      CASE ( 2 )
-        ! compute macrophyte group biomass from input canopy variables
+      CASE ( 3 )
+         ! compute macrophyte group biomass from input canopy variables
 
-        DO mi=1,data%num_mphy
-          n_shoots    = INT(_DIAG_VAR_S_(data%id_shdens(mi)))
-          sh_diameter = _DIAG_VAR_S_(data%id_shdiam(mi))
-          sh_height   = _DIAG_VAR_S_(data%id_shhght(mi))
+         DO mi=1,data%num_mphy
+            n_shoots    = INT(_DIAG_VAR_S_(data%id_shdens(mi)))
+            sh_diameter = _DIAG_VAR_S_(data%id_shdiam(mi))
+            sh_height   = _DIAG_VAR_S_(data%id_shhght(mi))
 
-          ! actual volume of vegetation
-          bio_volume = n_shoots * 3.1418 * sh_diameter**2 / 4 * sh_height
+            ! actual volume of vegetation
+            bio_volume = n_shoots * 3.1418 * sh_diameter**2 / 4 * sh_height
 
-          ! volume above the water
-          wet_biovolume = bio_volume * MIN( water_depth/sh_height, one_ )
-          dry_biovolume = bio_volume - wet_biovolume
+            ! volume above the water
+            wet_biovolume = bio_volume * MIN( depth/sh_height, one_ )
+            dry_biovolume = bio_volume - wet_biovolume
 
-          ! cumulated volume of all macrophyte groups in this bottom cell
-          _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + bio_volume
+            ! cumulated volume of all macrophyte groups in this bottom cell
+            _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + bio_volume
 
-          ! amount of carbon biomass (within bottom cell)
-          _STATE_VAR_S_(data%id_mphya(mi)) =  bio_volume * data%mpars(mi)%X_cchl  ! check stoich
+           ! amount of carbon biomass (within bottom cell)
+           _STATE_VAR_S_(data%id_mphya(mi)) =  bio_volume * data%mpars(mi)%X_cchl  ! check stoich
         END DO
 
 
-      CASE ( 3 )
-        ! compute canopy variables from biomass and stem density
+      CASE ( 4 )
 
 
       CASE DEFAULT
@@ -854,6 +898,15 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
 
 
    END SELECT
+
+   DO mi=1,data%num_mphy
+      mphy = _STATE_VAR_S_(data%id_mphya(mi))
+      _DIAG_VAR_S_(data%id_mac) = _DIAG_VAR_S_(data%id_mac) + mphy
+      _DIAG_VAR_S_(data%id_mac_ag) = _DIAG_VAR_S_(data%id_mac_ag) + mphy*(one_-data%mpars(mi)%f_bg)
+      _DIAG_VAR_S_(data%id_mac_bg) = _DIAG_VAR_S_(data%id_mac_bg) + mphy*(data%mpars(mi)%f_bg)
+      _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) +       &
+                    (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
+  ENDDO
 
 END SUBROUTINE aed_initialize_benthic_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -863,7 +916,7 @@ END SUBROUTINE aed_initialize_benthic_macrophyte
 SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
    !-------------------------------------------------------------------------------
    ! Vertical column loop, to compute epiphytes and macrophyte biovolume
-   ! Note that variables are set here before computations are completed in benthic   
+   ! Note that variables are set here before computations are completed in benthic
    !-------------------------------------------------------------------------------
    !ARGUMENTS
       CLASS (aed_macrophyte_data_t),INTENT(in) :: data
@@ -876,17 +929,17 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
       AED_REAL :: hgt_layer_bot, hgt_canopy, hgt_layer_top, layer_frac, canopy_leaf_area
       AED_REAL :: epi, epi_prod, epi_resp, epi_flux, fI, par, extc, temp, Io
       AED_REAL :: canopy_par, canopy_frac, ratio
-   
+
    !-------------------------------------------------------------------------------
    !BEGIN
-   
+
       ! Check this column is in an active zone for macrophytes
       matz = _STATE_VAR_S_(data%id_sed_zone)
       IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
-      
+
       layer_idx = layer_map(1)                    ! Set layer to the top of the column
       layer_frac = zero_
-   
+
       ! Set column environmental conditions (from host)
       yearday  = _STATE_VAR_S_(data%id_yearday)
       extc = _STATE_VAR_(data%id_extc)            ! extinction
@@ -894,18 +947,18 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
       dz = _STATE_VAR_(data%id_dz)                ! cell thickness
       Io = _STATE_VAR_S_(data%id_I_0)             ! surface short wave radiation
 
-      ! Refer to total canopy height, and if exceeds the benthic/bottom layer, 
+      ! Refer to total canopy height, and if exceeds the benthic/bottom layer,
       !  then distribute relevant properties vertically
       mi = 1
       done = 0
-   
-      
+
+
       ! If submerged plant group, loop up through the water column
-      IF(data%mpars(mi)%growth_form == SUBMERGED) THEN 
-                  
+      IF(data%mpars(mi)%growth_form == SUBMERGED) THEN
+
          ! Initialise all layers canopy properties to 0
          DO layer = SIZE(layer_map),1,-1
-            layer_idx = layer_map(layer)   
+            layer_idx = layer_map(layer)
             _DIAG_VAR_(data%id_canopy_blockage) = zero_
             _DIAG_VAR_(data%id_canopy_frarea) = zero_
             _DIAG_VAR_(data%id_kemac) = zero_
@@ -914,30 +967,30 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
          _DIAG_VAR_S_(data%id_epib) = zero_
 
          ! Canopy height in this column
-         hgt_canopy = _DIAG_VAR_S_(data%id_canopy_height)   
+         hgt_canopy = _DIAG_VAR_S_(data%id_canopy_height)
          IF (hgt_canopy<0.005) THEN
             _DIAG_VAR_S_(data%id_d_par) = MAX( MIN( par * exp(-extc*( MAX(dz-0.005,zero_))),Io), zero_)
             print *,'plants too small: hgt_canopy= ',hgt_canopy
             RETURN ! plants too small, nothing to do here
          ENDIF
-   
-         ! Work up through the layers 
+
+         ! Work up through the layers
          hgt_layer_top = zero_
          DO layer = SIZE(layer_map),1,-1
 
           layer_idx = layer_map(layer)
-          dz  = _STATE_VAR_(data%id_dz)    
+          dz  = _STATE_VAR_(data%id_dz)
           hgt_layer_top = hgt_layer_top + dz
 
           canopy_par = par
-          canopy_frac = zero_    
-          
+          canopy_frac = zero_
+
           ! If canopy height < layer thickness, then all is in bottom layer
           IF (hgt_canopy<=hgt_layer_top)THEN
             ! canopy ends in this layer
             hgt_layer_bot = hgt_layer_top - dz
-            layer_frac = (hgt_canopy-hgt_layer_bot)/dz   ! vertical fraction canopy occupies in this layer 
-            canopy_frac=  (hgt_canopy-hgt_layer_bot)/hgt_canopy ! fraction of total canopy in this layer 
+            layer_frac = (hgt_canopy-hgt_layer_bot)/dz   ! vertical fraction canopy occupies in this layer
+            canopy_frac=  (hgt_canopy-hgt_layer_bot)/hgt_canopy ! fraction of total canopy in this layer
             canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
             canopy_par = MAX( MIN( par * exp(-extc*( MAX(dz-(hgt_canopy-hgt_layer_bot),zero_))),Io), zero_)
             _DIAG_VAR_S_(data%id_d_par) = canopy_par
@@ -946,28 +999,28 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
             ! canopy fully spans through layer
             layer_frac = one_
             canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
-            canopy_par = par 
+            canopy_par = par
             canopy_frac = dz/hgt_canopy
-          ENDIF  
+          ENDIF
 
 
           ! Set layer's macrophyte biovolume/blockage, and frontal area (e.g. for layer specific drag)
-          _DIAG_VAR_(data%id_canopy_blockage) = _DIAG_VAR_S_(data%id_canopy_biovolume) * canopy_frac                                 
-          _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac) 
+          _DIAG_VAR_(data%id_canopy_blockage) = _DIAG_VAR_S_(data%id_canopy_biovolume) * canopy_frac
+          _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
           _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
 
           ! Allow epiphyte growth in this layer
           IF( data%epi_model >0 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
-            
+
             epi_prod = zero_ ; epi_resp = zero_
-            
+
             ! Compute photosynthesis and respiration
             epi =  _STATE_VAR_S_(data%id_epi) * canopy_frac ! biomass of epiphytes in this layer
             fI = photosynthesis_irradiance(10,data%I_Kepi,data%I_Kepi,canopy_par,extc,Io,dz)
             epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))*(1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
             epi_resp = (data%R_epir*(data%theta_epi_resp**(temp-20.)))
             epi_flux = (epi_prod-epi_resp)*epi * (canopy_leaf_area/dz)
-            
+
             ! Increment this layers epi productivity into the "bulk" epi (benthic) pool
             _FLUX_VAR_B_(data%id_epi) = _FLUX_VAR_B_(data%id_epi) + epi_flux
 
@@ -1001,15 +1054,15 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
                 !   _DIAG_VAR_(data%id_PUP) = _DIAG_VAR_(data%id_PUP) - mpb_flux * ratio * secs_per_day
               ENDIF
 
-              ENDIF  
+              ENDIF
            ENDIF
-           
+
            IF(done==1) EXIT ! top of canopy was found so stop looping up
         END DO
         ! End vertical/column loop
 
         print *,'canopy_par',_DIAG_VAR_S_(data%id_d_par)
-        ! UPDATE CANOPY POSTURE & DRAG   
+        ! UPDATE CANOPY POSTURE & DRAG
         ! Based on cell velocity and canopy geometry, compute in-canopy velocity
 !        CALL sav_canopy_velocity( U , canopy_height , dz , u1 , u2 , drag )
         ! Use in canopy velocity to update canopy posture, and drag
@@ -1017,12 +1070,12 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 
 
       ENDIF
-   
+
 
 END SUBROUTINE aed_calculate_column_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   
-   
+
+
 !###############################################################################
 SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 !-------------------------------------------------------------------------------
@@ -1047,10 +1100,10 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    AED_REAL :: primprod(data%num_mphy), respiration(data%num_mphy)
 
-   AED_REAL :: landaimid, WLmid 
-   AED_REAL :: gpp, npp 
+   AED_REAL :: landaimid, WLmid
+   AED_REAL :: gpp, npp
    AED_REAL :: resp, respiration_A, respiration_B, R_resp_A, R_resp_B, theta_resp, k_resp
-   AED_REAL :: mort_A, mort_B, R_mort_A, R_mort_B 
+   AED_REAL :: mort_A, mort_B, R_mort_A, R_mort_B
    AED_REAL :: f_tran, tau_tran, f_tran_fruit, tau_tran_fruit, f1, f2, f_seed, f_below
    AED_REAL :: Omega_MAC, sine_blade, E_comp,  R_growth, I_K, kA  , A_eff
    AED_REAL :: t_start_g, t_dur_g,t_max_g, t_max_r, t_start_r, t_dur_r, light_int, lterm1, factor, kI, term1, term2, factor2, npp0, x, tmp1, tmp2, tmp12, tmp22
@@ -1060,7 +1113,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-   
+
    ! Check this cell is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)
 
@@ -1077,10 +1130,10 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    ! Adjust PAR to top of canopy
    !canopy_extc = MAX( 0.01,_DIAG_VAR_(data%id_kemac))       !0.1
-   !canopy_hgt = _DIAG_VAR_S_(data%id_canopy_height)         !0.1 ; 
+   !canopy_hgt = _DIAG_VAR_S_(data%id_canopy_height)         !0.1 ;
    !par_canopy = _DIAG_VAR_S_(data%id_d_par) ! MAX( MIN( par * exp(-extc*( MAX(dz-canopy_hgt,zero_))),Io), zero_)
    canopy_extc = 0.1
-   canopy_hgt = 0.1  
+   canopy_hgt = 0.1
    par_canopy = MAX( MIN( par * exp(-extc*( MAX(dz-canopy_hgt,zero_))),Io), zero_)
    par_swi = MAX( par_canopy * exp(-(extc+canopy_extc)*canopy_hgt), zero_)
 
@@ -1095,20 +1148,23 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    _DIAG_VAR_S_(data%id_mac_tr) = zero_
    _DIAG_VAR_S_(data%id_mac) = zero_
    _DIAG_VAR_S_(data%id_gpp) = zero_
-  
+
    !IF (data%mpars(mi)%fruit_model == 1) THEN
    IF( data%simFruiting ) THEN
       _DIAG_VAR_S_(data%id_mac_fr) = zero_
       _DIAG_VAR_S_(data%id_mac_ft) = zero_
    ENDIF
- 
+
    ! Initialise fruit growth control variables
    trigger_fruit_growth = _DIAG_VAR_S_(data%id_mac_gt)    ! =0 when start releasing
    MAC_F = zero_                                          ! default fruit mass
-   
+
    !--- LOOP THROUGH EACH GROUP/SPECIES
    ! Compute productivity, respiration, translocation, fruiting
    DO mi=1,data%num_mphy
+
+      ! Check if this species/group is locked to grow in a specific zone
+      IF( data%mpars(mi)%zone_lock >0 .and. data%mpars(mi)%zone_lock .ne. INT(matz) ) CYCLE
 
       ! Set local pars for species
       R_growth  = data%mpars(mi)%R_growth
@@ -1130,15 +1186,15 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       MAC_B = _STATE_VAR_S_(data%id_mphyb(mi))            ! below-ground biomass
 
 
-      !--- GROWTH 
-      IF ( data%mpars(mi)%light_model == 1 ) THEN         
+      !--- GROWTH
+      IF ( data%mpars(mi)%light_model == 1 ) THEN
          ! use Baird approach with total/bulk light approach
-         
+
          ! gross primary production
-         fT           = 1.0                               ! temperature limitation          
-         fSal         = 1.0                               ! salinity limitation 
-         fEpi         = 1.0                               ! epiphyte limitation   
-         IF ( data%simEpiphytes ) fEpi = 1.0              ! epiphyte shading                       
+         fT           = 1.0                               ! temperature limitation
+         fSal         = 1.0                               ! salinity limitation
+         fEpi         = 1.0                               ! epiphyte limitation
+         IF ( data%simEpiphytes ) fEpi = 1.0              ! epiphyte shading
          x            = (fEpi*par_canopy)/I_K             ! light limitation
          A_eff        = 1 - exp(-Omega_MAC*MAC_A)         ! effective area
          fI           = x/(1 + x) * (kA/(kA+A_eff))       ! light limitation+shelf shading
@@ -1149,108 +1205,108 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
          ! the respiration includes pure respiratory fraction, mortality and excretion
          respiration_A = R_resp_A * theta_resp**(temp-20.0) * MAC_A
          respiration_B = R_resp_B * theta_resp**(temp-20.0) * MAC_B
-      
+
          respiration(mi) = respiration_A + respiration_B  ! Resp rate (mmol C/m2/s)
-      
+
          ! translocation
          f_tran = (f_below-(MAC_B)/(MAC_A+MAC_B)) * (MAC_A+MAC_B) * tau_tran
-      
+
          ! net flux rates (mmol C/m2/s)
-         mphy_flux_a = (primprod(mi)  - respiration_A - f_tran)  
-         mphy_flux_b = (- respiration_B + f_tran)     
+         mphy_flux_a = (primprod(mi)  - respiration_A - f_tran)
+         mphy_flux_b = (- respiration_B + f_tran)
          npp = primprod(mi)  - respiration_A
 
-         
-      ELSEIF ( data%mpars(mi)%light_model == 2 ) THEN  
+
+      ELSEIF ( data%mpars(mi)%light_model == 2 ) THEN
          ! use Baird approach with assumed (fixed) light spectra
-           
+
          ! Integrate over 300-800nm to calculate photons being captured (Eq 8 in Baird et al 2016)
-         fEpi         = 1.0                               ! epiphyte limitation   
-         IF ( data%simEpiphytes ) fEpi = 1.0              ! epiphyte shading                       
+         fEpi         = 1.0                               ! epiphyte limitation
+         IF ( data%simEpiphytes ) fEpi = 1.0              ! epiphyte shading
          light_int = zero_
          DO ll = 1,SIZE(WLint)-1
              lterm1    = 1. - exp(-ALlint(ll)*Omega_MAC*MAC_A*sine_blade)
              landaimid = (landaiint(ll)+landaiint(ll+1))/2.
-             WLmid     = (WLint(ll)+WLint(ll+1))/2.          
+             WLmid     = (WLint(ll)+WLint(ll+1))/2.
              light_int = light_int + landaimid*WLmid*(WLint(ll+1)-WLint(ll))*lterm1
          ENDDO
-         light_int = light_int*(par_canopy*fEpi)/landaiSUM ! proportion of incoming par to clear-sky irradiance       
+         light_int = light_int*(par_canopy*fEpi)/landaiSUM ! proportion of incoming par to clear-sky irradiance
          factor    = 1./(h*c*Av*1e9)                      ! conversion constant of photons from W/m2 to photon/m2/s
          kI        = factor*light_int                     ! rate of photon capture, mol photon/m2/s;
          primprod(mi) = kI  !?
 
          ! respiration
-		   ! compensation light (sum of respiration and mortality), mol photon/m2/day, 
-         term1 = E_comp*ALl*Omega_MAC*sine_blade   
-		 
+         ! compensation light (sum of respiration and mortality), mol photon/m2/day,
+         term1 = E_comp*ALl*Omega_MAC*sine_blade
+
          term2 = 5500./550./1000. * R_mort_A * 86400.       ! mortality, converted to mol photon/m2/day;
          k_resp = 2.*(term1 - term2) * MAC_A /86400.      ! respiration rate in mol photon/m2/s, Eq(9) of Baird et al. 2016
-                  
+
          ! net production
          factor2 = 550./5500.*1000.                       ! factor to convert photon to carbon, mmol C/m2/s
          resp = k_resp * factor2                          ! respiration rate in mmol C/m2/s
-         respiration(mi) = resp 
+         respiration(mi) = resp
          npp0 = max(zero_,(kI*factor2-resp))              ! net production rate
          npp = min(R_growth*MAC_A,npp0)                   ! cross-check of NPP npp0; %
 
          ! mortality
-         mort_A = R_mort_A * theta_resp**(temp-20.0) * MAC_A 
+         mort_A = R_mort_A * theta_resp**(temp-20.0) * MAC_A
          mort_B = R_mort_B * theta_resp**(temp-20.0) * MAC_B
-         
+
          ! translocation between AG/BG
          f_tran = (f_below - (MAC_B)/(MAC_A+MAC_B)) * (MAC_A+MAC_B) * tau_tran
-         
+
          ! update AG and BG biomass rates, and effective projected area fraction, A_eff
-         mphy_flux_a = (npp - mort_A - f_tran) 
-         mphy_flux_b = (- mort_B + f_tran)    
+         mphy_flux_a = (npp - mort_A - f_tran)
+         mphy_flux_b = (- mort_B + f_tran)
 
          A_eff = 1 - exp(-Omega_MAC * MAC_A)
-         _DIAG_VAR_S_(data%id_aeff) = A_eff  
-		 
-		 !PRINT *,'LIGHT2',npp, term1, term2, kI, k_resp !, ALl, E_comp, Omega_MAC, sine_blade
+         _DIAG_VAR_S_(data%id_aeff) = A_eff
+
+         !PRINT *,'LIGHT2',npp, term1, term2, kI, k_resp !, ALl, E_comp, Omega_MAC, sine_blade
 
 
-      ELSEIF ( data%mpars(mi)%light_model == 3 ) THEN  
+      ELSEIF ( data%mpars(mi)%light_model == 3 ) THEN
          ! use Baird approach with AED spectrally-resolved light
-           
+
          light_int = _DIAG_VAR_S_(data%id_parc)           ! light capture by plant leaves (returned from OASIM)
          factor    = 1./(h*c*Av*1e9)                      ! conversion constant of photons from W/m2 to photon/m2/s
          kI        = factor*light_int                     ! rate of photon capture, mol photon/m2/s;
          primprod(mi) = kI  !?
-   
+
          ! respiration
-		 ! compensation light (sum of respiration and mortality), mol photon/m2/day, divided by 86400 to mol photon/m2/s
-         term1 = E_comp*ALl*Omega_MAC*sine_blade/86400.   
-		 
-		   term2 = 5500./550./1000. * R_mort_A              ! mortality, converted to mol photon/m2/s;
+         ! compensation light (sum of respiration and mortality), mol photon/m2/day, divided by 86400 to mol photon/m2/s
+         term1 = E_comp*ALl*Omega_MAC*sine_blade/86400.
+
+         term2 = 5500./550./1000. * R_mort_A              ! mortality, converted to mol photon/m2/s;
          k_resp = 2.*(term1 - term2) * MAC_A              ! respiration rate in mol photon/m2/s, Eq(9) of Baird et al. 2016
-                  
+
          ! net production
          factor2 = 550./5500.*1000.                       ! factor to convert photon to carbon, mmol C/m2/s
          resp = k_resp * factor2                          ! respiration rate in mmol C/m2/s
-         respiration(mi) = resp 
+         respiration(mi) = resp
          npp0 = max(zero_,(kI*factor2-resp))              ! net production rate
          npp = min(R_growth*MAC_A,npp0)                   ! cross-check of NPP npp0; %
-            
+
          ! mortality
-         mort_A = R_mort_A * theta_resp**(temp-20.0) * MAC_A 
+         mort_A = R_mort_A * theta_resp**(temp-20.0) * MAC_A
          mort_B = R_mort_B * theta_resp**(temp-20.0) * MAC_B
-            
+
          ! translocation between AG/BG
          f_tran = (f_below - (MAC_B)/(MAC_A+MAC_B)) * (MAC_A+MAC_B) * tau_tran
-            
-         ! update AG and BG biomass rates, and effective projected area fraction, A_eff
-         mphy_flux_a = (npp - mort_A - f_tran) 
-         mphy_flux_b = (- mort_B + f_tran)    
-   
-         A_eff = 1 - exp(-Omega_MAC * MAC_A)
-         _DIAG_VAR_S_(data%id_aeff) = A_eff  
 
-         
-     ELSEIF ( data%mpars(mi)%light_model == 10 ) THEN  
+         ! update AG and BG biomass rates, and effective projected area fraction, A_eff
+         mphy_flux_a = (npp - mort_A - f_tran)
+         mphy_flux_b = (- mort_B + f_tran)
+
+         A_eff = 1 - exp(-Omega_MAC * MAC_A)
+         _DIAG_VAR_S_(data%id_aeff) = A_eff
+
+
+     ELSEIF ( data%mpars(mi)%light_model == 10 ) THEN
          ! use legacy AED approach with bulk light
 
-         fT   = 1.0   ! fTemp_function(temp,     ) 
+         fT   = 1.0   ! fTemp_function(temp,     )
          fSal = 1.0   ! fSal_function(salinity,10.,72.,123.,230.)
          fI   = photosynthesis_irradiance(data%mpars(mi)%light_model, &
                                  I_K, data%mpars(mi)%I_S, par_canopy, extc, Io, dz)
@@ -1266,15 +1322,15 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
          fDO  = 1.0 ! phyto_oxygen(data%mpars,mi,oxygen)
 
          respiration(mi) = respiration(mi) * (fSal * fDO) *  MAC_A
-         
-         mphy_flux_a = (primprod(mi) - respiration(mi)) 
-         mphy_flux_b = zero_ 
-         npp = mphy_flux_a
-         
-     ENDIF
-  
 
-     !--- SET GROWTH/RESPIRATION RATES 
+         mphy_flux_a = (primprod(mi) - respiration(mi))
+         mphy_flux_b = zero_
+         npp = mphy_flux_a
+
+     ENDIF
+
+
+     !--- SET GROWTH/RESPIRATION RATES
      IF( .NOT. data%simStaticBiomass ) THEN
           ! Set bottom fluxes for the benthic pools (mmol C/m2/s)
           _FLUX_VAR_B_(data%id_mphya(mi)) = _FLUX_VAR_B_(data%id_mphya(mi)) + mphy_flux_a
@@ -1293,30 +1349,30 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
         t_dur_g        = data%mpars(mi)%t_dur_g
         t_start_r      = data%mpars(mi)%t_start_r
         t_dur_r        = data%mpars(mi)%t_dur_r
-           
+
           ! 1. get the day of the year, and prior fruit biomass
          MAC_F = max(zero_, _STATE_VAR_S_(data%id_mphyf(mi)))     ! fruits biomass
          day = FLOOR(_STATE_VAR_S_(data%id_yearday))  ! day number
          ! reset trigger for fruit to grow if the day<t_start_g
-		 
+
          IF (day<t_start_g) trigger_fruit_growth=one_
-         
+
          ! 2. translocation from AG to fruit/seeds
          t_max_g = t_start_g+t_dur_g
          tmp1    = 12./t_dur_g*day+6.*(t_start_g+t_max_g)/(t_start_g-t_max_g)
          tmp2    = exp(-tmp1)
          f1      = 1./(1.+tmp2)
-     
+
          f_tran_fruit = max(zero_,(f_seed-MAC_F/(MAC_F+MAC_A)) * (MAC_F+MAC_A)*tau_tran_fruit*f1)
-      
-         ! ...assume that if fruit ratio reach the 90% of maximum (mature) value, 
+
+         ! ...assume that if fruit ratio reach the 90% of maximum (mature) value,
          ! ...then stop fruit growth & start releasing at constant rate
          IF ( (MAC_F)/(MAC_F+MAC_A) > f_seed*0.9 ) THEN
             trigger_fruit_growth=zero_
-            
+
          ENDIF
-      
-         ! 3. releasing    
+
+         ! 3. releasing
          t_max_r = t_start_r+t_dur_r
          tmp12   = 12. /t_dur_r*day + 6.*(t_start_r+t_max_r)/(t_start_r-t_max_r)
          tmp22   = exp(-tmp12)
@@ -1326,29 +1382,29 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
            _FLUX_VAR_B_(data%id_mphya(mi)) = _FLUX_VAR_B_(data%id_mphya(mi)) - f_tran_fruit
          ELSE
             f_tran_fruit = zero_
-			MAC_F_release = MAC_F*r_release
+            MAC_F_release = MAC_F*r_release
             f_release = MAC_F_release*f2
            ! _STATE_VAR_S_(data%id_mphyf(mi)) = max(zero_,MAC_F-f_release)
-			
-			_FLUX_VAR_B_(data%id_mphyf(mi)) = _FLUX_VAR_B_(data%id_mphyf(mi)) - f_release
-			!_STATE_VAR_S_(data%id_mphyf(mi)) = max(zero_,_STATE_VAR_S_(data%id_mphyf(mi)))
-			
+
+            _FLUX_VAR_B_(data%id_mphyf(mi)) = _FLUX_VAR_B_(data%id_mphyf(mi)) - f_release
+           !_STATE_VAR_S_(data%id_mphyf(mi)) = max(zero_,_STATE_VAR_S_(data%id_mphyf(mi)))
+
             !MAC_F=max(0,MAC_F-f_release)
             !MAC_A(dd)=MAC_A(dd)   ! PH: is this missing something?
          ENDIF
-		 _DIAG_VAR_S_(data%id_mac_gt) = trigger_fruit_growth
+         _DIAG_VAR_S_(data%id_mac_gt) = trigger_fruit_growth
          _DIAG_VAR_S_(data%id_mac_fr) = _DIAG_VAR_S_(data%id_mac_fr) + MAC_F
          _DIAG_VAR_S_(data%id_mac_ft) = _DIAG_VAR_S_(data%id_mac_ft) - f_tran_fruit
-		 
+
      ENDIF
 
      !--- FEEDBACK TO WATER COLUMN (NUTRIENTS, OXYGEN)
      IF( data%simMacFeedback .and. dz>0.05 ) THEN
         IF(data%id_oxy>0)&
-          _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + mphy_flux_a/dz 
+          _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + mphy_flux_a/dz
         IF(data%id_dic>0)&
-          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - mphy_flux_a/dz 
- 
+          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - mphy_flux_a/dz
+
         ! ASSUMED NUTRIENT STOICHIOMETRY FOR NOW - NEED TO ADD SPECIES SPECIFIC VALUES FOR N and P
         IF(data%id_nox>0)&
           _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - (mphy_flux_a/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
@@ -1380,18 +1436,18 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) + sh_height
      _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) + A_eff  ! TBC+       &
                      ! (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
-  
+
    ENDDO ! Finish looping through groups
 
    !--- FINALISE CANOPY & COMMUNITY CALCULATIONS
-   ! Finalise canopy averaging  
+   ! Finalise canopy averaging
    _DIAG_VAR_S_(data%id_canopy_sh_diam) = _DIAG_VAR_S_(data%id_canopy_sh_diam) / REAL(data%num_mphy)
    _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) / REAL(data%num_mphy)
     ! Approximate root depth and oxygen input (eg., for sediment bgc model)
    _DIAG_VAR_S_(data%id_root_o) = _DIAG_VAR_S_(data%id_gpp) * 0.2 ! data%bg_gpp_frac     ! mmolO2/m2/d
-   _DIAG_VAR_S_(data%id_root_d) = 0.05 !MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01) !m 
+   _DIAG_VAR_S_(data%id_root_d) = 0.05 !MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01) !m
    ! Export additional diagnostic variables
-   _DIAG_VAR_S_(data%id_d_par)= par_canopy 
+   _DIAG_VAR_S_(data%id_d_par)= par_canopy
 
 END SUBROUTINE aed_calculate_benthic_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1400,7 +1456,7 @@ END SUBROUTINE aed_calculate_benthic_macrophyte
 !###############################################################################
 SUBROUTINE aed_light_extinction_macrophyte(data, column, layer_idx, extinction)
 !-------------------------------------------------------------------------------
-! Get the light extinction coefficient due to macrophyte biomass 
+! Get the light extinction coefficient due to macrophyte biomass
 !
 !  WARNING - THIS IS ADDDING MACROPHYTE EFFECT TO ALL CELLS IN WATER COLUMN
 !
@@ -1426,7 +1482,7 @@ SUBROUTINE aed_light_extinction_macrophyte(data, column, layer_idx, extinction)
 
    ! Recall extinction value (for this cell) recorded during column loop calculations
    extinction = MIN( _DIAG_VAR_(data%id_kemac) , max_extc)
-   
+
 END SUBROUTINE aed_light_extinction_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1452,7 +1508,7 @@ SUBROUTINE aed_bio_drag_macrophyte(data, column, layer_idx, drag)
    AED_REAL :: K_CD, Uc
 !-------------------------------------------------------------------------------
 !BEGIN
-   
+
    drag = zero_
 
    ! Check this cell is in an active zone for macrophytes
@@ -1464,17 +1520,17 @@ SUBROUTINE aed_bio_drag_macrophyte(data, column, layer_idx, drag)
    dz   = _STATE_VAR_(data%id_dz)
    depth= _STATE_VAR_S_(data%id_depth)
 
-   IF( data%drag_model==1 ) THEN 
+   IF( data%drag_model==1 ) THEN
 
      DO mi=1,data%num_mphy
       !# above ground density of macrophyte group i
-      mphy = _STATE_VAR_S_(data%id_mphya(mi)) 
+      mphy = _STATE_VAR_S_(data%id_mphya(mi))
 
       !# additional drag due to biomass
       drag = drag + (data%mpars(mi)%K_CD * (mphy/dz) )
      ENDDO
-   
-   ELSEIF( data%drag_model==2 ) THEN 
+
+   ELSEIF( data%drag_model==2 ) THEN
      ! set canopy average conditions for drag computation
      n_shoot = INT(_DIAG_VAR_S_(data%id_canopy_stem_dens))
      sh_diameter = _DIAG_VAR_S_(data%id_canopy_stem_diam)
@@ -1488,7 +1544,7 @@ SUBROUTINE aed_bio_drag_macrophyte(data, column, layer_idx, drag)
      !# additional drag due to canopy
      drag = K_CD
 
-   ELSEIF( data%drag_model==3 ) THEN 
+   ELSEIF( data%drag_model==3 ) THEN
      ! Work out leaf effective length etc and buoyancy
    ENDIF
 
@@ -1522,11 +1578,11 @@ FUNCTION vegetation_drag(n,vp,d,Sx,Sy,Ub,hv,Cd) RESULT(Uc)
    !
    !-------------------------------------------------------------------------------
    !Environmental parameters; Units: metric;
-   
+
       nu = 10**(-6)                ! Kinematic viscosity of water
       Lambdap = n * 3.1418  * d**2 / 4  ! Planar area (dimensionless)
       Up = Ub / (1-Lambdap);       ! Pore velocity (m/s)
-   
+
       IF (vp == 1) THEN
         !(a) If linear or staggered arrangement, use a constricted velocity
         Beta  = Sx / Sy
@@ -1536,13 +1592,13 @@ FUNCTION vegetation_drag(n,vp,d,Sx,Sy,Ub,hv,Cd) RESULT(Uc)
         nSqrt = sqrt(REAL(n))
         Uc    = (1-Lambdap) * Up/(1-d*nSqrt)
       ENDIF
-   
+
       Rec = Uc * d / nu            ! Stem Reynolds number
       Cd  = 1 + Rec**(-2/3)        ! Drag coefficient
-   
+
 END FUNCTION vegetation_drag
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   
+
 
 !###############################################################################
 SUBROUTINE interp_0d(nsource,x,y,ntarget,targetx,targety)
@@ -1558,7 +1614,7 @@ SUBROUTINE interp_0d(nsource,x,y,ntarget,targetx,targety)
    !LOCALS
       INTEGER  :: i, j
       AED_REAL :: frac
-   
+
    !-------------------------------------------------------------------------------
    !BEGIN
       i = 1
@@ -1768,10 +1824,10 @@ trigger_fruit_growth = 1;
 
 % loop through the timesteps
 for dd=2:length(PAR_time)
-    
+
     % growth
     if Light_model == 2 % spectral-resolved model
-        
+
         % integrated over 300-800nm to calculate photons being captured
         % Eq(8) of Baird et al. 2016
         light_int=0;
@@ -1779,93 +1835,93 @@ for dd=2:length(PAR_time)
             lterm1 = 1 - exp(-ALlint(ll)*Omega_MAC.*MAC_A(dd-1)*sine_blade);
             landaimid = (landaiint(ll)+landaiint(ll+1))/2;
             WLmid = (WLint(ll)+WLint(ll+1))/2;
-            
+
             light_int=light_int+landaimid*WLmid*(WLint(ll+1)-WLint(ll))*lterm1;
         end
         light_int=light_int*par(dd)/landaiSUM; %proportion of incoming irradiation par(dd) to clear-sky irradiance
-        
+
         factor    = 1/(h*c*Av*1e9);    % conversion constant of photons from W/m2 to photon/m2/s
         kI = factor*light_int;         % rate of photon capture, mol photon/m2/s;
-        
+
         % respiration
-        
+
         term1 = E_comp*ALl*Omega_MAC.*sine_blade; % compensation light
         term2 = 5500/550/1000*R_mort_A;           % respiration, converted to mol photon/m2/s;
         k_resp = 2*(term1 - term2)*MAC_A(dd-1);   % respiration rate in photon, Eq(9) of Baird et al. 2016
-        
-        
+
+
         % net production
         factor2 = 550/5500*1000*86400; % factor to converting photon to carbon, mmol C/m2/day
-        
+
         resp(dd) = k_resp*factor2/86400;        % respiration rate in mmol C/m2/day
         npp0 = max(0,(kI*factor2-resp(dd)));    % net production rate
         npp(dd) = min(R_growth*MAC_A(dd-1),npp0); % cross-check of NPP npp0; %
-        
+
         % mortality
         mort_A(dd) = MAC_A(dd-1)*R_mort_A * theta_resp^(T_standard-20.0);
         mort_B(dd) = MAC_B(dd-1)*R_mort_B * theta_resp^(T_standard-20.0);
-        
+
         % translocation between AG/BG
         f_tran(dd)=(f_below - (MAC_B(dd-1))/(MAC_A(dd-1)+MAC_B(dd-1)))*(MAC_A(dd-1)+MAC_B(dd-1))*tau_tran;
-        
+
         % update AG and BG biomass, and effective projected area fraction
         % A_eff
         MAC_A(dd)= MAC_A(dd-1) + (npp(dd) - mort_A(dd) - f_tran(dd))*timestep;
         MAC_B(dd)= MAC_B(dd-1) + (- mort_B(dd) + f_tran(dd))*timestep;
         A_eff(dd) = 1 - exp(-Omega_MAC.*MAC_A(dd));
-        
+
     elseif Light_model == 1 % total light model
         A_eff(dd) = 1 - exp(-Omega_MAC.*MAC_A(dd-1)); % effective area
         x = par(dd)/I_K;                             % light limitation
         fI = x ./ (1 + x)*(kA/(kA+A_eff(dd))); % light limitation+shelf shading
         gpp(dd) = MAC_A(dd-1)*R_growth*(min(fI,1)); % GPP rate per day
-        
+
         % respiration; note the definition of respiration in total light
         % model is different to the one in the spectral light model. Here
         % the respiration includes pure respiratory fraction, mortality and excretion
         respiration_A(dd) = MAC_A(dd-1)*R_resp_A * theta_resp^(T_standard-20.0);
         respiration_B(dd) = MAC_B(dd-1)*R_resp_B * theta_resp^(T_standard-20.0);
-        
+
         f_tran(dd)=(f_below - (MAC_B(dd-1))/(MAC_A(dd-1)+MAC_B(dd-1)))*(MAC_A(dd-1)+MAC_B(dd-1))*tau_tran;
-        
+
         MAC_A(dd)= MAC_A(dd-1) + (gpp(dd) - respiration_A(dd) - f_tran(dd))*timestep;
         MAC_B(dd)= MAC_B(dd-1) + (- respiration_B(dd) + f_tran(dd))*timestep;
-        
+
     else
-        
+
         error('Light model option can be recognized');
     end
-    
+
     % seagrass fruiting growth and release
     if Fruiting == 1
-        
+
         % 1. get the day of the year
         t_vec = datevec(PAR_time(1));
         t = PAR_time(dd)-datenum(t_vec(1),1,1);
-        
+
         % reset trigger for fruit to grow if t<t_start_g
         if t<t_start_g
             trigger_fruit_growth=1;
         end
-        
+
         % 1. translocation from AG to seeds
         t_max_g=t_start_g+t_dur_g;
         tmp1=12/t_dur_g*t+6*(t_start_g+t_max_g)/(t_start_g-t_max_g);
         tmp2=exp(-tmp1);
         f1(dd)=1/(1+tmp2);
-        
+
         f_tran_fruit(dd)=(f_seed-MAC_F(dd-1)/(MAC_F(dd-1)+MAC_A(dd-1)))*...
             (MAC_F(dd-1)+MAC_A(dd-1))*tau_tran_fruit*f1(dd);
-        
+
         % assume if fruit ratio reach the 90% of maximum value, then
         % stop fruit growing and start releasing at constant rate
         if MAC_F(dd-1)/(MAC_F(dd-1)+MAC_A(dd-1))>f_seed*0.9
             trigger_fruit_growth=0;
             MAC_F_release=MAC_F(dd-1)*r_release;
         end
-        
+
         % 2. releasing
-        
+
         t_max_r=t_start_r+t_dur_r;
         tmp12=12/t_dur_r*t+6*(t_start_r+t_max_r)/(t_start_r-t_max_r);
         tmp22=exp(-tmp12);
@@ -1880,9 +1936,9 @@ for dd=2:length(PAR_time)
             MAC_A(dd)=MAC_A(dd);
         end
     end
-    
-    
-    
+
+
+
 end
 
 #endif

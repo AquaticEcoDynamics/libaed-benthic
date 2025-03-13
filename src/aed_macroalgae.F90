@@ -93,8 +93,8 @@ MODULE aed_macroalgae
       AED_REAL, ALLOCATABLE :: active_zones(:)
       AED_REAL :: min_rho,max_rho
       AED_REAL :: slough_stress, slough_burial, slough_rate
-      LOGICAL  :: simMalgFeedback
-      INTEGER  :: simSloughing
+      LOGICAL  :: simMalgFeedback, simStaticBiomass
+      INTEGER  :: simSloughing, simAging
       INTEGER  :: simMalgHSI
       INTEGER  :: simCGM
 
@@ -456,7 +456,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
 
        !-- Group requires a attached pool, benthic or surface
        IF ( growth_form(i)>0 ) THEN
-         ! Register a water column pool for the group as a state variable
+         ! Register a benthic/fixed pool for the group as a state variable
         !IF (data%malgs(i)%settling == _MOB_ATTACHED_) THEN
          data%id_pben(i) = aed_define_sheet_variable(                          &
                           TRIM(data%malgs(i)%p_name)//'_ben',                  &
@@ -563,6 +563,9 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    INTEGER            :: n_zones = 0
    INTEGER            :: active_zones(1000) = 0
    LOGICAL            :: simMalgFeedback = .true.
+   LOGICAL            :: simStaticBiomass = .false.
+   LOGICAL            :: simAging = .false.
+
 
 ! From Module Globals
    LOGICAL  :: extra_debug = .false.  !## Obsolete Use diag_level = 10
@@ -585,7 +588,8 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
                     dbase, zerolimitfudgefactor,slough_stress,simSloughing,    &
                      simMalgHSI, n_zones, active_zones, simMalgFeedback,       &
                     extra_debug, extra_diag, diag_level, tau_0, dtlim,         &
-                    growth_form, slough_model, slough_burial, slough_rate
+                    growth_form, slough_model, slough_burial, slough_rate,     &
+                    simStaticBiomass, simAging
 !-----------------------------------------------------------------------
 !BEGIN
 
@@ -614,6 +618,8 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%slough_rate = slough_rate / secs_per_day
 
    data%simMalgFeedback = simMalgFeedback
+   data%simStaticBiomass = simStaticBiomass
+   data%simAging = simAging
    PRINT *,'          NOTE - macroalgae feedbacks to water column properties: ',simMalgFeedback
 
    ! Store parameter values in a local malgae strcutured type
@@ -693,24 +699,32 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 
    ! Register diagnostic variables
    IF (diag_level>0) THEN
-     data%id_TMALG   = aed_define_diag_variable('tmalg','g DW/m**2', 'MAG: total macroalgal biomass')
+    data%id_TMALG   = aed_define_diag_variable('tmalg','g DW/m**2', 'MAG: total macroalgal biomass')
+    IF( ANY(data%id_p(:)>0) ) THEN     ! Water column
      data%id_TIN     = aed_define_diag_variable('in','mmol/m**3', 'MAG: total macroalgal nitrogen')
      data%id_TIP     = aed_define_diag_variable('ip','mmol/m**3', 'MAG: total macroalgal phosphorus')
-     data%id_mag_ben = aed_define_sheet_diag_variable('mag_ben','mmol/m**2/d', 'BEN MAG: total C biomass')
+    ENDIF
+    IF( ANY(data%id_pben(:)>0) ) THEN  ! Benthic/Attached
+      data%id_mag_ben = aed_define_sheet_diag_variable('mag_ben','mmol/m**2/d', 'BEN MAG: total C biomass')
      data%id_min_ben = aed_define_sheet_diag_variable('in_ben','mmol/m**2/d', 'BEN MAG: total N biomass')
      data%id_mip_ben = aed_define_sheet_diag_variable('ip_ben','mmol/m**2/d', 'BEN MAG: total P biomass')
+    ENDIF
    ENDIF
    IF (diag_level>1) THEN
+    IF( ANY(data%id_p(:)>0) ) THEN     ! Water column
      data%id_GPP     = aed_define_diag_variable('gpp','mmol/m**3/d', 'MAG: macroalgal gross primary production')
      data%id_PUP     = aed_define_diag_variable('pup','mmol/m**3/d', 'MAG: macroalgal phosphorous uptake')
      data%id_NUP     = aed_define_diag_variable('nup','mmol/m**3/d','MAG: macroalgal nitrogen uptake')
      data%id_NMP     = aed_define_diag_variable('nmp','mmol/m**3/d',  'net macroalgal production')
+    ENDIF
+    IF( ANY(data%id_pben(:)>0) ) THEN  ! Benthic/Attached
      data%id_gpp_ben = aed_define_sheet_diag_variable('gpp_ben','/d', 'BEN MAG: macroalgal gross primary production')
      data%id_rsp_ben = aed_define_sheet_diag_variable('rsp_ben','/d', 'BEN MAG: macroalgal respiration')
      data%id_pup_ben = aed_define_sheet_diag_variable('pup_ben','mmol/m**2/d', 'BEN MAG: macroalgal phosphorous uptake')
      data%id_nup_ben = aed_define_sheet_diag_variable('nup_ben','mmol/m**2/d', 'BEN MAG: macroalgal nitrogen uptake')
      data%id_nmp_ben = aed_define_sheet_diag_variable('nmp_ben','mmol/m**2/d', 'BEN MAG: net macroalgal production')
      data%id_slg_ben = aed_define_sheet_diag_variable('slg_ben','mmol/m**2/d', 'BEN MAG: sloughing rate')
+    ENDIF
    ENDIF
 
    data%id_swi_c = aed_define_sheet_diag_variable('mag_swi_c','mmol C/m2/d', 'MAG C flux across the SWI')
@@ -835,6 +849,8 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
 !
 !-------------------------------------------------------------------------------
 !BEGIN
+
+   IF ( .NOT. ANY(data%id_p(:)>0) ) RETURN
 
    ! Retrieve current environmental conditions.
    temp     = _STATE_VAR_(data%id_tem)    ! local temperature
@@ -1583,6 +1599,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        IF (diag_level>1) _DIAG_VAR_S_(data%id_nup_ben) = _DIAG_VAR_S_(data%id_nup_ben) + nuptake(mag_i,1) *secs_per_day
 
        !# Update the attached (carbon) biomass based on the net growth rate
+       IF ( .NOT. data%simStaticBiomass ) &
        _FLUX_VAR_B_(data%id_pben(mag_i)) = _FLUX_VAR_B_(data%id_pben(mag_i)) + malg_flux
 
        !# Update the INTERNAL NITROGEN biomass of the attached macroalgae
@@ -1591,6 +1608,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
           flux = (sum(-nuptake(mag_i,:)) - nexcretion(mag_i) - nmortality(mag_i) )
           available = MAX(zero_, INi - data%malgs(mag_i)%X_nmin*malg)
           IF ( -flux*dtlim > available  ) flux = -0.99*available/dtlim
+          IF ( .NOT. data%simStaticBiomass ) &
           _FLUX_VAR_B_(data%id_inben(mag_i)) = _FLUX_VAR_B_(data%id_inben(mag_i)) + flux
        ENDIF
 
@@ -1600,6 +1618,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
           flux = (sum(-puptake(mag_i,:)) - pexcretion(mag_i) - pmortality(mag_i))
           available = MAX( zero_, IPi-data%malgs(mag_i)%X_pmin*malg )
           IF ( -flux*dtlim > available  ) flux = -0.99*available/dtlim
+          IF ( .NOT. data%simStaticBiomass ) &
           _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) + flux
        ENDIF
 
@@ -1636,7 +1655,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        ENDIF
 
        !# Redistribute biomass into the water column if sloughing occurs.
-       IF( data%simSloughing >0 .and. data%malgs(mag_i)%slough_model >0 ) THEN
+       IF( data%simSloughing >0 .and. data%malgs(mag_i)%slough_model >0 .and. .not.data%simStaticBiomass ) THEN
 
         IF( data%malgs(mag_i)%slough_model == 1) THEN
           ! The Coorong Ulva approach
@@ -1737,7 +1756,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
 
    !-- Loop through selected groups again, and enact "aging" between groups
-   IF(data%num_malgae>1) THEN
+   IF( data%simAging .and. data%num_malgae>1) THEN
      DO mag_i=2,data%num_malgae
        malg = _STATE_VAR_S_(data%id_pben(mag_i-1)) ! local malg density
 
