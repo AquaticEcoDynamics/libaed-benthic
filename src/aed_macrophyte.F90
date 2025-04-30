@@ -914,164 +914,161 @@ END SUBROUTINE aed_initialize_benthic_macrophyte
 
 !###############################################################################
 SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
-   !-------------------------------------------------------------------------------
-   ! Vertical column loop, to compute epiphytes and macrophyte biovolume
-   ! Note that variables are set here before computations are completed in benthic
-   !-------------------------------------------------------------------------------
-   !ARGUMENTS
-      CLASS (aed_macrophyte_data_t),INTENT(in) :: data
-      TYPE (aed_column_t),INTENT(inout) :: column(:)
-      INTEGER,INTENT(in) :: layer_map(:)
-   !
-   !LOCALS
-      INTEGER  :: layer_idx, layer, mi, done
-      AED_REAL :: yearday, dz, matz
-      AED_REAL :: hgt_layer_bot, hgt_canopy, hgt_layer_top, layer_frac, canopy_leaf_area
-      AED_REAL :: epi, epi_prod, epi_resp, epi_flux, fI, par, extc, temp, Io
-      AED_REAL :: canopy_par, canopy_frac, ratio
+!-------------------------------------------------------------------------------
+! Vertical column loop, to compute epiphytes and macrophyte biovolume
+! Note that variables are set here before computations are completed in benthic
+!-------------------------------------------------------------------------------
+!ARGUMENTS
+   CLASS (aed_macrophyte_data_t),INTENT(in) :: data
+   TYPE (aed_column_t),INTENT(inout) :: column(:)
+   INTEGER,INTENT(in) :: layer_map(:)
+!
+!LOCALS
+   INTEGER  :: layer_idx, layer, mi, done
+   AED_REAL :: yearday, dz, matz
+   AED_REAL :: hgt_layer_bot, hgt_canopy, hgt_layer_top, layer_frac, canopy_leaf_area
+   AED_REAL :: epi, epi_prod, epi_resp, epi_flux, fI, par, extc, temp, Io
+   AED_REAL :: canopy_par, canopy_frac, ratio
 
-   !-------------------------------------------------------------------------------
-   !BEGIN
+!-------------------------------------------------------------------------------
+!BEGIN
 
-      ! Check this column is in an active zone for macrophytes
-      matz = _STATE_VAR_S_(data%id_sed_zone)
-      IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
+   ! Check this column is in an active zone for macrophytes
+   matz = _STATE_VAR_S_(data%id_sed_zone)
+   IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
 
-      layer_idx = layer_map(1)                    ! Set layer to the top of the column
-      layer_frac = zero_
+   layer_idx = layer_map(1)                    ! Set layer to the top of the column
+   layer_frac = zero_
 
-      ! Set column environmental conditions (from host)
-      yearday  = _STATE_VAR_S_(data%id_yearday)
-      extc = _STATE_VAR_(data%id_extc)            ! extinction
-      par = _STATE_VAR_(data%id_par)              ! photosynthetically active radiation
-      dz = _STATE_VAR_(data%id_dz)                ! cell thickness
-      Io = _STATE_VAR_S_(data%id_I_0)             ! surface short wave radiation
+   ! Set column environmental conditions (from host)
+   yearday  = _STATE_VAR_S_(data%id_yearday)
+   extc = _STATE_VAR_(data%id_extc)            ! extinction
+   par = _STATE_VAR_(data%id_par)              ! photosynthetically active radiation
+   dz = _STATE_VAR_(data%id_dz)                ! cell thickness
+   Io = _STATE_VAR_S_(data%id_I_0)             ! surface short wave radiation
 
-      ! Refer to total canopy height, and if exceeds the benthic/bottom layer,
-      !  then distribute relevant properties vertically
-      mi = 1
-      done = 0
-
-
-      ! If submerged plant group, loop up through the water column
-      IF(data%mpars(mi)%growth_form == SUBMERGED) THEN
-
-         ! Initialise all layers canopy properties to 0
-         DO layer = SIZE(layer_map),1,-1
-            layer_idx = layer_map(layer)
-            _DIAG_VAR_(data%id_canopy_blockage) = zero_
-            _DIAG_VAR_(data%id_canopy_frarea) = zero_
-            _DIAG_VAR_(data%id_kemac) = zero_
-         END DO
-
-         _DIAG_VAR_S_(data%id_epib) = zero_
-
-         ! Canopy height in this column
-         hgt_canopy = _DIAG_VAR_S_(data%id_canopy_height)
-         IF (hgt_canopy<0.005) THEN
-            _DIAG_VAR_S_(data%id_d_par) = MAX( MIN( par * exp(-extc*( MAX(dz-0.005,zero_))),Io), zero_)
-            print *,'plants too small: hgt_canopy= ',hgt_canopy
-            RETURN ! plants too small, nothing to do here
-         ENDIF
-
-         ! Work up through the layers
-         hgt_layer_top = zero_
-         DO layer = SIZE(layer_map),1,-1
-
-          layer_idx = layer_map(layer)
-          dz  = _STATE_VAR_(data%id_dz)
-          hgt_layer_top = hgt_layer_top + dz
-
-          canopy_par = par
-          canopy_frac = zero_
-
-          ! If canopy height < layer thickness, then all is in bottom layer
-          IF (hgt_canopy<=hgt_layer_top)THEN
-            ! canopy ends in this layer
-            hgt_layer_bot = hgt_layer_top - dz
-            layer_frac = (hgt_canopy-hgt_layer_bot)/dz   ! vertical fraction canopy occupies in this layer
-            canopy_frac=  (hgt_canopy-hgt_layer_bot)/hgt_canopy ! fraction of total canopy in this layer
-            canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
-            canopy_par = MAX( MIN( par * exp(-extc*( MAX(dz-(hgt_canopy-hgt_layer_bot),zero_))),Io), zero_)
-            _DIAG_VAR_S_(data%id_d_par) = canopy_par
-             done = 1
-          ELSE
-            ! canopy fully spans through layer
-            layer_frac = one_
-            canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
-            canopy_par = par
-            canopy_frac = dz/hgt_canopy
-          ENDIF
+   ! Refer to total canopy height, and if exceeds the benthic/bottom layer,
+   !  then distribute relevant properties vertically
+   mi = 1
+   done = 0
 
 
-          ! Set layer's macrophyte biovolume/blockage, and frontal area (e.g. for layer specific drag)
-          _DIAG_VAR_(data%id_canopy_blockage) = _DIAG_VAR_S_(data%id_canopy_biovolume) * canopy_frac
-          _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
-          _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
+   ! If submerged plant group, loop up through the water column
+   IF(data%mpars(mi)%growth_form == SUBMERGED) THEN
 
-          ! Allow epiphyte growth in this layer
-          IF( data%epi_model >0 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
+      ! Initialise all layers canopy properties to 0
+      DO layer = SIZE(layer_map),1,-1
+         layer_idx = layer_map(layer)
+         _DIAG_VAR_(data%id_canopy_blockage) = zero_
+         _DIAG_VAR_(data%id_canopy_frarea) = zero_
+         _DIAG_VAR_(data%id_kemac) = zero_
+      END DO
 
-            epi_prod = zero_ ; epi_resp = zero_
+      _DIAG_VAR_S_(data%id_epib) = zero_
 
-            ! Compute photosynthesis and respiration
-            epi =  _STATE_VAR_S_(data%id_epi) * canopy_frac ! biomass of epiphytes in this layer
-            fI = photosynthesis_irradiance(10,data%I_Kepi,data%I_Kepi,canopy_par,extc,Io,dz)
-            epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))*(1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
-            epi_resp = (data%R_epir*(data%theta_epi_resp**(temp-20.)))
-            epi_flux = (epi_prod-epi_resp)*epi * (canopy_leaf_area/dz)
-
-            ! Increment this layers epi productivity into the "bulk" epi (benthic) pool
-            _FLUX_VAR_B_(data%id_epi) = _FLUX_VAR_B_(data%id_epi) + epi_flux
-
-            ! Update epi diagnostics
-            IF (diag_level>0) _DIAG_VAR_S_(data%id_epib) = _DIAG_VAR_S_(data%id_epib) + epi
-            IF (diag_level>1) _DIAG_VAR_S_(data%id_epig) = _DIAG_VAR_S_(data%id_epig) + epi_prod *epi*(canopy_leaf_area/dz)
-            IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi*(canopy_leaf_area/dz)
-
-            ! Add/remove any metabolism products to this water layer
-            IF( data%simMacFeedback ) THEN
-              ! Update flux terms for O2 (mmol O2/m2/s)
-              _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
-              IF (data%do_Cuptake ) THEN
-                ! Update flux terms for CO2 (mmol C/m2/s)
-                _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux
-              ENDIF
-              IF (data%do_Nuptake ) THEN
-                ! Update flux terms for nitrogen (mmol N/m2/s)
-                ratio = data%epi_Xnc
-                _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5
-                _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5
-                ! log this uptake into the bulk community N uptake diagnostic (mmol N/m3/d)
-                !   _DIAG_VAR_(data%id_NUP1)= _DIAG_VAR_(data%id_NUP1)- (epi_flux) * ratio *0.5 * secs_per_day
-                !   _DIAG_VAR_(data%id_NUP2)= _DIAG_VAR_(data%id_NUP2)- (epi_flux) * ratio *0.5 * secs_per_day
-              ENDIF
-              IF (data%do_Puptake ) THEN
-                ! Update flux terms for phosphate (mmol P/m2/s)
-                ratio = data%epi_Xpc
-                _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio
-                ! log this uptake into the bulk community P uptake diagnostic (mmol P/m3/d)
-                !   _DIAG_VAR_(data%id_PUP) = _DIAG_VAR_(data%id_PUP) - mpb_flux * ratio * secs_per_day
-              ENDIF
-
-              ENDIF
-           ENDIF
-
-           IF(done==1) EXIT ! top of canopy was found so stop looping up
-        END DO
-        ! End vertical/column loop
-
-        print *,'canopy_par',_DIAG_VAR_S_(data%id_d_par)
-        ! UPDATE CANOPY POSTURE & DRAG
-        ! Based on cell velocity and canopy geometry, compute in-canopy velocity
-!        CALL sav_canopy_velocity( U , canopy_height , dz , u1 , u2 , drag )
-        ! Use in canopy velocity to update canopy posture, and drag
-!        CALL sav_posture_model( u1 , canopy_height , drag)
-
-
+      ! Canopy height in this column
+      hgt_canopy = _DIAG_VAR_S_(data%id_canopy_height)
+      IF (hgt_canopy<0.005) THEN
+         _DIAG_VAR_S_(data%id_d_par) = MAX( MIN( par * exp(-extc*( MAX(dz-0.005,zero_))),Io), zero_)
+         print *,'plants too small: hgt_canopy= ',hgt_canopy
+         RETURN ! plants too small, nothing to do here
       ENDIF
 
+      ! Work up through the layers
+      hgt_layer_top = zero_
+      DO layer = SIZE(layer_map),1,-1
 
+       layer_idx = layer_map(layer)
+       dz  = _STATE_VAR_(data%id_dz)
+       hgt_layer_top = hgt_layer_top + dz
+
+       canopy_par = par
+       canopy_frac = zero_
+
+       ! If canopy height < layer thickness, then all is in bottom layer
+       IF (hgt_canopy<=hgt_layer_top)THEN
+         ! canopy ends in this layer
+         hgt_layer_bot = hgt_layer_top - dz
+         layer_frac = (hgt_canopy-hgt_layer_bot)/dz   ! vertical fraction canopy occupies in this layer
+         canopy_frac=  (hgt_canopy-hgt_layer_bot)/hgt_canopy ! fraction of total canopy in this layer
+         canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
+         canopy_par = MAX( MIN( par * exp(-extc*( MAX(dz-(hgt_canopy-hgt_layer_bot),zero_))),Io), zero_)
+         _DIAG_VAR_S_(data%id_d_par) = canopy_par
+          done = 1
+       ELSE
+         ! canopy fully spans through layer
+         layer_frac = one_
+         canopy_leaf_area = layer_frac * _DIAG_VAR_S_(data%id_canopy_lai) / dz ! m2 leaf / m3 water
+         canopy_par = par
+         canopy_frac = dz/hgt_canopy
+       ENDIF
+
+
+       ! Set layer's macrophyte biovolume/blockage, and frontal area (e.g. for layer specific drag)
+       _DIAG_VAR_(data%id_canopy_blockage) = _DIAG_VAR_S_(data%id_canopy_biovolume) * canopy_frac
+       _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
+       _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
+
+       ! Allow epiphyte growth in this layer
+       IF( data%epi_model >0 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
+
+         epi_prod = zero_ ; epi_resp = zero_
+
+         ! Compute photosynthesis and respiration
+         epi =  _STATE_VAR_S_(data%id_epi) * canopy_frac ! biomass of epiphytes in this layer
+         fI = photosynthesis_irradiance(10,data%I_Kepi,data%I_Kepi,canopy_par,extc,Io,dz)
+         epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))*(1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
+         epi_resp = (data%R_epir*(data%theta_epi_resp**(temp-20.)))
+         epi_flux = (epi_prod-epi_resp)*epi * (canopy_leaf_area/dz)
+
+         ! Increment this layers epi productivity into the "bulk" epi (benthic) pool
+         _FLUX_VAR_B_(data%id_epi) = _FLUX_VAR_B_(data%id_epi) + epi_flux
+
+         ! Update epi diagnostics
+         IF (diag_level>0) _DIAG_VAR_S_(data%id_epib) = _DIAG_VAR_S_(data%id_epib) + epi
+         IF (diag_level>1) _DIAG_VAR_S_(data%id_epig) = _DIAG_VAR_S_(data%id_epig) + epi_prod *epi*(canopy_leaf_area/dz)
+         IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi*(canopy_leaf_area/dz)
+
+         ! Add/remove any metabolism products to this water layer
+         IF( data%simMacFeedback ) THEN
+           ! Update flux terms for O2 (mmol O2/m2/s)
+           _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
+           IF (data%do_Cuptake ) THEN
+             ! Update flux terms for CO2 (mmol C/m2/s)
+             _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux
+           ENDIF
+           IF (data%do_Nuptake ) THEN
+             ! Update flux terms for nitrogen (mmol N/m2/s)
+             ratio = data%epi_Xnc
+             _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5
+             _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5
+             ! log this uptake into the bulk community N uptake diagnostic (mmol N/m3/d)
+             !   _DIAG_VAR_(data%id_NUP1)= _DIAG_VAR_(data%id_NUP1)- (epi_flux) * ratio *0.5 * secs_per_day
+             !   _DIAG_VAR_(data%id_NUP2)= _DIAG_VAR_(data%id_NUP2)- (epi_flux) * ratio *0.5 * secs_per_day
+           ENDIF
+           IF (data%do_Puptake ) THEN
+             ! Update flux terms for phosphate (mmol P/m2/s)
+             ratio = data%epi_Xpc
+             _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio
+             ! log this uptake into the bulk community P uptake diagnostic (mmol P/m3/d)
+             !   _DIAG_VAR_(data%id_PUP) = _DIAG_VAR_(data%id_PUP) - mpb_flux * ratio * secs_per_day
+           ENDIF
+
+           ENDIF
+        ENDIF
+
+        IF(done==1) EXIT ! top of canopy was found so stop looping up
+     END DO
+     ! End vertical/column loop
+
+     print *,'canopy_par',_DIAG_VAR_S_(data%id_d_par)
+     ! UPDATE CANOPY POSTURE & DRAG
+     ! Based on cell velocity and canopy geometry, compute in-canopy velocity
+!     CALL sav_canopy_velocity( U , canopy_height , dz , u1 , u2 , drag )
+     ! Use in canopy velocity to update canopy posture, and drag
+!     CALL sav_posture_model( u1 , canopy_height , drag)
+
+   ENDIF
 END SUBROUTINE aed_calculate_column_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
