@@ -181,7 +181,7 @@ MODULE aed_macrophyte
      CONTAINS      ! Selected AED methods to activate:
          PROCEDURE :: define             => aed_define_macrophyte
          PROCEDURE :: initialize_benthic => aed_initialize_benthic_macrophyte
-       ! PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
+         PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
          PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macrophyte
          PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
        ! PROCEDURE :: bio_drag           => aed_bio_drag_macrophyte
@@ -571,7 +571,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: epi_model = 1
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
-   AED_REAL           :: R_epib = zero_
+   AED_REAL           :: R_epir = zero_
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
    AED_REAL           :: epi_Xpc = 1./106.
@@ -588,7 +588,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
                              simMacFeedback, simStaticBiomass,        &
                              simEpiphytes, simFruiting, simMacDrag,   &
                              water_nutrient_frac,                     &
-                             epi_model,R_epig,R_epib,I_Kepi,epi_max,  &
+                             epi_model,R_epig,R_epir,I_Kepi,epi_max,  &
                              epi_Xnc,epi_Xpc,epi_K_N,epi_K_P,         &
                              theta_epi_growth,theta_epi_resp,         &
                              mac_initial, epi_initial, diag_level
@@ -616,7 +616,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    data%epi_Xpc = epi_Xpc ; data%epi_K_P = epi_K_P
    data%epi_K_N = epi_K_N ; data%epi_Xnc = epi_Xnc
    data%I_Kepi = I_Kepi ; data%epi_max = epi_max
-   data%R_epig = R_epig ; data%R_epib = R_epib
+   data%R_epig = R_epig/secs_per_day 
+   data%R_epir = R_epir/secs_per_day 
 
   ! !remove
   ! data%bg_gpp_frac = bg_gpp_frac  ! make this species specific
@@ -650,8 +651,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    IF ( simEpiphytes ) THEN
       data%id_epi = aed_define_sheet_variable( 'epiphyte', 'mmol C/m2',       &
                                                'epiphyte biomass',            &
-                                                0.001, 0.001 )
-      data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
+                                                epi_initial, 0.001            )
+     !data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
       IF( diag_level > 0) THEN
         data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
         IF( diag_level > 1) THEN
@@ -659,15 +660,6 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
          data%id_epir = aed_define_sheet_diag_variable('epi_rsp','mmol C/m2/d','benthic phyto respiration')
         ENDIF
        ENDIF
-   ENDIF
-
-   ! Link to variables from other modules
-   IF ( simMacFeedback ) THEN
-      data%id_oxy = aed_locate_variable('OXY_oxy')
-      data%id_nox = aed_locate_variable('NIT_nit')
-      data%id_nh4 = aed_locate_variable('NIT_amm')
-      data%id_po4 = aed_locate_variable('PHS_frp')
-      data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
    ENDIF
 
 
@@ -710,7 +702,16 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
       data%id_canopy_frarea    = aed_define_diag_variable('canopy_frarea','m2/m2?', '')
  !  ENDIF
 
-   ! Register environmental dependencies
+   ! Link to variables from other modules
+   IF ( simMacFeedback ) THEN
+      data%id_oxy = aed_locate_variable('OXY_oxy')
+      data%id_nox = aed_locate_variable('NIT_nit')
+      data%id_nh4 = aed_locate_variable('NIT_amm')
+      data%id_po4 = aed_locate_variable('PHS_frp')
+      data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
+   ENDIF
+        
+   ! Register environmental dependenciess
    data%id_tem      = aed_locate_global('temperature')
    data%id_extc     = aed_locate_global('extc_coef')
    data%id_sal      = aed_locate_global('salinity')
@@ -956,7 +957,7 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
       ! If submerged plant group, loop up through the water column
       IF(data%mpars(mi)%growth_form == SUBMERGED) THEN
 
-         ! Initialise all layers canopy properties to 0
+         ! Initialise all layers canopy properties to 0 (these are on the 3D grid)
          DO layer = SIZE(layer_map),1,-1
             layer_idx = layer_map(layer)
             _DIAG_VAR_(data%id_canopy_blockage) = zero_
@@ -1026,8 +1027,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 
             ! Update epi diagnostics
             IF (diag_level>0) _DIAG_VAR_S_(data%id_epib) = _DIAG_VAR_S_(data%id_epib) + epi
-            IF (diag_level>1) _DIAG_VAR_S_(data%id_epig) = _DIAG_VAR_S_(data%id_epig) + epi_prod *epi*(canopy_leaf_area/dz)
-            IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi*(canopy_leaf_area/dz)
+            IF (diag_level>1) _DIAG_VAR_S_(data%id_epig) = _DIAG_VAR_S_(data%id_epig) + epi_prod *epi*(canopy_leaf_area/dz)*secs_per_day
+            IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi*(canopy_leaf_area/dz)*secs_per_day
 
             ! Add/remove any metabolism products to this water layer
             IF( data%simMacFeedback ) THEN
@@ -1096,7 +1097,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    AED_REAL :: canopy_hgt, canopy_extc, par_canopy, par_swi
 
-   AED_REAL :: sh_diameter, sh_height, n_shoot
+   AED_REAL :: sh_diameter, sh_height, n_shoot, biovolume
 
    AED_REAL :: primprod(data%num_mphy), respiration(data%num_mphy)
 
@@ -1419,7 +1420,8 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      dw = MAC_A / data%mpars(mi)%X_cdw
      n_shoot = dw * data%mpars(mi)%X_sdw
      sh_height =  max(0.05, data%mpars(mi)%X_ldw * (dw/(dw+120.)))   ! set min height 5cm to avoid unrealistic large diameter
-     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )
+     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )  
+     biovolume = n_shoot* sh_height * 3.142*(sh_diameter/2.)**2.
 
      !--- ADD GROUP INFO TO TOTAL MAC COMMUNITY / CANOPY
      ! Increment updates to the plant community level diagnistics for this group
@@ -1432,7 +1434,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      ! Increment canopy characteristics
      _DIAG_VAR_S_(data%id_canopy_sh_dens) = _DIAG_VAR_S_(data%id_canopy_sh_dens) + n_shoot
      _DIAG_VAR_S_(data%id_canopy_sh_diam) = _DIAG_VAR_S_(data%id_canopy_sh_diam) + sh_diameter
-     _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + zero_  !!!!!!!!!!FIX
+     _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + biovolume
      _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) + sh_height
      _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) + A_eff  ! TBC+       &
                      ! (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
@@ -1440,12 +1442,15 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    ENDDO ! Finish looping through groups
 
    !--- FINALISE CANOPY & COMMUNITY CALCULATIONS
+
    ! Finalise canopy averaging
    _DIAG_VAR_S_(data%id_canopy_sh_diam) = _DIAG_VAR_S_(data%id_canopy_sh_diam) / REAL(data%num_mphy)
    _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) / REAL(data%num_mphy)
-    ! Approximate root depth and oxygen input (eg., for sediment bgc model)
+
+   ! Approximate root depth and oxygen input (eg., for sediment bgc model)
    _DIAG_VAR_S_(data%id_root_o) = _DIAG_VAR_S_(data%id_gpp) * 0.2 ! data%bg_gpp_frac     ! mmolO2/m2/d
    _DIAG_VAR_S_(data%id_root_d) = 0.05 !MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01) !m
+
    ! Export additional diagnostic variables
    _DIAG_VAR_S_(data%id_d_par)= par_canopy
 
