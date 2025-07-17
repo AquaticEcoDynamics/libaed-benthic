@@ -1123,7 +1123,9 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    ! Check this cell is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)
 
-   if ( .NOT. in_zone_set(matz, data%active_zones) ) return
+   IF ( .NOT. in_zone_set(matz, data%active_zones) ) return
+
+   A_eff = 0. ; f_tran = 0. ; mphy_flux_a = 0. ; mphy_flux_b = 0.
 
    !--- BENTHIC CELL SETUP TASKS
    ! Retrieve current (local) environmental conditions in benthic cell
