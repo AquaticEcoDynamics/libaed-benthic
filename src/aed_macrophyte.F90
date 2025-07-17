@@ -182,7 +182,7 @@ MODULE aed_macrophyte
      CONTAINS      ! Selected AED methods to activate:
          PROCEDURE :: define             => aed_define_macrophyte
          PROCEDURE :: initialize_benthic => aed_initialize_benthic_macrophyte
-       ! PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
+         PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
          PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macrophyte
          PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
        ! PROCEDURE :: bio_drag           => aed_bio_drag_macrophyte
@@ -574,7 +574,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: epi_model = 1
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
-   AED_REAL           :: R_epib = zero_ 
+   AED_REAL           :: R_epir = zero_ 
    AED_REAL           :: R_epir = zero_ 
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
@@ -656,8 +656,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    IF ( simEpiphytes ) THEN
       data%id_epi = aed_define_sheet_variable( 'epiphyte', 'mmol C/m2',       &
                                                'epiphyte biomass',            &
-                                                0.001, 0.001 )
-      data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
+                                                epi_initial, 0.001            )
+     !data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
       IF( diag_level > 0) THEN
         data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
         IF( diag_level > 1) THEN
@@ -665,15 +665,6 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
          data%id_epir = aed_define_sheet_diag_variable('epi_rsp','mmol C/m2/d','benthic phyto respiration')
         ENDIF
        ENDIF
-   ENDIF
-
-   ! Link to variables from other modules
-   IF ( simMacFeedback ) THEN
-      data%id_oxy = aed_locate_variable('OXY_oxy')
-      data%id_nox = aed_locate_variable('NIT_nit')
-      data%id_nh4 = aed_locate_variable('NIT_amm')
-      data%id_po4 = aed_locate_variable('PHS_frp')
-      data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
    ENDIF
 
 
@@ -716,7 +707,16 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
       data%id_canopy_frarea    = aed_define_diag_variable('canopy_frarea','m2/m2?', '')
  !  ENDIF
 
-   ! Register environmental dependencies
+   ! Link to variables from other modules
+   IF ( simMacFeedback ) THEN
+      data%id_oxy = aed_locate_variable('OXY_oxy')
+      data%id_nox = aed_locate_variable('NIT_nit')
+      data%id_nh4 = aed_locate_variable('NIT_amm')
+      data%id_po4 = aed_locate_variable('PHS_frp')
+      data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
+   ENDIF
+        
+   ! Register environmental dependenciess
    data%id_tem      = aed_locate_global('temperature')
    data%id_extc     = aed_locate_global('extc_coef')
    data%id_sal      = aed_locate_global('salinity')
@@ -938,8 +938,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
    AED_REAL :: epi, epi_prod, epi_resp, epi_flux, fI, par, extc, temp, Io, epi_max
    AED_REAL :: canopy_par, canopy_frac, ratio
 
-!-------------------------------------------------------------------------------
-!BEGIN
+   !-------------------------------------------------------------------------------
+   !BEGIN
 
    ! Check this column is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)
@@ -964,13 +964,13 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
    ! If submerged plant group, loop up through the water column
    IF(data%mpars(mi)%growth_form == SUBMERGED) THEN
 
-      ! Initialise all layers canopy properties to 0
-      DO layer = SIZE(layer_map),1,-1
-         layer_idx = layer_map(layer)
-         _DIAG_VAR_(data%id_canopy_blockage) = zero_
-         _DIAG_VAR_(data%id_canopy_frarea) = zero_
-         _DIAG_VAR_(data%id_kemac) = zero_
-      END DO
+         ! Initialise all layers canopy properties to 0 (these are on the 3D grid)
+         DO layer = SIZE(layer_map),1,-1
+            layer_idx = layer_map(layer)
+            _DIAG_VAR_(data%id_canopy_blockage) = zero_
+            _DIAG_VAR_(data%id_canopy_frarea) = zero_
+            _DIAG_VAR_(data%id_kemac) = zero_
+         END DO
 
       _DIAG_VAR_S_(data%id_epib) = zero_
 
@@ -1017,8 +1017,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
        _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
        _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
 
-       ! Allow epiphyte growth in this layer
-       IF( data%epi_model ==2 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
+          ! Allow epiphyte growth in this layer
+          IF( data%epi_model >2 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
 
          epi_prod = zero_ ; epi_resp = zero_
 
@@ -1101,7 +1101,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    AED_REAL :: canopy_hgt, canopy_extc, par_canopy, par_swi
 
-   AED_REAL :: sh_diameter, sh_height, n_shoot
+   AED_REAL :: sh_diameter, sh_height, n_shoot, biovolume
 
    AED_REAL :: primprod(data%num_mphy), respiration(data%num_mphy)
 
@@ -1434,7 +1434,8 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      dw = MAC_A / data%mpars(mi)%X_cdw
      n_shoot = dw * data%mpars(mi)%X_sdw
      sh_height =  max(0.05, data%mpars(mi)%X_ldw * (dw/(dw+120.)))   ! set min height 5cm to avoid unrealistic large diameter
-     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )
+     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )  
+     biovolume = n_shoot* sh_height * 3.142*(sh_diameter/2.)**2.
 
      !--- ADD GROUP INFO TO TOTAL MAC COMMUNITY / CANOPY
      ! Increment updates to the plant community level diagnistics for this group
@@ -1447,7 +1448,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      ! Increment canopy characteristics
      _DIAG_VAR_S_(data%id_canopy_sh_dens) = _DIAG_VAR_S_(data%id_canopy_sh_dens) + n_shoot
      _DIAG_VAR_S_(data%id_canopy_sh_diam) = _DIAG_VAR_S_(data%id_canopy_sh_diam) + sh_diameter
-     _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + zero_  !!!!!!!!!!FIX
+     _DIAG_VAR_S_(data%id_canopy_biovolume) = _DIAG_VAR_S_(data%id_canopy_biovolume) + biovolume
      _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) + sh_height
      _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) + A_eff  ! TBC+       &
                      ! (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
@@ -1455,12 +1456,15 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    ENDDO ! Finish looping through groups
 
    !--- FINALISE CANOPY & COMMUNITY CALCULATIONS
+
    ! Finalise canopy averaging
    _DIAG_VAR_S_(data%id_canopy_sh_diam) = _DIAG_VAR_S_(data%id_canopy_sh_diam) / REAL(data%num_mphy)
    _DIAG_VAR_S_(data%id_canopy_height) = _DIAG_VAR_S_(data%id_canopy_height) / REAL(data%num_mphy)
-    ! Approximate root depth and oxygen input (eg., for sediment bgc model)
+
+   ! Approximate root depth and oxygen input (eg., for sediment bgc model)
    _DIAG_VAR_S_(data%id_root_o) = _DIAG_VAR_S_(data%id_gpp) * 0.2 ! data%bg_gpp_frac     ! mmolO2/m2/d
    _DIAG_VAR_S_(data%id_root_d) = 0.05 !MAX( MIN(_DIAG_VAR_S_(data%id_mac_ag) * data%coef_bm_hgt,0.25),0.01) !m
+
    ! Export additional diagnostic variables
    _DIAG_VAR_S_(data%id_d_par)= par_canopy
 
