@@ -938,8 +938,9 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
    AED_REAL :: epi, epi_prod, epi_resp, epi_flux, fI, par, extc, temp, Io, epi_max
    AED_REAL :: canopy_par, canopy_frac, ratio
 
-   !-------------------------------------------------------------------------------
-   !BEGIN
+!-------------------------------------------------------------------------------
+!BEGIN
+   temp = 0.
 
    ! Check this column is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)
