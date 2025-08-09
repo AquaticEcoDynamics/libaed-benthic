@@ -35,7 +35,7 @@
 			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 		</Configuration>
-		<Configuration Name="Release|x64" UseCompiler="ifortCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
+		<Configuration Name="Release|x64" UseCompiler="ifxCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
 			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/Qdiag-disable:10448" SuppressStartupBanner="true" Preprocess="preprocessYes" AdditionalIncludeDirectories="..\src\;..\include\;.\$(PlatformName)-$(ConfigurationName)\;..\..\libaed-water\include\" F2003Semantics="true" RealKIND="realKIND8"/>
 			<Tool Name="VFLibrarianTool"/>
 			<Tool Name="VFResourceCompilerTool"/>
@@ -50,16 +50,17 @@
 		<Filter Name="Header Files" Filter="fi;fd"/>
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
-		<File RelativePath="..\src\aed_benthic.F90"/>
-		<File RelativePath="..\src\aed_bivalve.F90"/>
-		<File RelativePath="..\src\aed_habitat_benthic.F90"/>
-		<File RelativePath="..\src\aed_habitat_chara.F90"/>
-		<File RelativePath="..\src\aed_habitat_galaxiid.F90"/>
-		<File RelativePath="..\src\aed_habitat_ruppia.F90"/>
-		<File RelativePath="..\src\aed_habitat_seagrass.F90"/>
-		<File RelativePath="..\src\aed_macroalgae.F90"/>
-		<File RelativePath="..\src\aed_macroalgae2.F90"/>
-		<File RelativePath="..\src\aed_macrophyte.F90"/></Filter>
+			<File RelativePath="..\src\aed_benthic.F90"/>
+			<File RelativePath="..\src\aed_bivalve.F90"/>
+			<File RelativePath="..\src\aed_habitat_benthic.F90"/>
+			<File RelativePath="..\src\aed_habitat_chara.F90"/>
+			<File RelativePath="..\src\aed_habitat_galaxiid.F90"/>
+			<File RelativePath="..\src\aed_habitat_ruppia.F90"/>
+			<File RelativePath="..\src\aed_habitat_seagrass.F90"/>
+			<File RelativePath="..\src\aed_macroalgae.F90"/>
+			<File RelativePath="..\src\aed_macroalgae2.F90"/>
+			<File RelativePath="..\src\aed_macrophyte.F90"/>
+		</Filter>
 	</Files>
 	<Globals/>
 </VisualStudioProject>
