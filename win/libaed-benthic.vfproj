@@ -1,31 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <VisualStudioProject ProjectType="typeStaticLibrary" ProjectCreator="Intel Fortran" Keyword="Static Library" Version="11.0" ProjectIdGuid="{D5BA5305-6D24-46A7-B41B-BECC6E6BF233}">
 	<Platforms>
-		<Platform Name="Win32"/>
 		<Platform Name="x64"/>
 	</Platforms>
 	<Configurations>
-		<Configuration Name="Debug|Win32" UseCompiler="ifortCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
-			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" AdditionalIncludeDirectories="..\src\;..\include\;.\$(PlatformName)-$(ConfigurationName)\;..\..\libaed-water\include\" F2003Semantics="true" WarnInterfaces="true" RealKIND="realKIND8" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
-			<Tool Name="VFLibrarianTool"/>
-			<Tool Name="VFResourceCompilerTool"/>
-			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
-			<Tool Name="VFCustomBuildTool"/>
-			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool"/>
-			<Tool Name="VFPostBuildEventTool"/>
-		</Configuration>
-		<Configuration Name="Release|Win32" UseCompiler="ifortCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
-			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Preprocess="preprocessYes" AdditionalIncludeDirectories="..\src\;..\include\;.\$(PlatformName)-$(ConfigurationName)\;..\..\libaed-water\include\" F2003Semantics="true" RealKIND="realKIND8"/>
-			<Tool Name="VFLibrarianTool"/>
-			<Tool Name="VFResourceCompilerTool"/>
-			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
-			<Tool Name="VFCustomBuildTool"/>
-			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool"/>
-			<Tool Name="VFPostBuildEventTool"/>
-		</Configuration>
-		<Configuration Name="Debug|x64" UseCompiler="ifortCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
+		<Configuration Name="Debug|x64" UseCompiler="ifxCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)\" ConfigurationType="typeStaticLibrary">
 			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/Qdiag-disable:10448" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" AdditionalIncludeDirectories="..\src\;..\include\;.\$(PlatformName)-$(ConfigurationName)\;..\..\libaed-water\include\" F2003Semantics="true" WarnInterfaces="true" RealKIND="realKIND8" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
 			<Tool Name="VFLibrarianTool"/>
 			<Tool Name="VFResourceCompilerTool"/>
@@ -35,7 +14,7 @@
 			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 		</Configuration>
-		<Configuration Name="Release|x64" UseCompiler="ifxCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)" ConfigurationType="typeStaticLibrary">
+		<Configuration Name="Release|x64" UseCompiler="ifxCompiler" OutputDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\" IntermediateDirectory="$(SolutionDir)\$(PlatformName)-$(ConfigurationName)\$(ProjectName)\" ConfigurationType="typeStaticLibrary">
 			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/Qdiag-disable:10448" SuppressStartupBanner="true" Preprocess="preprocessYes" AdditionalIncludeDirectories="..\src\;..\include\;.\$(PlatformName)-$(ConfigurationName)\;..\..\libaed-water\include\" F2003Semantics="true" RealKIND="realKIND8"/>
 			<Tool Name="VFLibrarianTool"/>
 			<Tool Name="VFResourceCompilerTool"/>

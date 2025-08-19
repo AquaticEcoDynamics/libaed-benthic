@@ -574,8 +574,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: epi_model = 1
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
-   AED_REAL           :: R_epib = zero_ 
-   AED_REAL           :: R_epir = zero_ 
+   AED_REAL           :: R_epib = zero_
+   AED_REAL           :: R_epir = zero_
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
    AED_REAL           :: epi_Xpc = 1./106.
