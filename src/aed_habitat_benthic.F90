@@ -9,7 +9,7 @@
 !#                                                                             #
 !#      http://aquatic.science.uwa.edu.au/                                     #
 !#                                                                             #
-!#  Copyright 2016 - 2024 -  The University of Western Australia               #
+!#  Copyright 2016-2025 - The University of Western Australia                  #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -209,7 +209,6 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
    !----------------------------------------------------------------------------
    ! Define variables and dependencies
 
-
    !-- CONTAMINATION
    IF( simMetalTox ) THEN
      data%id_mtox =  aed_define_sheet_diag_variable('toxicity','-', 'Suitability')
@@ -318,7 +317,7 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
      data%id_l_ncs2  = aed_locate_sheet_variable(TRIM(chhsi_ncs2_link))
      data%id_l_tau0  = aed_locate_sheet_variable(TRIM(chhsi_tau0_link))
 
-     if( diag_level>1 )then
+     IF ( diag_level>1 ) THEN
        ALLOCATE(data%id_d_chafs(6))
        ALLOCATE(data%id_d_chaft(6))
        ALLOCATE(data%id_d_chafl(6))
@@ -339,9 +338,8 @@ SUBROUTINE aed_define_habitat_benthic(data, namlst)
         data%id_d_chafv(i) = aed_define_sheet_diag_variable('chara_hsi_fstr_'//CHAR(ICHAR('0') + i),'-', &
                                                                             'Chara Habitat Suitability - fStr')
        ENDDO
-     endif
+     ENDIF
    ENDIF
-
 
    !-- FISH : GALAXIID SPAWNING
    IF( simGalaxiidSpawning ) THEN
@@ -694,7 +692,6 @@ SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
 
       ENDIF
 
-
    !---------------------------------------------------------------------------+
    !-- HABITAT TEMPLATE 3: Mosquito / Midge Risk
    IF( data%simMosquitoRisk ) THEN
@@ -702,20 +699,10 @@ SUBROUTINE aed_calculate_riparian_habitat_benthic(data,column,layer_idx,pc_wet)
    !  _DIAG_VAR_S_(data%id_fish) = mtox
 
    ENDIF
-
-
-
 !   ENDIF
-
-
 
 END SUBROUTINE aed_calculate_riparian_habitat_benthic
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-
-
-
 
 
 !###############################################################################
@@ -736,7 +723,6 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 !
 !-----------------------------------------------------------------------
 !BEGIN
-
      rupp_salt=one_; rupp_temp=one_; rupp_lght=one_;
      rupp_falg=one_; rupp_matz=one_; rupp_dess=one_;
 
@@ -1118,6 +1104,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 
   END FUNCTION ruppia_salinity
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION ruppia_temp(temp,stage)
   !-----------------------------------------------------------------------------
@@ -1129,7 +1117,6 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
   !
   !---------------------------------------------------------------------
   !BEGIN
-
      ruppia_temp = one_
 
      IF( model==1 ) THEN
@@ -1189,6 +1176,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 
   END FUNCTION ruppia_temp
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION ruppia_light(light,stage)
   !-----------------------------------------------------------------------------
@@ -1242,6 +1231,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 
   END FUNCTION ruppia_light
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION ruppia_filalgae(fa,stage)
   !-----------------------------------------------------------------------------
@@ -1299,6 +1290,8 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 
   END FUNCTION ruppia_filalgae
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION ruppia_depth(depth,stage)
   !-----------------------------------------------------------------------------
@@ -1357,7 +1350,6 @@ SUBROUTINE ruppia_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,s
 
 END SUBROUTINE ruppia_habitat_suitability
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
 
 !###############################################################################
@@ -1625,6 +1617,8 @@ SUBROUTINE chara_habitat_suitability(data,                                      
 
   END FUNCTION charia_salinity
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION charia_temp(temp,stage)
   !-----------------------------------------------------------------------------
@@ -1681,6 +1675,8 @@ SUBROUTINE chara_habitat_suitability(data,                                      
 
   END FUNCTION charia_temp
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION charia_light(light,stage)
   !-----------------------------------------------------------------------------
@@ -1713,6 +1709,8 @@ SUBROUTINE chara_habitat_suitability(data,                                      
 
   END FUNCTION charia_light
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION charia_filalgae(fa,stage)
   !-----------------------------------------------------------------------------
@@ -1744,6 +1742,8 @@ SUBROUTINE chara_habitat_suitability(data,                                      
 
   END FUNCTION charia_filalgae
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION charia_depth(depth,stage)
   !-----------------------------------------------------------------------------
@@ -1790,6 +1790,8 @@ SUBROUTINE chara_habitat_suitability(data,                                      
 
   END FUNCTION charia_depth
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
   !#############################################################################
   AED_REAL FUNCTION charia_stress(stress,stage)
   !-----------------------------------------------------------------------------

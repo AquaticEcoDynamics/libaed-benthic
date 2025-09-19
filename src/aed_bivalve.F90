@@ -11,7 +11,7 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015 - 2024 -  The University of Western Australia               #
+!#  Copyright 2015-2025 - The University of Western Australia                  #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
@@ -197,63 +197,63 @@ INTEGER FUNCTION load_csv(dbase, bivalve_param, dbsize)
 
          CALL copy_name(values(1), name)
          SELECT CASE (name)
-            CASE ('initial_conc')         ; bivalve_param(dcol)%initial_conc = extract_double(values(ccol))
-            CASE ('min')                  ; bivalve_param(dcol)%min          = extract_double(values(ccol))
-            CASE ('length')               ; bivalve_param(dcol)%length       = extract_integer(values(ccol))
-            CASE ('INC')                  ; bivalve_param(dcol)%INC          = extract_double(values(ccol))
-            CASE ('IPC')                  ; bivalve_param(dcol)%IPC          = extract_double(values(ccol))
-            CASE ('Rgrz')                 ; bivalve_param(dcol)%Rgrz         = extract_double(values(ccol))
-            CASE ('Ing')                  ; bivalve_param(dcol)%Ing          = extract_double(values(ccol))
-            CASE ('WaI')                  ; bivalve_param(dcol)%WaI          = extract_double(values(ccol))
-            CASE ('WbI')                  ; bivalve_param(dcol)%WbI          = extract_double(values(ccol))
-            CASE ('fassim')               ; bivalve_param(dcol)%fassim       = extract_double(values(ccol))
-            CASE ('Cmin_grz')             ; bivalve_param(dcol)%Cmin_grz     = extract_double(values(ccol))
-            CASE ('Kgrz')                 ; bivalve_param(dcol)%Kgrz         = extract_double(values(ccol))
-            CASE ('minT')                 ; bivalve_param(dcol)%minT         = extract_double(values(ccol))
-            CASE ('Tmin')                 ; bivalve_param(dcol)%Tmin         = extract_double(values(ccol))
-            CASE ('Tmax')                 ; bivalve_param(dcol)%Tmax         = extract_double(values(ccol))
-            CASE ('maxT')                 ; bivalve_param(dcol)%maxT         = extract_double(values(ccol))
-            CASE ('Dmax')                 ; bivalve_param(dcol)%Dmax         = extract_double(values(ccol))
-            CASE ('maxD')                 ; bivalve_param(dcol)%maxD         = extract_double(values(ccol))
-            CASE ('SSmax')                ; bivalve_param(dcol)%SSmax        = extract_double(values(ccol))
-            CASE ('maxSS')                ; bivalve_param(dcol)%maxSS        = extract_double(values(ccol))
-            CASE ('Rexcr')                ; bivalve_param(dcol)%Rexcr        = extract_double(values(ccol))
-            CASE ('Regst')                ; bivalve_param(dcol)%Regst        = extract_double(values(ccol))
-            CASE ('gegst')                ; bivalve_param(dcol)%gegst        = extract_double(values(ccol))
-            CASE ('Rresp')                ; bivalve_param(dcol)%Rresp        = extract_double(values(ccol))
-            CASE ('saltfunc')             ; bivalve_param(dcol)%saltfunc     = extract_integer(values(ccol))
-            CASE ('minS')                 ; bivalve_param(dcol)%minS         = extract_double(values(ccol))
-            CASE ('Smin')                 ; bivalve_param(dcol)%Smin         = extract_double(values(ccol))
-            CASE ('Smax')                 ; bivalve_param(dcol)%Smax         = extract_double(values(ccol))
-            CASE ('maxS')                 ; bivalve_param(dcol)%maxS         = extract_double(values(ccol))
-            CASE ('fR20')                 ; bivalve_param(dcol)%fR20         = extract_double(values(ccol))
-            CASE ('War')                  ; bivalve_param(dcol)%War          = extract_double(values(ccol))
-            CASE ('Wbr')                  ; bivalve_param(dcol)%Wbr          = extract_double(values(ccol))
-            CASE ('fR')                   ; bivalve_param(dcol)%fR           = extract_double(values(ccol))
-            CASE ('theta_resp')           ; bivalve_param(dcol)%theta_resp   = extract_double(values(ccol))
-            CASE ('TmaxR')                ; bivalve_param(dcol)%TmaxR        = extract_double(values(ccol))
-            CASE ('maxTR')                ; bivalve_param(dcol)%maxTR        = extract_double(values(ccol))
-            CASE ('Qresp')                ; bivalve_param(dcol)%Qresp        = extract_double(values(ccol))
-            CASE ('SDA')                  ; bivalve_param(dcol)%SDA          = extract_double(values(ccol))
-            CASE ('Rmort')                ; bivalve_param(dcol)%Rmort        = extract_double(values(ccol))
-            CASE ('Rpred')                ; bivalve_param(dcol)%Rpred        = extract_double(values(ccol))
-            CASE ('fDO')                  ; bivalve_param(dcol)%fDO          = extract_double(values(ccol))
-            CASE ('K_BDO')                ; bivalve_param(dcol)%K_BDO        = extract_double(values(ccol))
-            CASE ('KDO')                  ; bivalve_param(dcol)%KDO          = extract_double(values(ccol))
-            CASE ('num_prey')             ; bivalve_param(dcol)%num_prey     = extract_integer(values(ccol))
+            CASE ('initial_conc') ; bivalve_param(dcol)%initial_conc = extract_double(values(ccol))
+            CASE ('min')          ; bivalve_param(dcol)%min          = extract_double(values(ccol))
+            CASE ('length')       ; bivalve_param(dcol)%length       = extract_integer(values(ccol))
+            CASE ('INC')          ; bivalve_param(dcol)%INC          = extract_double(values(ccol))
+            CASE ('IPC')          ; bivalve_param(dcol)%IPC          = extract_double(values(ccol))
+            CASE ('Rgrz')         ; bivalve_param(dcol)%Rgrz         = extract_double(values(ccol))
+            CASE ('Ing')          ; bivalve_param(dcol)%Ing          = extract_double(values(ccol))
+            CASE ('WaI')          ; bivalve_param(dcol)%WaI          = extract_double(values(ccol))
+            CASE ('WbI')          ; bivalve_param(dcol)%WbI          = extract_double(values(ccol))
+            CASE ('fassim')       ; bivalve_param(dcol)%fassim       = extract_double(values(ccol))
+            CASE ('Cmin_grz')     ; bivalve_param(dcol)%Cmin_grz     = extract_double(values(ccol))
+            CASE ('Kgrz')         ; bivalve_param(dcol)%Kgrz         = extract_double(values(ccol))
+            CASE ('minT')         ; bivalve_param(dcol)%minT         = extract_double(values(ccol))
+            CASE ('Tmin')         ; bivalve_param(dcol)%Tmin         = extract_double(values(ccol))
+            CASE ('Tmax')         ; bivalve_param(dcol)%Tmax         = extract_double(values(ccol))
+            CASE ('maxT')         ; bivalve_param(dcol)%maxT         = extract_double(values(ccol))
+            CASE ('Dmax')         ; bivalve_param(dcol)%Dmax         = extract_double(values(ccol))
+            CASE ('maxD')         ; bivalve_param(dcol)%maxD         = extract_double(values(ccol))
+            CASE ('SSmax')        ; bivalve_param(dcol)%SSmax        = extract_double(values(ccol))
+            CASE ('maxSS')        ; bivalve_param(dcol)%maxSS        = extract_double(values(ccol))
+            CASE ('Rexcr')        ; bivalve_param(dcol)%Rexcr        = extract_double(values(ccol))
+            CASE ('Regst')        ; bivalve_param(dcol)%Regst        = extract_double(values(ccol))
+            CASE ('gegst')        ; bivalve_param(dcol)%gegst        = extract_double(values(ccol))
+            CASE ('Rresp')        ; bivalve_param(dcol)%Rresp        = extract_double(values(ccol))
+            CASE ('saltfunc')     ; bivalve_param(dcol)%saltfunc     = extract_integer(values(ccol))
+            CASE ('minS')         ; bivalve_param(dcol)%minS         = extract_double(values(ccol))
+            CASE ('Smin')         ; bivalve_param(dcol)%Smin         = extract_double(values(ccol))
+            CASE ('Smax')         ; bivalve_param(dcol)%Smax         = extract_double(values(ccol))
+            CASE ('maxS')         ; bivalve_param(dcol)%maxS         = extract_double(values(ccol))
+            CASE ('fR20')         ; bivalve_param(dcol)%fR20         = extract_double(values(ccol))
+            CASE ('War')          ; bivalve_param(dcol)%War          = extract_double(values(ccol))
+            CASE ('Wbr')          ; bivalve_param(dcol)%Wbr          = extract_double(values(ccol))
+            CASE ('fR')           ; bivalve_param(dcol)%fR           = extract_double(values(ccol))
+            CASE ('theta_resp')   ; bivalve_param(dcol)%theta_resp   = extract_double(values(ccol))
+            CASE ('TmaxR')        ; bivalve_param(dcol)%TmaxR        = extract_double(values(ccol))
+            CASE ('maxTR')        ; bivalve_param(dcol)%maxTR        = extract_double(values(ccol))
+            CASE ('Qresp')        ; bivalve_param(dcol)%Qresp        = extract_double(values(ccol))
+            CASE ('SDA')          ; bivalve_param(dcol)%SDA          = extract_double(values(ccol))
+            CASE ('Rmort')        ; bivalve_param(dcol)%Rmort        = extract_double(values(ccol))
+            CASE ('Rpred')        ; bivalve_param(dcol)%Rpred        = extract_double(values(ccol))
+            CASE ('fDO')          ; bivalve_param(dcol)%fDO          = extract_double(values(ccol))
+            CASE ('K_BDO')        ; bivalve_param(dcol)%K_BDO        = extract_double(values(ccol))
+            CASE ('KDO')          ; bivalve_param(dcol)%KDO          = extract_double(values(ccol))
+            CASE ('num_prey')     ; bivalve_param(dcol)%num_prey     = extract_integer(values(ccol))
 
             CASE DEFAULT
-                 idx_pry = indexed_field('prey(', ')%bivalve_prey', MAX_BVLV_PREY, name)
-                 IF ( idx_pry > 0 ) THEN
-                       CALL copy_name(values(ccol), bivalve_param(dcol)%prey(idx_pry)%bivalve_prey)
-                 ELSE
-                    idx_pry = indexed_field('prey(', ')%Pbiv_prey', MAX_BVLV_PREY, name)
-                    IF ( idx_pry > 0 ) THEN
-                       bivalve_param(dcol)%prey(idx_pry)%Pbiv_prey = extract_double(values(ccol))
-                    ELSE
-                       print *, 'Unknown row "', TRIM(name), '"'
-                    ENDIF
-                 ENDIF
+                idx_pry = indexed_field('prey(', ')%bivalve_prey', MAX_BVLV_PREY, name)
+                IF ( idx_pry > 0 ) THEN
+                   CALL copy_name(values(ccol), bivalve_param(dcol)%prey(idx_pry)%bivalve_prey)
+                ELSE
+                   idx_pry = indexed_field('prey(', ')%Pbiv_prey', MAX_BVLV_PREY, name)
+                   IF ( idx_pry > 0 ) THEN
+                      bivalve_param(dcol)%prey(idx_pry)%Pbiv_prey = extract_double(values(ccol))
+                   ELSE
+                      print *, 'Unknown row "', TRIM(name), '"'
+                   ENDIF
+                ENDIF
          END SELECT
       ENDDO
    ENDDO
@@ -386,7 +386,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
        ENDDO
 
        ! Register group as a state variable
-       data%id_biv(i) = aed_define_sheet_variable(                 &
+       data%id_biv(i) = aed_define_sheet_variable(                  &
                               bivalve_param(list(i))%name,          &
                               'mmolC/m**2', 'bivalve',              &
                               bivalve_param(list(i))%initial_conc,  &
@@ -409,7 +409,6 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 !ARGUMENTS
    CLASS (aed_bivalve_data_t),INTENT(inout) :: data
    INTEGER,INTENT(in) :: namlst
-
 !
 !LOCALS
    INTEGER  :: status, i
@@ -473,13 +472,13 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    ! Assign module level variables
    data%simFixedEnv = simFixedEnv
    IF (simFixedEnv) THEN
-     PRINT *,'    NOTE - bivalves driven by fixed T,DO,A values'
-     PRINT *,'         - biv feedback disabled'
-     data%fixed_temp = fixed_temp
-     data%fixed_sal = fixed_sal
-     data%fixed_oxy = fixed_oxy
-     data%fixed_food = fixed_food
-     simBivFeedback = .false.
+      PRINT *,'    NOTE - bivalves driven by fixed T,DO,A values'
+      PRINT *,'         - biv feedback disabled'
+      data%fixed_temp = fixed_temp
+      data%fixed_sal = fixed_sal
+      data%fixed_oxy = fixed_oxy
+      data%fixed_food = fixed_food
+      simBivFeedback = .false.
    END IF
 
    data%simBivFeedback = simBivFeedback
@@ -512,22 +511,21 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    data%num_biv = 0
    CALL aed_bivalve_load_params(data, dbase, num_biv, the_biv, X_c)
 
-
    !Register link to prey state variables
    DO biv_i = 1,data%num_biv
       phy_i = 0
       DO prey_i = 1,data%bivalves(biv_i)%num_prey
-          data%bivalves(biv_i)%id_prey(prey_i) = aed_locate_variable( &
-                                       data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)
-          !If the prey is phytoplankton then also register state dependency on
-          !internal nitrogen and phosphorus
-          IF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ. _PHYMOD_) THEN
-              phy_i = phy_i + 1
-              data%bivalves(biv_i)%id_phyIN(phy_i) = aed_locate_variable( &
-                                       TRIM(data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)//'_IN')
-              data%bivalves(biv_i)%id_phyIP(phy_i) = aed_locate_variable( &
-                                       TRIM(data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)//'_IP')
-          ENDIF
+         data%bivalves(biv_i)%id_prey(prey_i) = aed_locate_variable( &
+                                      data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)
+         !If the prey is phytoplankton then also register state dependency on
+         !internal nitrogen and phosphorus
+         IF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ. _PHYMOD_) THEN
+             phy_i = phy_i + 1
+             data%bivalves(biv_i)%id_phyIN(phy_i) = aed_locate_variable( &
+                                      TRIM(data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)//'_IN')
+             data%bivalves(biv_i)%id_phyIP(phy_i) = aed_locate_variable( &
+                                      TRIM(data%bivalves(biv_i)%prey(prey_i)%bivalve_prey)//'_IP')
+         ENDIF
       ENDDO
    ENDDO
 
@@ -568,43 +566,43 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    ENDIF
 
    IF (simBivTracer) THEN
-       ! Register group as a state variable
-       data%id_bivtr = aed_define_variable(                                   &
-                              'filtfrac',                                      &
-                              '-', 'fraction of water filtered by bivalves',   &
-                              ZERO_,  &
-                              minimum=ZERO_)
+      ! Register group as a state variable
+      data%id_bivtr = aed_define_variable(                                    &
+                             'filtfrac',                                      &
+                             '-', 'fraction of water filtered by bivalves',   &
+                             ZERO_,  &
+                             minimum=ZERO_)
    ENDIF
 
    ! Register diagnostic variables
    IF (initFromDensity) THEN
-     data%id_bnum = aed_define_sheet_diag_variable('num' ,'#/m**2','mussel density')
-     IF (diag_level>0) data%id_x_c = aed_define_sheet_diag_variable('X_c','mmolC/organism','mean bivalve mass / organism')
+      data%id_bnum = aed_define_sheet_diag_variable('num' ,'#/m**2','mussel density')
+      IF (diag_level>0) data%id_x_c = aed_define_sheet_diag_variable('X_c','mmolC/organism','mean bivalve mass / organism')
    ENDIF
    IF (diag_level>0) data%id_tbiv = aed_define_sheet_diag_variable('tbiv','mmolC/m**2','total bivalve mass')
    IF (diag_level>1) data%id_nmp  = aed_define_sheet_diag_variable('nmp' ,'mmolC/m**2/d','net mussel production')
    IF (diag_level>1) data%id_resp = aed_define_sheet_diag_variable('resp','/d','bivalve respiration')
    IF (diag_level>2) THEN
-     data%id_3d_grz = aed_define_diag_variable('net_c','mmolC/m**3/day','water column change due to grazing/excretion')
-     data%id_3d_exn = aed_define_diag_variable('net_n','mmolN/m**3/day','water column change due to grazing/excretion')
-     data%id_3d_exp = aed_define_diag_variable('net_p','mmolP/m**3/day','water column change due to grazing/excretion')
+      data%id_3d_grz = aed_define_diag_variable('net_c','mmolC/m**3/day','water column change due to grazing/excretion')
+      data%id_3d_exn = aed_define_diag_variable('net_n','mmolN/m**3/day','water column change due to grazing/excretion')
+      data%id_3d_exp = aed_define_diag_variable('net_p','mmolP/m**3/day','water column change due to grazing/excretion')
    ENDIF
    IF (diag_level>9) THEN
-     data%id_FR = aed_define_sheet_diag_variable('FR','m3/mmolC/m2/day','filtration rate')
-     data%id_fT = aed_define_sheet_diag_variable('fT','-','temp limitation')
-     data%id_fD = aed_define_sheet_diag_variable('fD','-','density limitation')
-     data%id_fG = aed_define_sheet_diag_variable('fG','-','grazing limitation')
-     data%id_pf = aed_define_sheet_diag_variable('pf','/d','pseudofeaces production rate')
-     data%id_grz  = aed_define_sheet_diag_variable('grz' ,'/d', 'bivalve grazing')
-     data%id_mort = aed_define_sheet_diag_variable('mort','/d','bivalve mortality')
-     data%id_egst = aed_define_sheet_diag_variable('egst','/d','bivalve egestion')
-     data%id_excr = aed_define_sheet_diag_variable('excr','/d','bivalve excretion')
-     data%id_excr_n = aed_define_sheet_diag_variable('excr_n','/d','bivalve excretion')
-     data%id_excr_p = aed_define_sheet_diag_variable('excr_p','/d','bivalve excretion')
-     data%id_egst_n = aed_define_sheet_diag_variable('egst_n','/d','bivalve excretion')
-     data%id_egst_p = aed_define_sheet_diag_variable('egst_p','/d','bivalve excretion')
-     data%id_grz_n = aed_define_sheet_diag_variable('grz_n','/d','bivalve excretion')
-     data%id_grz_p = aed_define_sheet_diag_variable('grz_p','/d','bivalve excretion')
+      data%id_FR = aed_define_sheet_diag_variable('FR','m3/mmolC/m2/day','filtration rate')
+      data%id_fT = aed_define_sheet_diag_variable('fT','-','temp limitation')
+      data%id_fD = aed_define_sheet_diag_variable('fD','-','density limitation')
+      data%id_fG = aed_define_sheet_diag_variable('fG','-','grazing limitation')
+      data%id_pf = aed_define_sheet_diag_variable('pf','/d','pseudofeaces production rate')
+      data%id_grz  = aed_define_sheet_diag_variable('grz' ,'/d', 'bivalve grazing')
+      data%id_mort = aed_define_sheet_diag_variable('mort','/d','bivalve mortality')
+      data%id_egst = aed_define_sheet_diag_variable('egst','/d','bivalve egestion')
+      data%id_excr = aed_define_sheet_diag_variable('excr','/d','bivalve excretion')
+      data%id_excr_n = aed_define_sheet_diag_variable('excr_n','/d','bivalve excretion')
+      data%id_excr_p = aed_define_sheet_diag_variable('excr_p','/d','bivalve excretion')
+      data%id_egst_n = aed_define_sheet_diag_variable('egst_n','/d','bivalve excretion')
+      data%id_egst_p = aed_define_sheet_diag_variable('egst_p','/d','bivalve excretion')
+      data%id_grz_n = aed_define_sheet_diag_variable('grz_n','/d','bivalve excretion')
+      data%id_grz_p = aed_define_sheet_diag_variable('grz_p','/d','bivalve excretion')
    ENDIF
 
    ! Register environmental dependencies
@@ -643,7 +641,7 @@ SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
 
    ! Distribute the read in biv density over the simulated groups
    DO biv_i=1,data%num_biv
-     _STATE_VAR_S_(data%id_biv(biv_i)) = &
+      _STATE_VAR_S_(data%id_biv(biv_i)) = &
                             (biv_density/data%num_biv)*data%bivalves(biv_i)%X_ci
    ENDDO
 END SUBROUTINE aed_initialize_benthic_bivalve
@@ -688,24 +686,23 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       IF ( _DIAG_VAR_S_(data%id_bnum) <1e-3 ) RETURN
    ENDIF
 
-
    ! Retrieve current environmental conditions.
-   IF(data%simFixedEnv) THEN
-     temp = data%fixed_temp + matz             ! user provided temp
-     salinity = data%fixed_sal                 ! user provided salinity
-     oxy = data%fixed_oxy                      ! user provided oxygen
-     Ctotal_prey = data%fixed_food             ! user provided food
-     ss = zero_
+   IF (data%simFixedEnv) THEN
+      temp = data%fixed_temp + matz             ! user provided temp
+      salinity = data%fixed_sal                 ! user provided salinity
+      oxy = data%fixed_oxy                      ! user provided oxygen
+      Ctotal_prey = data%fixed_food             ! user provided food
+      ss = zero_
    ELSE
-     ! Normal operation
-     temp = _STATE_VAR_(data%id_tem)           ! local temperature
-     salinity = _STATE_VAR_(data%id_sal)       ! local salinity
-     oxy = _STATE_VAR_(data%id_DOupttarget)    ! local oxygen
-     IF (data%simSSlim) THEN
-        ss = _STATE_VAR_(data%id_SSupttarget)  ! local suspended solids (inorganic)
-     ELSE
-        ss = zero_
-     ENDIF
+      ! Normal operation
+      temp = _STATE_VAR_(data%id_tem)           ! local temperature
+      salinity = _STATE_VAR_(data%id_sal)       ! local salinity
+      oxy = _STATE_VAR_(data%id_DOupttarget)    ! local oxygen
+      IF (data%simSSlim) THEN
+         ss = _STATE_VAR_(data%id_SSupttarget)  ! local suspended solids (inorganic)
+      ELSE
+         ss = zero_
+      ENDIF
    ENDIF
 
    ! Retrieve current (local) state variable values.
@@ -718,23 +715,23 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    IF (data%simPCexcr)  poc = _STATE_VAR_(data%id_Cmorttarget)
 
    ! Zero cumulative diagnostics
-   IF(diag_level>0) _DIAG_VAR_S_(data%id_tbiv) = zero_
-   IF(diag_level>2) _DIAG_VAR_(data%id_3d_grz) = zero_
-   IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn) = zero_
-   IF(diag_level>2) _DIAG_VAR_(data%id_3d_exp) = zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_n)= zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_p)= zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_excr_n)= zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_excr_p)= zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_n)= zero_
-   IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_p)= zero_
+   IF (diag_level>0) _DIAG_VAR_S_(data%id_tbiv) = zero_
+   IF (diag_level>2) _DIAG_VAR_(data%id_3d_grz) = zero_
+   IF (diag_level>2) _DIAG_VAR_(data%id_3d_exn) = zero_
+   IF (diag_level>2) _DIAG_VAR_(data%id_3d_exp) = zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_grz_n)= zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_grz_p)= zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_excr_n)= zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_excr_p)= zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_egst_n)= zero_
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_egst_p)= zero_
 
 
    ! Setup for bivalve filtration "tracer"
    Rbt = data%bt_renewal/secs_per_day       ! biv_tracer decay (%/day)
    fr = zero_                               ! filtration rate (m3/mmolC/day)
    IF (data%id_bivtr>0) THEN
-     bt = _STATE_VAR_(data%id_bivtr)
+      bt = _STATE_VAR_(data%id_bivtr)
    ENDIF
    Rbt = Rbt*bt
 
@@ -754,18 +751,17 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 
 
       ! Retrieve prey groups (mmolC/m3)
-      IF(.NOT.data%simFixedEnv) THEN
-        Ctotal_prey   = zero_
-        DO prey_i=1,data%bivalves(biv_i)%num_prey
-           prey(prey_i) = _STATE_VAR_(data%bivalves(biv_i)%id_prey(prey_i))
-           Ctotal_prey = Ctotal_prey + prey(prey_i)
-        ENDDO
+      IF (.NOT.data%simFixedEnv) THEN
+         Ctotal_prey   = zero_
+         DO prey_i=1,data%bivalves(biv_i)%num_prey
+            prey(prey_i) = _STATE_VAR_(data%bivalves(biv_i)%id_prey(prey_i))
+            Ctotal_prey = Ctotal_prey + prey(prey_i)
+         ENDDO
       ENDIF
 
       ! Get the grazing limitation function
       !fGrazing_Limitation = fPrey_Limitation(data%bivalves,biv_i,Ctotal_prey)
       fGrazing_Limitation = min(Ctotal_prey/data%bivalves(biv_i)%Kgrz,one_)
-
 
       ! Get the temperature function impacting ingestion
       f_Temp = fTemp_function_biv(data,biv_i, temp)
@@ -778,19 +774,19 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 
       ! Now compute the final grazing rate (/s). This is the
       ! amount grazed in units of mass consumed/mass bivalve/unit time
-      IF(data%bivalves(biv_i)%Ing==1) THEN
-        W = (0.071/1000.) * data%bivalves(biv_i)%Length**2.8
-        Imax = data%bivalves(biv_i)%WaI * W** data%bivalves(biv_i)%WbI
+      IF (data%bivalves(biv_i)%Ing==1) THEN
+         W = (0.071/1000.) * data%bivalves(biv_i)%Length**2.8
+         Imax = data%bivalves(biv_i)%WaI * W** data%bivalves(biv_i)%WbI
       ELSE
-        Imax = data%bivalves(biv_i)%Rgrz
+         Imax = data%bivalves(biv_i)%Rgrz
       END IF
       grazing = Imax * fGrazing_Limitation * f_Temp * f_Dens * f_SS
 
-      IF(Ctotal_prey<data%bivalves(biv_i)%Kgrz) THEN
-        FR = grazing / data%bivalves(biv_i)%Kgrz
+      IF (Ctotal_prey<data%bivalves(biv_i)%Kgrz) THEN
+         FR = grazing / data%bivalves(biv_i)%Kgrz
       ELSE
-        FR = grazing / Ctotal_prey
-      END IF
+         FR = grazing / Ctotal_prey
+      ENDIF
 
       ! Now determine available prey and limit grazing amount to availability of prey
       ! food is total amount of food in units of mass/unit volume/unit time (mmolC/m2/s)
@@ -808,27 +804,27 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       ! Prey has been ordered in grazing preference;  So take food in the
       ! order of preference up to availability minus value of minimum residual
       ! note: grazing_prey is in units of mass consumed/unit volume/unit time
-      IF(.NOT.data%simFixedEnv) THEN
-       DO prey_i = 1,data%bivalves(biv_i)%num_prey
-          ! Add up preferences for remaining prey
-          pref_factor = zero_
-          DO prey_j = prey_i,data%bivalves(biv_i)%num_prey
-             pref_factor = pref_factor + data%bivalves(biv_i)%prey(biv_i)%Pbiv_prey
-          ENDDO
-          IF (food * data%bivalves(biv_i)%prey(prey_i)%Pbiv_prey / pref_factor <= &
+      IF (.NOT.data%simFixedEnv) THEN
+         DO prey_i = 1,data%bivalves(biv_i)%num_prey
+            ! Add up preferences for remaining prey
+            pref_factor = zero_
+            DO prey_j = prey_i,data%bivalves(biv_i)%num_prey
+               pref_factor = pref_factor + data%bivalves(biv_i)%prey(biv_i)%Pbiv_prey
+            ENDDO
+            IF (food * data%bivalves(biv_i)%prey(prey_i)%Pbiv_prey / pref_factor <= &
                               prey(prey_i) - data%bivalves(biv_i)%Cmin_grz) THEN
-             ! Take fraction of left over food based on preference factor
-             grazing_prey(prey_i) = food * data%bivalves(biv_i)%prey(prey_i)%Pbiv_prey / pref_factor
-          ELSEIF (prey(prey_i) > data%bivalves(biv_i)%Cmin_grz) THEN
-             grazing_prey(prey_i) = prey(prey_i) - data%bivalves(biv_i)%Cmin_grz
-          ELSE
-             grazing_prey(prey_i) = zero_
-          ENDIF
-          ! Food remaining after grazing from current food group (prey)
-          food = food - grazing_prey(prey_i)
-       ENDDO
-       ! Reset food to total amount consumed
-       food = SUM(grazing_prey(:))
+                ! Take fraction of left over food based on preference factor
+                grazing_prey(prey_i) = food * data%bivalves(biv_i)%prey(prey_i)%Pbiv_prey / pref_factor
+            ELSEIF (prey(prey_i) > data%bivalves(biv_i)%Cmin_grz) THEN
+                grazing_prey(prey_i) = prey(prey_i) - data%bivalves(biv_i)%Cmin_grz
+            ELSE
+                grazing_prey(prey_i) = zero_
+            ENDIF
+            ! Food remaining after grazing from current food group (prey)
+            food = food - grazing_prey(prey_i)
+         ENDDO
+         ! Reset food to total amount consumed
+         food = SUM(grazing_prey(:))
       ENDIF
 
       ! Now determine nutrient composition of food based on mix of food types.
@@ -836,68 +832,65 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       !   grazing_n is in units of mass N consumed/unit volume/unit time
       !   grazing_p is in units of mass P consumed/unit volume/unit time
       !   these are the same units as "food" & "grazing_prey", but not "grazing"
-      IF(data%simFixedEnv) THEN
-        grazing_n = food * 1./5.5   !grazing * 16./106.
-        grazing_p = food * 1./130.  !grazing * 1./106.
+      IF (data%simFixedEnv) THEN
+         grazing_n = food * 1./5.5   !grazing * 16./106.
+         grazing_p = food * 1./130.  !grazing * 1./106.
       ELSE
-        grazing_n = zero_
-        grazing_p = zero_
-        phy_i = 0
-        DO prey_i = 1,data%bivalves(biv_i)%num_prey
-         IF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_) .EQ. _OGMPOC_) THEN
-            IF (poc > 1e-6) THEN
-                grazing_n = grazing_n + grazing_prey(prey_i) *  MIN(pon/poc,2.) !pon/poc
-                grazing_p = grazing_p + grazing_prey(prey_i) *  MIN(pop/poc,2.) !pop/poc
-            ELSE
-                grazing_n = zero_
-                grazing_p = zero_
+         grazing_n = zero_
+         grazing_p = zero_
+         phy_i = 0
+         DO prey_i = 1,data%bivalves(biv_i)%num_prey
+            IF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_) .EQ. _OGMPOC_) THEN
+               IF (poc > 1e-6) THEN
+                  grazing_n = grazing_n + grazing_prey(prey_i) *  MIN(pon/poc,2.) !pon/poc
+                  grazing_p = grazing_p + grazing_prey(prey_i) *  MIN(pop/poc,2.) !pop/poc
+               ELSE
+                  grazing_n = zero_
+                  grazing_p = zero_
+               ENDIF
+            ELSEIF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ. _PHYMOD_) THEN
+               phy_i = phy_i + 1
+               phy_INcon(phy_i) = _STATE_VAR_(data%bivalves(biv_i)%id_phyIN(phy_i))
+               phy_IPcon(phy_i) = _STATE_VAR_(data%bivalves(biv_i)%id_phyIP(phy_i))
+               grazing_n = grazing_n + grazing_prey(prey_i) / MAX(prey(prey_i),1e-6) * phy_INcon(phy_i) !/14.0
+               grazing_p = grazing_p + grazing_prey(prey_i) / MAX(prey(prey_i),1e-6) * phy_IPcon(phy_i) !/31.0
+            ELSEIF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ.'ZOO') THEN
+               grazing_n = grazing_n + grazing_prey(prey_i) * data%bivalves(biv_i)%INC
+               grazing_p = grazing_p + grazing_prey(prey_i) * data%bivalves(biv_i)%IPC
             ENDIF
-         ELSEIF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ. _PHYMOD_) THEN
-            phy_i = phy_i + 1
-            phy_INcon(phy_i) = _STATE_VAR_(data%bivalves(biv_i)%id_phyIN(phy_i))
-            phy_IPcon(phy_i) = _STATE_VAR_(data%bivalves(biv_i)%id_phyIP(phy_i))
-            grazing_n = grazing_n + grazing_prey(prey_i) / MAX(prey(prey_i),1e-6) * phy_INcon(phy_i) !/14.0
-            grazing_p = grazing_p + grazing_prey(prey_i) / MAX(prey(prey_i),1e-6) * phy_IPcon(phy_i) !/31.0
-         ELSEIF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_).EQ.'ZOO') THEN
-            grazing_n = grazing_n + grazing_prey(prey_i) * data%bivalves(biv_i)%INC
-            grazing_p = grazing_p + grazing_prey(prey_i) * data%bivalves(biv_i)%IPC
-         ENDIF
-        ENDDO
-    !    IF(grazing_n>food)print *,'gn?food',grazing_n,grazing_prey(1),pon,poc,pon/poc
+         ENDDO
+    !    IF (grazing_n > food) print *,'gn?food',grazing_n,grazing_prey(1),pon,poc,pon/poc
       ENDIF
-
 
       ! Now compute the rate of food ingestion (/s)
       psuedofaeces = (one_ - data%bivalves(biv_i)%fassim) * grazing
       ingestion = data%bivalves(biv_i)%fassim * grazing
 
       IF (biv <= data%bivalves(biv_i)%min) THEN
-        ! Don't excrete or die if we are at the min biomass otherwise we have a
-        ! mass conservation leak in the C mass balance
+         ! Don't excrete or die if we are at the min biomass otherwise we have a
+         ! mass conservation leak in the C mass balance
 
-        respiration = zero_
-        mortality   = zero_
-        excretion   = zero_
-        egestion    = zero_
-
+         respiration = zero_
+         mortality   = zero_
+         excretion   = zero_
+         egestion    = zero_
       ELSE
-        ! Get the egestion (/s) => I * alphaEG * EXP(gammaEG * MIN([A]/KA,1))
-        egestion = ingestion * data%bivalves(biv_i)%Regst * &
+         ! Get the egestion (/s) => I * alphaEG * EXP(gammaEG * MIN([A]/KA,1))
+         egestion = ingestion * data%bivalves(biv_i)%Regst * &
                    exp(data%bivalves(biv_i)%gegst * min(Ctotal_prey/data%bivalves(biv_i)%Kgrz,one_))
 
-        ! Get the respiration rate (/s)
-        iteg = ingestion - egestion
-        respiration = aed_bivalve_respiration(data,biv_i,iteg,temp,salinity)
+         ! Get the respiration rate (/s)
+         iteg = ingestion - egestion
+         respiration = aed_bivalve_respiration(data,biv_i,iteg,temp,salinity)
 
-        ! Get the excretion rate (of carbon!) (/s)
-        excretion =  data%bivalves(biv_i)%Rexcr * iteg
+         ! Get the excretion rate (of carbon!) (/s)
+         excretion =  data%bivalves(biv_i)%Rexcr * iteg
 
-        ! Get the mortality rate (/s)
-        mortality = data%bivalves(biv_i)%Rmort * f_DO(data,biv_i,oxy)
+         ! Get the mortality rate (/s)
+         mortality = data%bivalves(biv_i)%Rmort * f_DO(data,biv_i,oxy)
 
-        ! Add predation losses to mortality
-        mortality = mortality + data%bivalves(biv_i)%Rpred
-
+         ! Add predation losses to mortality
+         mortality = mortality + data%bivalves(biv_i)%Rpred
       ENDIF
 
       ! Calculate losses into the particulate organic matter pools - (mmolC/m2/s)
@@ -905,8 +898,6 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 
       pon_excr = (psuedofaeces * (grazing_n / MAX(food,1e-10))   &
                    + (egestion + mortality)*data%bivalves(biv_i)%INC )*biv
-
-!print *,'d',
 
       pop_excr = (psuedofaeces * (grazing_p / MAX(food,1e-10))   &
                    + (egestion + mortality)*data%bivalves(biv_i)%IPC )*biv
@@ -952,24 +943,23 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       !        don_excr = grazing_n - pon_excr - delta_C*data%bivalves(biv_i)%INC
       !    ENDIF
       IF (don_excr < zero_ .OR. dop_excr < zero_ ) THEN
-       IF (don_excr/data%bivalves(biv_i)%INC < dop_excr/data%bivalves(biv_i)%IPC) THEN !nitrogen limited
+         IF (don_excr/data%bivalves(biv_i)%INC < dop_excr/data%bivalves(biv_i)%IPC) THEN !nitrogen limited
         !  print *,'don_excr1', don_excr,delta_C
-          doc_excr = - don_excr / data%bivalves(biv_i)%INC
-          delta_C = delta_C - doc_excr    ! reduce the growth rate due to extra C loss
-          don_excr = zero_                ! hold onto the N
-          dop_excr = grazing_p - pop_excr - delta_C*data%bivalves(biv_i)%IPC
-        !  print *,'don_excr2', don_excr,doc_excr,delta_C,dop_excr
-        ELSE
-      !    print *,'dop_excr1', dop_excr,delta_C
-          doc_excr = - dop_excr / data%bivalves(biv_i)%IPC
-          delta_C = delta_C - doc_excr    ! reduce the growth rate due to extra C loss
-          dop_excr = zero_                ! hold onto the N
-          don_excr = grazing_n - pon_excr - delta_C*data%bivalves(biv_i)%INC
-      !    print *,'dop_excr2', dop_excr,doc_excr,delta_C,don_excr
-
-        ENDIF
+            doc_excr = - don_excr / data%bivalves(biv_i)%INC
+            delta_C = delta_C - doc_excr    ! reduce the growth rate due to extra C loss
+            don_excr = zero_                ! hold onto the N
+            dop_excr = grazing_p - pop_excr - delta_C*data%bivalves(biv_i)%IPC
+        !   print *,'don_excr2', don_excr,doc_excr,delta_C,dop_excr
+         ELSE
+      !     print *,'dop_excr1', dop_excr,delta_C
+            doc_excr = - dop_excr / data%bivalves(biv_i)%IPC
+            delta_C = delta_C - doc_excr    ! reduce the growth rate due to extra C loss
+            dop_excr = zero_                ! hold onto the N
+            don_excr = grazing_n - pon_excr - delta_C*data%bivalves(biv_i)%INC
+      !     print *,'dop_excr2', dop_excr,doc_excr,delta_C,don_excr
+         ENDIF
       ELSE
-        doc_excr = zero_
+         doc_excr = zero_
       ENDIF
       excretion = excretion+doc_excr/biv
 
@@ -990,13 +980,12 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       !write(*,"(4X,'limitations (f_T,f_Salinity): ',2F8.2)")f_T,f_Salinity
       !write(*,"(4X,'sources/sinks (grazing,respiration,mortaility): ',3F8.2)")grazing,excretion,mortality
 
-
       ! SET TEMPORAL DERIVATIVES FOR ODE SOLVER
 
       ! Biv production & losses (mmolC/m2/s)
       IF ( .NOT.data%simStaticBiomass ) THEN
-        _FLUX_VAR_B_(data%id_biv(biv_i)) = _FLUX_VAR_B_(data%id_biv(biv_i))    &
-          + ( (ingestion - respiration - excretion - egestion - mortality)*biv )
+         _FLUX_VAR_B_(data%id_biv(biv_i)) = _FLUX_VAR_B_(data%id_biv(biv_i))    &
+            + ( (ingestion - respiration - excretion - egestion - mortality)*biv )
       ENDIF
 
       ! Effects on prey and nutrients
@@ -1017,15 +1006,16 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
                ENDIF
             ELSEIF (data%bivalves(biv_i)%prey(prey_i)%bivalve_prey(1:_MODPFX_) .EQ. _PHYMOD_) THEN
                phy_i = phy_i + 1
-               IF(prey(prey_i)>1e-6) THEN
-                gn = grazing_prey(prey_i) * phy_INcon(phy_i)/prey(prey_i)
-                gp = grazing_prey(prey_i) * phy_IPcon(phy_i)/prey(prey_i)
+               IF (prey(prey_i) > 1e-6) THEN
+                  gn = grazing_prey(prey_i) * phy_INcon(phy_i)/prey(prey_i)
+                  gp = grazing_prey(prey_i) * phy_IPcon(phy_i)/prey(prey_i)
                ENDIF
                _FLUX_VAR_(data%bivalves(biv_i)%id_phyIN(phy_i)) = &
                            _FLUX_VAR_(data%bivalves(biv_i)%id_phyIN(phy_i)) - gn
                _FLUX_VAR_(data%bivalves(biv_i)%id_phyIP(phy_i)) = &
                            _FLUX_VAR_(data%bivalves(biv_i)%id_phyIP(phy_i)) - gp
             ENDIF
+
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz)  &
                                              - grazing_prey(prey_i)*secs_per_day
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn)=_DIAG_VAR_(data%id_3d_exn) - gn*secs_per_day
@@ -1033,54 +1023,53 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
 
             IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_n)=_DIAG_VAR_S_(data%id_grz_n) + gn*secs_per_day
             IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_p)=_DIAG_VAR_S_(data%id_grz_p) + gp*secs_per_day
-
          ENDDO
 
-        ! Now manage excretion contributions to DOM/DIM pool
-        IF (data%simDCexcr) THEN
-           _FLUX_VAR_(data%id_Cexctarget) = &
+         ! Now manage excretion contributions to DOM/DIM pool
+         IF (data%simDCexcr) THEN
+            _FLUX_VAR_(data%id_Cexctarget) = &
                            _FLUX_VAR_(data%id_Cexctarget) + excretion*biv !+ doc_excr
-           IF(diag_level>2) &
-              _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + excretion*biv*secs_per_day
-        ENDIF
-        IF (data%simDNexcr) THEN
-           _FLUX_VAR_(data%id_Nexctarget) = _FLUX_VAR_(data%id_Nexctarget) + don_excr
-           IF(diag_level>2) &
-              _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn)   + don_excr*secs_per_day
-           IF(diag_level>9) &
-              _DIAG_VAR_S_(data%id_excr_n)=_DIAG_VAR_S_(data%id_excr_n) - don_excr*secs_per_day
-        ENDIF
-        IF (data%simDPexcr) THEN
-           _FLUX_VAR_(data%id_Pexctarget) = _FLUX_VAR_(data%id_Pexctarget) + dop_excr
-           IF(diag_level>2) &
-              _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp)   + dop_excr*secs_per_day
-           IF(diag_level>9) &
-              _DIAG_VAR_S_(data%id_excr_p)=_DIAG_VAR_S_(data%id_excr_p) - dop_excr*secs_per_day
-        ENDIF
+            IF (diag_level>2) &
+               _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + excretion*biv*secs_per_day
+         ENDIF
+         IF (data%simDNexcr) THEN
+            _FLUX_VAR_(data%id_Nexctarget) = _FLUX_VAR_(data%id_Nexctarget) + don_excr
+            IF(diag_level>2) &
+               _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn)   + don_excr*secs_per_day
+            IF(diag_level>9) &
+               _DIAG_VAR_S_(data%id_excr_n)=_DIAG_VAR_S_(data%id_excr_n) - don_excr*secs_per_day
+         ENDIF
+         IF (data%simDPexcr) THEN
+            _FLUX_VAR_(data%id_Pexctarget) = _FLUX_VAR_(data%id_Pexctarget) + dop_excr
+            IF (diag_level>2) &
+               _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp)   + dop_excr*secs_per_day
+            IF (diag_level>9) &
+               _DIAG_VAR_S_(data%id_excr_p)=_DIAG_VAR_S_(data%id_excr_p) - dop_excr*secs_per_day
+         ENDIF
 
-        ! Now manage psuedofaeces, egestion and mortality contributions to POM
-        IF (data%simPCexcr) THEN
-           _FLUX_VAR_(data%id_Cmorttarget) = _FLUX_VAR_(data%id_Cmorttarget) + poc_excr
-           IF(diag_level>2) _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + poc_excr*secs_per_day
-        ENDIF
-        IF (data%simPNexcr) THEN
-           _FLUX_VAR_(data%id_Nmorttarget) = _FLUX_VAR_(data%id_Nmorttarget) + pon_excr
-           IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn) + pon_excr*secs_per_day
-           IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_n)=_DIAG_VAR_S_(data%id_egst_n) - pon_excr*secs_per_day
-        ENDIF
-        IF (data%simPPexcr) THEN
-           _FLUX_VAR_(data%id_Pmorttarget) = _FLUX_VAR_(data%id_Pmorttarget) + pop_excr
-           IF(diag_level>2) _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp) + pop_excr*secs_per_day
-           IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_p)=_DIAG_VAR_S_(data%id_egst_p) - pop_excr*secs_per_day
-      ENDIF
+         ! Now manage psuedofaeces, egestion and mortality contributions to POM
+         IF (data%simPCexcr) THEN
+            _FLUX_VAR_(data%id_Cmorttarget) = _FLUX_VAR_(data%id_Cmorttarget) + poc_excr
+            IF(diag_level>2) _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + poc_excr*secs_per_day
+         ENDIF
+         IF (data%simPNexcr) THEN
+            _FLUX_VAR_(data%id_Nmorttarget) = _FLUX_VAR_(data%id_Nmorttarget) + pon_excr
+            IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn) + pon_excr*secs_per_day
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_n)=_DIAG_VAR_S_(data%id_egst_n) - pon_excr*secs_per_day
+         ENDIF
+         IF (data%simPPexcr) THEN
+            _FLUX_VAR_(data%id_Pmorttarget) = _FLUX_VAR_(data%id_Pmorttarget) + pop_excr
+            IF(diag_level>2) _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp) + pop_excr*secs_per_day
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_p)=_DIAG_VAR_S_(data%id_egst_p) - pop_excr*secs_per_day
+         ENDIF
 
-        ! Now effects of respiration
-        !IF (data%id_DOupttarget) THEN
-           _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) - respiration*biv
-        !ENDIF
-        !IF (data%id_CO2upttarget) THEN
-        !   _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) + respiration*biv
-        !ENDIF
+         ! Now effects of respiration
+         !IF (data%id_DOupttarget) THEN
+             _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) - respiration*biv
+         !ENDIF
+         !IF (data%id_CO2upttarget) THEN
+         !   _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) + respiration*biv
+         !ENDIF
 
       ENDIF
 
@@ -1089,24 +1078,24 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       IF (diag_level>1)_DIAG_VAR_S_(data%id_nmp)  = (ingestion-respiration-excretion-egestion-mortality)*biv*secs_per_day
       IF (diag_level>1)_DIAG_VAR_S_(data%id_resp) = respiration*secs_per_day
       IF (diag_level>9) THEN
-        _DIAG_VAR_S_(data%id_grz)  = grazing*secs_per_day
-        _DIAG_VAR_S_(data%id_mort) = mortality*secs_per_day
-        _DIAG_VAR_S_(data%id_excr) = excretion*secs_per_day
-        _DIAG_VAR_S_(data%id_egst) = egestion*secs_per_day
-        _DIAG_VAR_S_(data%id_fT) = f_Temp
-        _DIAG_VAR_S_(data%id_fD) = f_Dens
-        _DIAG_VAR_S_(data%id_fG) = fGrazing_Limitation
-        _DIAG_VAR_S_(data%id_FR) = FR
-        _DIAG_VAR_S_(data%id_pf) = psuedofaeces*secs_per_day
+         _DIAG_VAR_S_(data%id_grz)  = grazing*secs_per_day
+         _DIAG_VAR_S_(data%id_mort) = mortality*secs_per_day
+         _DIAG_VAR_S_(data%id_excr) = excretion*secs_per_day
+         _DIAG_VAR_S_(data%id_egst) = egestion*secs_per_day
+         _DIAG_VAR_S_(data%id_fT) = f_Temp
+         _DIAG_VAR_S_(data%id_fD) = f_Dens
+         _DIAG_VAR_S_(data%id_fG) = fGrazing_Limitation
+         _DIAG_VAR_S_(data%id_FR) = FR
+         _DIAG_VAR_S_(data%id_pf) = psuedofaeces*secs_per_day
       ENDIF
 
       IF (data%initFromDensity .AND. diag_level>0) THEN
-        _DIAG_VAR_S_(data%id_x_c) = _DIAG_VAR_S_(data%id_tbiv)/_DIAG_VAR_S_(data%id_bnum)
+         _DIAG_VAR_S_(data%id_x_c) = _DIAG_VAR_S_(data%id_tbiv)/_DIAG_VAR_S_(data%id_bnum)
       ENDIF
 
       ! Update biv_tracer
       IF (data%id_bivtr>0) THEN
-        _FLUX_VAR_(data%id_bivtr) = _FLUX_VAR_(data%id_bivtr) + (fr*biv)*(1.-MIN(bt,1.)) - Rbt
+         _FLUX_VAR_(data%id_bivtr) = _FLUX_VAR_(data%id_bivtr) + (fr*biv)*(1.-MIN(bt,1.)) - Rbt
       END IF
    ENDDO
 !
@@ -1133,42 +1122,39 @@ FUNCTION aed_bivalve_respiration(data,biv_i,iteg,temp,sal) RESULT(resp)
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-
    ! Get R20 value
-   IF(data%bivalves(biv_i)%fR20==1) THEN
-     ! Compute respiration rate coefficient from length
-     W = (0.071/1000.) * data%bivalves(biv_i)%Length**2.8
-     R20 = data%bivalves(biv_i)%War * W** data%bivalves(biv_i)%Wbr
+   IF (data%bivalves(biv_i)%fR20==1) THEN
+      ! Compute respiration rate coefficient from length
+      W = (0.071/1000.) * data%bivalves(biv_i)%Length**2.8
+      R20 = data%bivalves(biv_i)%War * W** data%bivalves(biv_i)%Wbr
    ELSE
-     ! Use constant respiration rate coefficient
-     R20 = data%bivalves(biv_i)%Rresp
-   END IF
+      ! Use constant respiration rate coefficient
+      R20 = data%bivalves(biv_i)%Rresp
+   ENDIF
 
    ! Now compute actual respiration
-   IF(data%bivalves(biv_i)%fR==1) THEN
-     ! Option 1) Spillman et al 2008; Bocioniv et al 2013
-     resp = R20 * data%bivalves(biv_i)%theta_resp**(temp-20.0)
+   IF (data%bivalves(biv_i)%fR==1) THEN
+      ! Option 1) Spillman et al 2008; Bocioniv et al 2013
+      resp = R20 * data%bivalves(biv_i)%theta_resp**(temp-20.0)
 
    ELSEIF(data%bivalves(biv_i)%fR==2) THEN
-     ! Option 2) Modified Schneider 1992; Bierman 2005; Gudimov et al. 2015
+      ! Option 2) Modified Schneider 1992; Bierman 2005; Gudimov et al. 2015
 
-     TmaxR = data%bivalves(biv_i)%TmaxR
-     maxTR = data%bivalves(biv_i)%maxTR
-     Q     = data%bivalves(biv_i)%Qresp
+      TmaxR = data%bivalves(biv_i)%TmaxR
+      maxTR = data%bivalves(biv_i)%maxTR
+      Q     = data%bivalves(biv_i)%Qresp
 
-     VV = ((TmaxR - temp)/(TmaxR - maxTR))
-     WW = LOG(Q)*(TmaxR - maxTR)
-     YY = LOG(Q)*(TmaxR - maxTR + 2.)
-     XX = (WW * (1. + SQRT(1. + (40. / YY))) / 20.)**2
-     fT = VV**XX * EXP(XX*(1.-VV))
+      VV = ((TmaxR - temp)/(TmaxR - maxTR))
+      WW = LOG(Q)*(TmaxR - maxTR)
+      YY = LOG(Q)*(TmaxR - maxTR + 2.)
+      XX = (WW * (1. + SQRT(1. + (40. / YY))) / 20.)**2
+      fT = VV**XX * EXP(XX*(1.-VV))
 
-     resp = R20 * fT + data%bivalves(biv_i)%SDA * iteg
-
+      resp = R20 * fT + data%bivalves(biv_i)%SDA * iteg
    ELSE
-     ! Unknown option
-     resp = data%bivalves(biv_i)%Rresp
-
-   END IF
+      ! Unknown option
+      resp = data%bivalves(biv_i)%Rresp
+   ENDIF
 
 !   ! Add the salinity stress effect.
 !   resp = resp * fSalinity_Limitation(data%bivalves,biv_i,sal)
@@ -1199,25 +1185,22 @@ PURE AED_REAL FUNCTION f_DO(data,biv,oxy)
 !-------------------------------------------------------------------------------
 !BEGIN
 
-   IF(data%bivalves(biv)%fDO==0) THEN
-     ! Option 0) Abrupt increase below DO threshold
+   IF (data%bivalves(biv)%fDO==0) THEN
+      ! Option 0) Abrupt increase below DO threshold
       IF (oxy < data%bivalves(biv)%KDO) THEN
-        f_DO = 10.0
+         f_DO = 10.0
       ELSE
-        f_DO = 1.0
+         f_DO = 1.0
       END IF
-
-   ELSEIF(data%bivalves(biv)%fDO==1) THEN
-     ! Option 1) Exponential increase: steepness determined by KDO and K_BDO
-     ! i.e. when DO = 0, final f(DO) = 1 + K_BDO
-     bot  = data%bivalves(biv)%KDO + oxy
-     f_DO = 1.0 + data%bivalves(biv)%K_BDO * data%bivalves(biv)%KDO/bot
-
+   ELSEIF (data%bivalves(biv)%fDO==1) THEN
+      ! Option 1) Exponential increase: steepness determined by KDO and K_BDO
+      ! i.e. when DO = 0, final f(DO) = 1 + K_BDO
+      bot  = data%bivalves(biv)%KDO + oxy
+      f_DO = 1.0 + data%bivalves(biv)%K_BDO * data%bivalves(biv)%KDO/bot
    ELSE
-     ! Unknown option
-     f_DO = 1.0
-   END IF
-
+      ! Unknown option
+      f_DO = 1.0
+   ENDIF
 END FUNCTION f_DO
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1235,18 +1218,16 @@ PURE AED_REAL FUNCTION fTemp_function_biv(data,biv,temp)
 !LOCALS
    AED_REAL , PARAMETER :: a = 1.00
    AED_REAL             :: MINt,Tmin,Tmax,MAXt
-
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-
    MINt = data%bivalves(biv)%MINt
    Tmin = data%bivalves(biv)%Tmin
    Tmax = data%bivalves(biv)%Tmax
    MAXt = data%bivalves(biv)%MAXt
 
    ! If temp below extreme, temp fn = 0, ie filtration ceases
-   IF(temp <= MINt) &
+   IF (temp <= MINt) &
       fTemp_function_biv = zero_
 
    ! If below min temp for optimal range, limited as below
@@ -1255,19 +1236,19 @@ PURE AED_REAL FUNCTION fTemp_function_biv(data,biv,temp)
             (Tmin*Tmin))+(2.0*(Tmin-MINt)/ &
             Tmin)))*(-((temp-MINt)*(temp-MINt)/&
             (Tmin*Tmin))+2.0*((temp-MINt) / Tmin))
-   END IF
+   ENDIF
 
    ! If between Tmin and Tmax, ie in the opt temp range, then not limited
    IF (temp >=Tmin .and. temp<=Tmax) THEN
       fTemp_function_biv = a
-   END IF
+   ENDIF
 
    ! If above max temp for optimal range, limited as below
    IF (temp>Tmax .and. temp <MAXt) THEN
       fTemp_function_biv = a*((-(temp*temp)+2.0*(Tmax*temp)- &
             2.0*(Tmax*MAXt)+(MAXt*MAXt))/ &
             ((Tmax-MAXt)*(Tmax-MAXt)))
-   END IF
+   ENDIF
 
    ! If temp above extreme, temp fn = 0, ie filtration ceases
    IF (temp>=MAXt) &
@@ -1290,27 +1271,25 @@ PURE AED_REAL FUNCTION fSS_function(data,biv,SS)
 !LOCALS
    AED_REAL , PARAMETER :: a = 1.00
    AED_REAL             :: pseudo, maxSS
-
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-
    fSS_function = one_
 
    pseudo =  data%bivalves(biv)%SSmax    ! SS conc where ingestion decreases
    maxSS  =  data%bivalves(biv)%maxSS    ! SS conc where mussel is buggered
 
 
-   IF(SS <= pseudo) THEN
-        fSS_function = one_
-   ELSEIF(SS > pseudo .AND. SS <= maxSS) THEN
-        ! From Spillman et al 2008
-        fSS_function = (-SS*SS + 2.0*pseudo*SS - &
+   IF (SS <= pseudo) THEN
+      fSS_function = one_
+   ELSEIF (SS > pseudo .AND. SS <= maxSS) THEN
+      ! From Spillman et al 2008
+      fSS_function = (-SS*SS + 2.0*pseudo*SS - &
                2.0*pseudo*maxSS + maxSS*maxSS)/  &
                ((pseudo-maxSS) * (pseudo-maxSS))
    ELSE
-        fSS_function = zero_
-   END IF
+      fSS_function = zero_
+   ENDIF
 
    ! Ensure suspended solids function is not negative
    IF (fSS_function <= zero_) &
@@ -1332,29 +1311,25 @@ PURE AED_REAL FUNCTION fD_function(data,biv,dens)
 !
 !LOCALS
    AED_REAL             :: maxD, Dmax
-
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-
    fD_function = one_
 
    Dmax =  data%bivalves(biv)%Dmax    ! density where ingestion decreases
    maxD =  data%bivalves(biv)%maxD    ! density where mussel is buggered
 
-
-   IF(dens <= Dmax) THEN
-        fD_function = one_
-   ELSEIF(dens > Dmax .AND. dens <= maxD) THEN
-        fD_function = ( -dens*dens + 2.*Dmax*dens - 2.*Dmax*maxD + maxD*maxD ) &
+   IF (dens <= Dmax) THEN
+      fD_function = one_
+   ELSEIF (dens > Dmax .AND. dens <= maxD) THEN
+      fD_function = ( -dens*dens + 2.*Dmax*dens - 2.*Dmax*maxD + maxD*maxD ) &
                     / ( (Dmax-maxD)*(Dmax-maxD) )
    ELSE
-        fD_function = zero_
-   END IF
+      fD_function = zero_
+   ENDIF
 
    ! Ensure fD is not negative
    IF (fD_function <= zero_) fD_function = zero_
-
 END FUNCTION fD_function
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1420,8 +1395,8 @@ FUNCTION clamSalinity(Sbot) RESULT(ret)
      ret = wq_zero
    END WHERE
 
- END FUNCTION clamSalinity
- !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+END FUNCTION clamSalinity
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #endif
 
 

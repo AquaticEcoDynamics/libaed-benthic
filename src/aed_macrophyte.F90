@@ -575,7 +575,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
    AED_REAL           :: R_epib = zero_
-   AED_REAL           :: R_epir = zero_
+   AED_REAL           :: R_epir = zero_ 
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
    AED_REAL           :: epi_Xpc = 1./106.
@@ -658,9 +658,9 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
                                                'epiphyte biomass',            &
                                                 epi_initial, 0.001            )
      !data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
-      IF( diag_level > 0) THEN
+      IF ( diag_level > 0) THEN
         data%id_epib = aed_define_sheet_diag_variable('epi_ben','mmol C/m2','total epiphyte biomass')
-        IF( diag_level > 1) THEN
+        IF ( diag_level > 1) THEN
          data%id_epig = aed_define_sheet_diag_variable('epi_gpp','mmol C/m2/d','benthic gross productivity')
          data%id_epir = aed_define_sheet_diag_variable('epi_rsp','mmol C/m2/d','benthic phyto respiration')
         ENDIF
@@ -699,13 +699,13 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    data%id_canopy_height  = aed_define_sheet_diag_variable('canopy_height','m', '')
    data%id_canopy_sh_dens = aed_define_sheet_diag_variable('canopy_shoot_dens','shoot/m2', '')
    data%id_canopy_sh_diam = aed_define_sheet_diag_variable('canopy_shoot_diam','m/shoot', '')
- !  IF (data%drag_model > 1) THEN
+!  IF (data%drag_model > 1) THEN
       data%id_canopy_drag      = aed_define_sheet_diag_variable('canopy_drag','-', '')       !2D becoming 3D
       data%id_canopy_velocity= aed_define_sheet_diag_variable('canopy_velocity','m/s', '')
       data%id_canopy_biovolume = aed_define_sheet_diag_variable('canopy_biovolume','m3 leaf/m2', '')
       data%id_canopy_blockage  = aed_define_diag_variable('canopy_blockage','m3/m2', '')
       data%id_canopy_frarea    = aed_define_diag_variable('canopy_frarea','m2/m2?', '')
- !  ENDIF
+!  ENDIF
 
    ! Link to variables from other modules
    IF ( simMacFeedback ) THEN
@@ -821,7 +821,6 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
    !---------------------------------------------------------------------------
    ! (Re)set local bottom cell macrophyte details with data read in from benthic maps
 
-
    SELECT CASE (data%mac_initial)
 
       CASE ( 0 )
@@ -912,9 +911,9 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
       _DIAG_VAR_S_(data%id_mac_bg) = _DIAG_VAR_S_(data%id_mac_bg) + mphy*(data%mpars(mi)%f_bg)
       _DIAG_VAR_S_(data%id_canopy_lai) = _DIAG_VAR_S_(data%id_canopy_lai) +       &
                     (one_ - exp(-data%mpars(mi)%k_omega * mphy*(one_-data%mpars(mi)%f_bg)))
-  ENDDO
+   ENDDO
 
-  _STATE_VAR_S_(data%id_epi)  =  data%epi_initial
+   IF ( data%simEpiphytes ) _STATE_VAR_S_(data%id_epi)  =  data%epi_initial
 
 END SUBROUTINE aed_initialize_benthic_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -973,7 +972,7 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
             _DIAG_VAR_(data%id_kemac) = zero_
          END DO
 
-      _DIAG_VAR_S_(data%id_epib) = zero_
+      IF ( data%simEpiphytes ) _DIAG_VAR_S_(data%id_epib) = zero_
 
       ! Canopy height in this column
       hgt_canopy = _DIAG_VAR_S_(data%id_canopy_height)
@@ -1018,8 +1017,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
        _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
        _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
 
-          ! Allow epiphyte growth in this layer
-          IF( data%epi_model >2 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
+       ! Allow epiphyte growth in this layer
+       IF( data%epi_model >2 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
 
          epi_prod = zero_ ; epi_resp = zero_
 
@@ -1070,7 +1069,7 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
      END DO
      ! End vertical/column loop
 
-     print *,'canopy_par',_DIAG_VAR_S_(data%id_d_par)
+!    print *,'canopy_par',_DIAG_VAR_S_(data%id_d_par)
      ! UPDATE CANOPY POSTURE & DRAG
      ! Based on cell velocity and canopy geometry, compute in-canopy velocity
 !     CALL sav_canopy_velocity( U , canopy_height , dz , u1 , u2 , drag )
