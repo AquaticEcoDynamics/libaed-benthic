@@ -184,7 +184,7 @@ MODULE aed_macrophyte
          PROCEDURE :: initialize_benthic => aed_initialize_benthic_macrophyte
          PROCEDURE :: calculate_column   => aed_calculate_column_macrophyte
          PROCEDURE :: calculate_benthic  => aed_calculate_benthic_macrophyte
-         PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
+       ! PROCEDURE :: light_extinction   => aed_light_extinction_macrophyte
        ! PROCEDURE :: bio_drag           => aed_bio_drag_macrophyte
 
    END TYPE
@@ -574,8 +574,8 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    INTEGER            :: epi_model = 1
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
-   AED_REAL           :: R_epib = zero_
    AED_REAL           :: R_epir = zero_ 
+   AED_REAL           :: R_epib = zero_
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
    AED_REAL           :: epi_Xpc = 1./106.
@@ -708,7 +708,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 !  ENDIF
 
    ! Link to variables from other modules
-   IF ( simMacFeedback ) THEN
+   IF ( simMacFeedback .or. simEpiphytes ) THEN
       data%id_oxy = aed_locate_variable('OXY_oxy')
       data%id_nox = aed_locate_variable('NIT_nit')
       data%id_nh4 = aed_locate_variable('NIT_amm')
@@ -939,7 +939,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 
 !-------------------------------------------------------------------------------
 !BEGIN
-   temp = 0.
+
+   RETURN
 
    ! Check this column is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)

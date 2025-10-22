@@ -608,7 +608,9 @@ SUBROUTINE aed_define_bivalve(data, namlst)
    ! Register environmental dependencies
    data%id_tem = aed_locate_global('temperature')
    data%id_sal = aed_locate_global('salinity')
-   data%id_sed_zone = aed_locate_global('sed_zones')
+   data%id_sed_zone = aed_locate_sheet_global('sed_zone')
+
+
 !
 END SUBROUTINE aed_define_bivalve
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -633,7 +635,7 @@ SUBROUTINE aed_initialize_benthic_bivalve(data, column, layer_idx)
    IF ( .NOT. data%initFromDensity ) RETURN
 
    ! Check to ensure this zone is colonisable
-   matz = _STATE_VAR_(data%id_sed_zone)
+   matz = _STATE_VAR_S_(data%id_sed_zone)
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
 
    ! Get the bivalve density (orgs/m2)
@@ -679,7 +681,7 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    bt = 0.0 ; poc = 0.0 ; pon = 0.0 ; pop = 0.0 ; Ctotal_prey = 0.0   !## CAB [-Wmaybe-uninitialized]
 
    ! Check to ensure this zone is colonisable, and numbers are adequate
-   matz = _STATE_VAR_(data%id_sed_zone)
+   matz = _STATE_VAR_S_(data%id_sed_zone)
 
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
    IF ( data%initFromDensity ) THEN
@@ -777,6 +779,9 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       IF (data%bivalves(biv_i)%Ing==1) THEN
          W = (0.071/1000.) * data%bivalves(biv_i)%Length**2.8
          Imax = data%bivalves(biv_i)%WaI * W** data%bivalves(biv_i)%WbI
+      ELSEIF(data%bivalves(biv_i)%Ing==2) THEN
+        !m3/(mmolB/m2)/s * mmolC/m3 = mmolC/(mmolB/m2)/s
+        Imax = data%bivalves(biv_i)%Rgrz *  Ctotal_prey
       ELSE
          Imax = data%bivalves(biv_i)%Rgrz
       END IF
@@ -786,7 +791,8 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
          FR = grazing / data%bivalves(biv_i)%Kgrz
       ELSE
          FR = grazing / Ctotal_prey
-      ENDIF
+      END IF
+      IF(data%bivalves(biv_i)%Ing==2) FR = data%bivalves(biv_i)%Rgrz /0.5  ! FR = m3/s /m2
 
       ! Now determine available prey and limit grazing amount to availability of prey
       ! food is total amount of food in units of mass/unit volume/unit time (mmolC/m2/s)
