@@ -569,14 +569,14 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
    AED_REAL           :: water_nutrient_frac = zero_
    AED_REAL           :: water_excr_frac = zero_
-   
+
    !AED_REAL           :: bg_gpp_frac = 0.1
    !AED_REAL           :: coef_bm_hgt = 1e-5
 
    INTEGER            :: epi_model = 1
    AED_REAL           :: epi_initial = 0.1
    AED_REAL           :: R_epig = zero_
-   AED_REAL           :: R_epir = zero_ 
+   AED_REAL           :: R_epir = zero_
    AED_REAL           :: R_epib = zero_
    AED_REAL           :: I_Kepi = 100.
    AED_REAL           :: epi_Xnc = 16./106.
@@ -723,7 +723,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
       data%id_don = aed_locate_variable('OGM_don')
       data%id_dop = aed_locate_variable('OGM_dop')
    ENDIF
-        
+
    ! Register environmental dependenciess
    data%id_tem      = aed_locate_global('temperature')
    data%id_extc     = aed_locate_global('extc_coef')
@@ -1134,7 +1134,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) return
 
-   A_eff = 0. ; f_tran = 0. ; mphy_flux_a = 0. ; mphy_flux_b = 0.
+   A_eff = 0. ; f_tran = 0. ; mphy_flux_a = 0. ; mphy_flux_b = 0. ; npp = 0.
 
    !--- BENTHIC CELL SETUP TASKS
    ! Retrieve current (local) environmental conditions in benthic cell
@@ -1156,7 +1156,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
    ! Initialise epiphyte density (for macrophyte fI limitation)
    epi = zero_
-   IF ( data%simEpiphytes ) epi = _STATE_VAR_S_(data%id_epi)      
+   IF ( data%simEpiphytes ) epi = _STATE_VAR_S_(data%id_epi)
    leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))*_DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens)
    epi = epi / MAX(leaf_area, 1e-3)  ! ( mmolC epiphytes/m2 leaf = mmolC epiphytes /m2 benthos / m2leaf/m2 benthos )
 
@@ -1430,14 +1430,14 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
           _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp/dz
 
         ! ASSUMED NUTRIENT STOICHIOMETRY FOR NOW - NEED TO ADD SPECIES SPECIFIC VALUES FOR N and P
-        IF(npp>0) THEN  
+        IF(npp>0) THEN
           IF(data%id_nox>0)&
            _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
           IF(data%id_nh4>0)&
            _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
           IF(data%id_po4>0)&
            _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - (npp/dz) * (1./106.) * data%water_nutrient_frac
-        ELSEIF(npp<0) THEN  
+        ELSEIF(npp<0) THEN
          IF(data%id_doc>0)&
            _FLUX_VAR_(data%id_doc) = _FLUX_VAR_(data%id_doc) - (npp/dz) * data%water_excr_frac
          IF(data%id_don>0)&
@@ -1452,7 +1452,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      dw = MAC_A / data%mpars(mi)%X_cdw
      n_shoot = dw * data%mpars(mi)%X_sdw
      sh_height =  max(0.05, data%mpars(mi)%X_ldw * (dw/(dw+120.)))   ! set min height 5cm to avoid unrealistic large diameter
-     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )  
+     sh_diameter = 2.* sqrt( (dw/rho_v/(3.142*sh_height*n_shoot)) )
      biovolume = n_shoot* sh_height * 3.142*(sh_diameter/2.)**2.
 
      !--- ADD GROUP INFO TO TOTAL MAC COMMUNITY / CANOPY
@@ -1497,10 +1497,10 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       epi_prod = zero_ ; epi_resp = zero_
 
       ! Compute maximum epiphyte capacity, based on leaf area
-      leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))*_DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens) 
+      leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))*_DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens)
       epi_max = data%epi_max * leaf_area  ! ( mmolC epiphytes /m2 benthos = mmolC epiphytes/m2 leaf * m2leaf/m2 benthos )
 
-      ! Compute nutrient limitation 
+      ! Compute nutrient limitation
       din  = _STATE_VAR_(data%id_nox)+_STATE_VAR_(data%id_nh4)
       dip  = _STATE_VAR_(data%id_po4)
       fN = MAX( MIN(  (din)/(din+data%epi_K_N) ,one_), zero_ )
