@@ -11,7 +11,7 @@
 !#  In collaboration with :                                                    #
 !#     Cornell University, Department of Natural Resources                     #
 !#                                                                             #
-!#  Copyright 2015-2025 - The University of Western Australia                  #
+!#  Copyright 2015-2026 : The University of Western Australia                  #
 !#                                                                             #
 !#   AED is free software: you can redistribute it and/or modify               #
 !#   it under the terms of the GNU General Public License as published by      #
