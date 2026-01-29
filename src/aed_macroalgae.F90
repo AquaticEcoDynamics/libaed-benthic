@@ -1660,9 +1660,9 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
         IF( data%malgs(mag_i)%slough_model == 1) THEN
           ! The Coorong Ulva approach
           IF( bottom_stress>data%malgs(mag_i)%tau_0*2. ) THEN
-            slough_frac = 0.3
+            slough_frac = 0.3 / (DTday*secs_per_day)
           ELSEIF( bottom_stress>data%malgs(mag_i)%tau_0 .AND. salinity>60.) THEN
-            slough_frac = 0.67
+            slough_frac = 0.67 / (DTday*secs_per_day)
           ELSE
             slough_frac = 0.0
           ENDIF
