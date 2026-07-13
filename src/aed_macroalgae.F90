@@ -97,6 +97,11 @@ MODULE aed_macroalgae
       INTEGER  :: simSloughing
       INTEGER  :: simMalgHSI
       INTEGER  :: simCGM
+      !# Special case: force the environmental drivers feeding the response
+      !# functions with constants (cf. aed_bivalve simFixedEnv) - for sensitivity
+      !# testing outside the host's realised T / light regime.
+      LOGICAL  :: simFixedEnv
+      AED_REAL :: fixed_temp, fixed_sal, fixed_par
 
      CONTAINS
          PROCEDURE :: define             => aed_define_macroalgae
@@ -565,6 +570,10 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    LOGICAL            :: simMalgFeedback = .true.
    LOGICAL            :: simStaticBiomass = .false.
    LOGICAL            :: simAging = .false.
+   LOGICAL            :: simFixedEnv = .false.  !# force env drivers with constants
+   AED_REAL           :: fixed_temp = 20.       !# forced temperature (degC)
+   AED_REAL           :: fixed_sal  = 0.        !# forced salinity
+   AED_REAL           :: fixed_par  = -1.       !# forced PAR (W/m2); <0 = don't force light
 
 
 ! From Module Globals
@@ -589,7 +598,8 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
                      simMalgHSI, n_zones, active_zones, simMalgFeedback,       &
                     extra_debug, extra_diag, diag_level, tau_0, dtlim,         &
                     growth_form, slough_model, slough_burial, slough_rate,     &
-                    simStaticBiomass, simAging
+                    simStaticBiomass, simAging,                                &
+                    simFixedEnv, fixed_temp, fixed_sal, fixed_par
 !-----------------------------------------------------------------------
 !BEGIN
 
@@ -620,7 +630,16 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    data%simMalgFeedback = simMalgFeedback
    data%simStaticBiomass = simStaticBiomass
    data%simAging = simAging
-   PRINT *,'          NOTE - macroalgae feedbacks to water column properties: ',simMalgFeedback
+   data%simFixedEnv = simFixedEnv
+   data%fixed_temp  = fixed_temp
+   data%fixed_sal   = fixed_sal
+   data%fixed_par   = fixed_par
+   IF (simFixedEnv) THEN
+      data%simMalgFeedback = .false.   !# forced-driver run must not feed back
+      PRINT *,'          NOTE - macroalgae driven by FIXED env: T=',fixed_temp, &
+              ' S=',fixed_sal,' PAR=',fixed_par,' (feedback disabled)'
+   ENDIF
+   PRINT *,'          NOTE - macroalgae feedbacks to water column properties: ',data%simMalgFeedback
 
    ! Store parameter values in a local malgae strcutured type
    ! Note: all rates must be provided in values per day,
@@ -1337,6 +1356,11 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        par  = MAX(_STATE_VAR_(data%id_par),zero_)     ! photosynth. active radn
        Io   = MAX(_STATE_VAR_S_(data%id_I_0),zero_)   ! surface shortwave radn
        bottom_stress = _STATE_VAR_S_(data%id_taub)    ! bottom stress
+       !# Optional forcing of the drivers feeding the response functions
+       IF (data%simFixedEnv) THEN
+          temp = data%fixed_temp ; salinity = data%fixed_sal
+          IF (data%fixed_par >= zero_) THEN ; par = data%fixed_par ; Io = data%fixed_par ; ENDIF
+       ENDIF
 
        ! Retrieve current (local) conditions
        pup = 0. ; no3up = 0. ; nh4up = 0. ; cup = 0.
@@ -2035,6 +2059,11 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
    par = MAX(_STATE_VAR_(data%id_par),zero_)  ! photosynthetically active radn
    Io = MAX(_STATE_VAR_S_(data%id_I_0),zero_) ! surface (incident) shortwave radn
    dz = _STATE_VAR_(data%id_dz)               ! dz = cell/layer thickness
+   !# Optional forcing of the drivers feeding the CGM growth polynomial
+   IF (data%simFixedEnv) THEN
+      temp = data%fixed_temp ; salinity = data%fixed_sal
+      IF (data%fixed_par >= zero_) THEN ; par = data%fixed_par ; Io = data%fixed_par ; ENDIF
+   ENDIF
 
    !----------------------------------------------------------------------------
    !-- MACROALGAL BED DEPTH AND EXTINCTION
@@ -2440,6 +2469,11 @@ INTEGER :: layer, total_layers
    par = MAX(_STATE_VAR_(data%id_par),zero_)  ! photosynthetically active radn
    Io = MAX(_STATE_VAR_S_(data%id_I_0),zero_) ! surface (incident) shortwave radn
    dz = _STATE_VAR_(data%id_dz)               ! dz = cell/layer thickness
+   !# Optional forcing of the drivers feeding the CGM growth polynomial
+   IF (data%simFixedEnv) THEN
+      temp = data%fixed_temp ; salinity = data%fixed_sal
+      IF (data%fixed_par >= zero_) THEN ; par = data%fixed_par ; Io = data%fixed_par ; ENDIF
+   ENDIF
 
    !----------------------------------------------------------------------------
    !-- MACROALGAL BED DEPTH AND EXTINCTION
