@@ -696,6 +696,15 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    IF (data%do_DOuptake) THEN
      data%id_DOupttarget = aed_locate_variable( do_uptake_target_variable)
    ENDIF
+   !# Si uptake and N2-fixation flags have no namelist target-variable wiring
+   !# (unlike N/P/C/DO above), so they must be defaulted here.  Without this
+   !# they are undefined derived-type components: do_Siuptake read as .TRUE.
+   !# then dereferenced the unset id_Siupttarget (=garbage) in
+   !# aed_calculate_macroalgae, an out-of-bounds column() access that faults
+   !# on some platforms and silently reads garbage on others.
+   data%do_Siuptake   = .FALSE.
+   data%id_Siupttarget = 0
+   data%do_N2uptake   = .FALSE.
 
    ! Register diagnostic variables
    IF (diag_level>0) THEN
