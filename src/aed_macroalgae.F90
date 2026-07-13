@@ -763,13 +763,16 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
      data%id_mhsi  = aed_define_sheet_diag_variable('HSI','-', 'MAG: macroalgae habitat suitability')
 
    IF ( data%simCGM >0 ) THEN
-     data%id_slough_trig = aed_define_sheet_diag_variable('cgm_sltg','-', 'MAG: cgm slough trigger')
-     data%id_slough_tsta = aed_define_sheet_diag_variable('cgm_slst','-', 'MAG: cgm slough start day')
-     data%id_slough_days = aed_define_sheet_diag_variable('cgm_sldy','-', 'MAG: cgm slough dark days')
-     data%id_tem_avg = aed_define_sheet_diag_variable('cgm_tavg','-', 'MAG: cgm temperature average')
-     data%id_par_avg = aed_define_sheet_diag_variable('cgm_lavg','-', 'MAG: cgm light average')
+     !# These are running accumulators (moving averages / daily counters) that
+     !# MUST persist across timesteps - so opt out of the default per-step
+     !# diagnostic rezeroing (aed_api zeroes diags each step unless rezero=.FALSE.)
+     data%id_slough_trig = aed_define_sheet_diag_variable('cgm_sltg','-', 'MAG: cgm slough trigger', rezero=.FALSE.)
+     data%id_slough_tsta = aed_define_sheet_diag_variable('cgm_slst','-', 'MAG: cgm slough start day', rezero=.FALSE.)
+     data%id_slough_days = aed_define_sheet_diag_variable('cgm_sldy','-', 'MAG: cgm slough dark days', rezero=.FALSE.)
+     data%id_tem_avg = aed_define_sheet_diag_variable('cgm_tavg','-', 'MAG: cgm temperature average', rezero=.FALSE.)
+     data%id_par_avg = aed_define_sheet_diag_variable('cgm_lavg','-', 'MAG: cgm light average', rezero=.FALSE.)
      data%id_par_bot = aed_define_sheet_diag_variable('cgm_parb','-', 'MAG: cgm light bottom')
-     data%id_tau_avg = aed_define_sheet_diag_variable('cgm_savg','-', 'MAG: cgm stress average')
+     data%id_tau_avg = aed_define_sheet_diag_variable('cgm_savg','-', 'MAG: cgm stress average', rezero=.FALSE.)
      data%id_gpp_bot  = aed_define_sheet_diag_variable('gpp_bot','/day', 'MAG: GPP at canopy base')
    ENDIF
 
