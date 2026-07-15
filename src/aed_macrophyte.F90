@@ -865,7 +865,8 @@ SUBROUTINE aed_initialize_benthic_macrophyte(data, column, layer_idx)
             n_shoots   = biomass * data%mpars(mi)%X_sdw         ! shoots/m2
 
             _STATE_VAR_S_(data%id_mphya(mi)) = biomass*data%mpars(mi)%X_cdw        ! mmol C/m2  !0.5/12.*1000.
-            _STATE_VAR_S_(data%id_mphyb(mi)) =  data%mpars(mi)%f_bg * _STATE_VAR_S_(data%id_mphya(mi)) ! below-ground biomass
+            _STATE_VAR_S_(data%id_mphyb(mi)) =  data%mpars(mi)%f_bg * &
+                                               _STATE_VAR_S_(data%id_mphya(mi)) ! below-ground biomass
             IF( data%mpars(mi)%fruit_model >0 ) THEN
                _STATE_VAR_S_(data%id_mphyf(mi)) = data%mpars(mi)%f_seed * _STATE_VAR_S_(data%id_mphya(mi)) ! fruit biomass
             ENDIF
@@ -1023,8 +1024,10 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 
        ! Set layer's macrophyte biovolume/blockage, and frontal area (e.g. for layer specific drag)
        _DIAG_VAR_(data%id_canopy_blockage) = _DIAG_VAR_S_(data%id_canopy_biovolume) * canopy_frac
-       _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
-       _DIAG_VAR_(data%id_kemac) = _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
+       _DIAG_VAR_(data%id_canopy_frarea) = _DIAG_VAR_S_(data%id_canopy_sh_dens) * &
+            _DIAG_VAR_S_(data%id_canopy_sh_diam) * (dz*layer_frac)
+       _DIAG_VAR_(data%id_kemac) = &
+            _DIAG_VAR_(data%id_canopy_blockage) * data%mpars(mi)%KeMAC ! or maybe use Aeff?
 
        ! Allow epiphyte growth in this layer
        IF( data%epi_model >2 .AND. _DIAG_VAR_(data%id_canopy_blockage) > zero_ ) THEN
@@ -1034,7 +1037,8 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
          ! Compute photosynthesis and respiration
          epi =  _STATE_VAR_S_(data%id_epi) * canopy_frac ! biomass of epiphytes in this layer
          fI = photosynthesis_irradiance(10,data%I_Kepi,data%I_Kepi,canopy_par,extc,Io,dz)
-         epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))*(1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
+         epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))* &
+                       (1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
          epi_resp = (data%R_epir*(data%theta_epi_resp**(temp-20.)))
          epi_flux = (epi_prod-epi_resp)*epi * (canopy_leaf_area/dz)
 
@@ -1120,7 +1124,8 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    AED_REAL :: mort_A, mort_B, R_mort_A, R_mort_B
    AED_REAL :: f_tran, tau_tran, f_tran_fruit, tau_tran_fruit, f1, f2, f_seed, f_below
    AED_REAL :: Omega_MAC, sine_blade, E_comp,  R_growth, I_K, kA  , A_eff
-   AED_REAL :: t_start_g, t_dur_g,t_max_g, t_max_r, t_start_r, t_dur_r, light_int, lterm1, factor, kI, term1, term2, factor2, npp0, x, tmp1, tmp2, tmp12, tmp22
+   AED_REAL :: t_start_g, t_dur_g,t_max_g, t_max_r, t_start_r, t_dur_r
+   AED_REAL :: light_int, lterm1, factor, kI, term1, term2, factor2, npp0, x, tmp1, tmp2, tmp12, tmp22
    AED_REAL :: MAC_F_release, r_release, f_release, trigger_fruit_growth
    AED_REAL :: dw, rho_v
    INTEGER ::  ll
@@ -1157,7 +1162,9 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    ! Initialise epiphyte density (for macrophyte fI limitation)
    epi = zero_
    IF ( data%simEpiphytes ) epi = _STATE_VAR_S_(data%id_epi)
-   leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))*_DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens)
+   leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))* &
+                       _DIAG_VAR_S_(data%id_canopy_height))* &
+                       _DIAG_VAR_S_(data%id_canopy_sh_dens)
    epi = epi / MAX(leaf_area, 1e-3)  ! ( mmolC epiphytes/m2 leaf = mmolC epiphytes /m2 benthos / m2leaf/m2 benthos )
 
    ! Reset cumulative biomass/canopy diagnostics (used to sum over all groups)
@@ -1431,19 +1438,19 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
         ! ASSUMED NUTRIENT STOICHIOMETRY FOR NOW - NEED TO ADD SPECIES SPECIFIC VALUES FOR N and P
         IF(npp>0) THEN
-          IF(data%id_nox>0)&
-           _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
-          IF(data%id_nh4>0)&
-           _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
-          IF(data%id_po4>0)&
-           _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - (npp/dz) * (1./106.) * data%water_nutrient_frac
+          IF(data%id_nox>0) _FLUX_VAR_(data%id_nox) = &
+                   _FLUX_VAR_(data%id_nox) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+          IF(data%id_nh4>0) _FLUX_VAR_(data%id_nh4) = &
+                   _FLUX_VAR_(data%id_nh4) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+          IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
+                   _FLUX_VAR_(data%id_po4) - (npp/dz) * (1./106.) * data%water_nutrient_frac
         ELSEIF(npp<0) THEN
-         IF(data%id_doc>0)&
-           _FLUX_VAR_(data%id_doc) = _FLUX_VAR_(data%id_doc) - (npp/dz) * data%water_excr_frac
-         IF(data%id_don>0)&
-           _FLUX_VAR_(data%id_don) = _FLUX_VAR_(data%id_don) - (npp/dz) * (16./106.) * data%water_excr_frac
-         IF(data%id_dop>0)&
-           _FLUX_VAR_(data%id_dop) = _FLUX_VAR_(data%id_dop) - (npp/dz) * (1./106.) * data%water_excr_frac
+         IF(data%id_doc>0) _FLUX_VAR_(data%id_doc) = &
+                   _FLUX_VAR_(data%id_doc) - (npp/dz) * data%water_excr_frac
+         IF(data%id_don>0) _FLUX_VAR_(data%id_don) = &
+                   _FLUX_VAR_(data%id_don) - (npp/dz) * (16./106.) * data%water_excr_frac
+         IF(data%id_dop>0) _FLUX_VAR_(data%id_dop) = &
+                   _FLUX_VAR_(data%id_dop) - (npp/dz) * (1./106.) * data%water_excr_frac
         ENDIF
      ENDIF
 
@@ -1497,7 +1504,8 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       epi_prod = zero_ ; epi_resp = zero_
 
       ! Compute maximum epiphyte capacity, based on leaf area
-      leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))*_DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens)
+      leaf_area = (3.142*(_DIAG_VAR_S_(data%id_canopy_sh_diam))* &
+                          _DIAG_VAR_S_(data%id_canopy_height))*_DIAG_VAR_S_(data%id_canopy_sh_dens)
       epi_max = data%epi_max * leaf_area  ! ( mmolC epiphytes /m2 benthos = mmolC epiphytes/m2 leaf * m2leaf/m2 benthos )
 
       ! Compute nutrient limitation
