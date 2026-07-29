@@ -39,6 +39,7 @@ OBJS=${objdir}/aed_bivalve.o \
      ${objdir}/aed_habitat_chara.o \
      ${objdir}/aed_habitat_galaxiid.o \
      ${objdir}/aed_habitat_seagrass.o \
+     ${objdir}/aed_habitat_rmegacarpa.o \
      ${objdir}/aed_macroalgae.o \
      ${objdir}/aed_macroalgae2.o \
      ${objdir}/aed_macrophyte.o \

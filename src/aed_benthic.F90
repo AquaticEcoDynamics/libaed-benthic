@@ -47,6 +47,7 @@ MODULE aed_benthic
    USE aed_habitat_chara
    USE aed_habitat_galaxiid
    USE aed_habitat_seagrass
+   USE aed_habitat_rmegacarpa
 
    IMPLICIT NONE
 
@@ -86,6 +87,7 @@ FUNCTION aed_new_ben_model(modelname) RESULT(model)
       CASE ('aed_habitat_chara');    prefix = 'HBC'; ALLOCATE(aed_habitat_chara_data_t::model)
       CASE ('aed_habitat_galaxiid'); prefix = 'HBG'; ALLOCATE(aed_habitat_galaxiid_data_t::model)
       CASE ('aed_habitat_seagrass'); prefix = 'HBS'; ALLOCATE(aed_habitat_seagrass_data_t::model)
+      CASE ('aed_habitat_rmegacarpa'); prefix = 'HBM'; ALLOCATE(aed_habitat_rmegacarpa_data_t::model)
    END SELECT
 
    IF (ASSOCIATED(model)) THEN
