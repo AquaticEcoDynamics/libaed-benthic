@@ -1,6 +1,6 @@
 !###############################################################################
 !#                                                                             #
-!# aed_habitat_rmegacarpa.F90                                                  #
+!# aed_habitat_rmegacarpa.F90                                               #
 !#                                                                             #
 !#  Developed by :                                                             #
 !#      AquaticEcoDynamics (AED) Group                                         #
@@ -26,7 +26,7 @@
 !#                                                                             #
 !#   -----------------------------------------------------------------------   #
 !#                                                                             #
-!# Created July 2026                                                           #
+!# Created Aug 2026 by Sherry Zhai                                                           #
 !#                                                                             #
 !###############################################################################
 
@@ -36,7 +36,7 @@
 MODULE aed_habitat_rmegacarpa
 !-------------------------------------------------------------------------------
 ! aed_habitat_rmegacarpa --- ruppia megacarpa habitat model
-!
+! (adult, flower, seed germination only)
 !-------------------------------------------------------------------------------
    USE aed_core
    USE aed_util
@@ -51,7 +51,7 @@ MODULE aed_habitat_rmegacarpa
       INTEGER :: num_habitats
       !# Variable identifiers
       INTEGER :: id_mtox
-      INTEGER :: id_rhsi, id_rhpl, id_rhfl, id_rhsd, id_rhtr, id_rhsp, id_rhtd
+      INTEGER :: id_rhsi, id_rhpl, id_rhfl, id_rhsd
       INTEGER :: id_wettime, id_drytime
       INTEGER, ALLOCATABLE :: id_d_rupfs(:),id_d_rupft(:),id_d_rupfl(:),id_d_rupfa(:),id_d_rupfd(:)
 
@@ -59,7 +59,7 @@ MODULE aed_habitat_rmegacarpa
       INTEGER :: id_l_ph, id_l_hab, id_l_aass, id_l_rveg, id_l_bveg
       INTEGER :: id_l_salg, id_l_falg, id_d_turb, id_l_ncs1, id_l_ncs2, id_l_tau0
       INTEGER :: id_l_otrc, id_l_oxy, id_l_sav
-      INTEGER :: id_l_svwc, id_l_stmp25, id_l_stmp, id_l_veg1, id_l_veg2, id_l_pass
+      INTEGER :: id_l_svwc, id_l_stmp25, id_l_stmp, id_l_veg1, id_l_veg2, id_l_pass      
       INTEGER, ALLOCATABLE :: id_l_mtox(:)
 
       !# Environment variables
@@ -67,7 +67,7 @@ MODULE aed_habitat_rmegacarpa
       INTEGER :: id_E_nearlevel, id_E_extc, id_E_Io, id_E_stress, id_E_airtemp
 
       !# Model switches
-!     LOGICAL :: simBirdForaging,simBenthicProd,simFishTolerance,simGalaxiidSpawning
+      !     LOGICAL :: simBirdForaging,simBenthicProd,simFishTolerance,simGalaxiidSpawning
 !     LOGICAL :: simCrabHabitat,simCharaHabitat
 !     LOGICAL :: simMosquitoRisk,simCyanoRisk
 !     LOGICAL :: simMetalTox,simClearWater
@@ -86,7 +86,7 @@ MODULE aed_habitat_rmegacarpa
          PROCEDURE :: calculate_riparian => aed_calculate_riparian_habitat_rmegacarpa
 !        PROCEDURE :: mobility           => aed_mobility_habitat_rmegacarpa
 !        PROCEDURE :: light_extinction   => aed_light_extinction_habitat_rmegacarpa
-!        PROCEDURE :: delete             => aed_delete_habitat_rmegacarpa
+!        PROCEDURE :: delete             => aed_delete_habitat_rmegacarpa 
 
    END TYPE
 
@@ -164,9 +164,9 @@ SUBROUTINE aed_define_habitat_rmegacarpa(data, namlst)
 
    ! Update module level switches
    data%num_habitats = 0
-!  data%simBenthicProd   = simBenthicProd   ; IF(simBenthicProd) data%num_habitats=data%num_habitats+1
-!  data%simMetalTox      = simMetalTox      ; IF(simMetalTox) data%num_habitats=data%num_habitats+1
-!  data%simCyanoRisk     = simCyanoRisk     ; IF(simCyanoRisk) data%num_habitats=data%num_habitats+1
+   !  data%simBenthicProd   = simBenthicProd   ; IF(simBenthicProd) data%num_habitats=data%num_habitats+1
+   !  data%simMetalTox      = simMetalTox      ; IF(simMetalTox) data%num_habitats=data%num_habitats+1
+   !  data%simCyanoRisk     = simCyanoRisk     ; IF(simCyanoRisk) data%num_habitats=data%num_habitats+1
    data%simRuppiaHabitat = simRuppiaHabitat ; IF(simRuppiaHabitat>0) data%num_habitats=data%num_habitats+1
 
    print *,"          ... # habitat templates simulated: ",data%num_habitats
@@ -196,14 +196,14 @@ SUBROUTINE aed_define_habitat_rmegacarpa(data, namlst)
      ENDDO
    ENDIF
 
-   !-- SEAGRASS : RUPPIA
+   !-- SEAGRASS : RUPPIA MEGACARPA (adult / flower / seed germination)
    data%id_rhsi =  aed_define_sheet_diag_variable('rmegacarpa_hsi','-', 'Ruppia Habitat Suitability Index')
    data%id_rhpl =  aed_define_sheet_diag_variable('rmegacarpa_hsi_plant',  '-', 'Ruppia Habitat Suitability - plant')
    data%id_rhfl =  aed_define_sheet_diag_variable('rmegacarpa_hsi_flower', '-', 'Ruppia Habitat Suitability - flowering')
    data%id_rhsd =  aed_define_sheet_diag_variable('rmegacarpa_hsi_seed',   '-', 'Ruppia Habitat Suitability - seed germination')
-   data%id_rhtr =  aed_define_sheet_diag_variable('rmegacarpa_hsi_turion', '-', 'Ruppia Habitat Suitability - turion formation')
-   data%id_rhsp =  aed_define_sheet_diag_variable('rmegacarpa_hsi_sprout', '-', 'Ruppia Habitat Suitability - turion sprouting')
-   data%id_rhtd =  aed_define_sheet_diag_variable('rmegacarpa_hsi_dormant','-', 'Ruppia Habitat Suitability - turion viability')
+  !data%id_rhtr =  aed_define_sheet_diag_variable('rmegacarpa_hsi_turion', '-', 'Ruppia Habitat Suitability - turion formation')
+  !data%id_rhsp =  aed_define_sheet_diag_variable('rmegacarpa_hsi_sprout', '-', 'Ruppia Habitat Suitability - turion sprouting')
+  !data%id_rhtd =  aed_define_sheet_diag_variable('rmegacarpa_hsi_dormant','-', 'Ruppia Habitat Suitability - turion viability')
   !data%id_wettime = aed_define_sheet_diag_variable('wettime','d','time cell has been innundated')
   !data%id_drytime = aed_define_sheet_diag_variable('drytime','d','time cell has been exposed')
 
@@ -217,12 +217,13 @@ SUBROUTINE aed_define_habitat_rmegacarpa(data, namlst)
    data%id_l_falg  = aed_locate_sheet_variable(TRIM(rhsi_falg_link))
 
    IF (diag_level>1) THEN
-     ALLOCATE(data%id_d_rupfs(6))
-     ALLOCATE(data%id_d_rupft(6))
-     ALLOCATE(data%id_d_rupfl(6))
-     ALLOCATE(data%id_d_rupfa(6))
-     ALLOCATE(data%id_d_rupfd(6))
-     DO i =1,6
+     ! 3 stages: (1) adult, (2) flower, (3) seed germination
+     ALLOCATE(data%id_d_rupfs(3))
+     ALLOCATE(data%id_d_rupft(3))
+     ALLOCATE(data%id_d_rupfl(3))
+     ALLOCATE(data%id_d_rupfa(3))
+     ALLOCATE(data%id_d_rupfd(3))
+     DO i =1,3
       data%id_d_rupfs(i) = aed_define_sheet_diag_variable('rmegacarpa_hsi_fsal_'//CHAR(ICHAR('0') + i),'-', &
                                                                           'Ruppia Habitat Suitability - fSal')
       data%id_d_rupft(i) = aed_define_sheet_diag_variable('rmegacarpa_hsi_ftem_'//CHAR(ICHAR('0') + i),'-', &
@@ -250,7 +251,7 @@ SUBROUTINE aed_define_habitat_rmegacarpa(data, namlst)
    data%id_E_Io        = aed_locate_sheet_global('par_sf')
    data%id_E_airtemp   = aed_locate_sheet_global('air_temp')
    data%id_E_stress    = aed_locate_sheet_global('taub')
-  !data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
+   !data%id_E_nearlevel = aed_locate_sheet_global('nearest_depth')
 END SUBROUTINE aed_define_habitat_rmegacarpa
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -268,7 +269,7 @@ SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa(data,column,layer_idx,pc_we
    AED_REAL,INTENT(in) :: pc_wet
 !
 !LOCALS
-   ! Environment
+  ! Environment
    AED_REAL :: temp, salt, wlevel, extc, bathy, matz, Io, Ig, vel, stress, tau0, stem05, stem25
 
    ! State
@@ -289,12 +290,12 @@ SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa(data,column,layer_idx,pc_we
    AED_REAL, PARAMETER :: crit_leg_depth = 0.12
    AED_REAL, PARAMETER :: crit_hab_conc = 500.
 
-   AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem
+   AED_REAL :: fs_sdepth , fs_substr, fs_spntem, fs_stress, fs_dewatr, fs_mattem 
 
-   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp =0.,falg,rhtd=1.0
+   AED_REAL :: rhpl,rhfl,rhsd
    AED_REAL :: pshpl, pshfl, pshsd, pass, height
    AED_REAL :: crns = 0.,creg = 0.,crht = 0.,crml = 0.
-   AED_REAL :: limitation(6,6)
+   AED_REAL :: limitation(3,6)
 
 !-------------------------------------------------------------------------------
 !BEGIN
@@ -310,16 +311,32 @@ SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa(data,column,layer_idx,pc_we
     vel   = 0. !
 
     CALL rmegacarpa_habitat_suitability(data,&
-                                    rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,&
+                                    rhpl,rhfl,rhsd,&
                                     depth,salt,temp,extc,falg,Io,vel,pc_wet,&
                                     limitation)
 
     _DIAG_VAR_S_(data%id_rhpl) = rhpl
     _DIAG_VAR_S_(data%id_rhfl) = rhfl
     _DIAG_VAR_S_(data%id_rhsd) = rhsd
-    _DIAG_VAR_S_(data%id_rhtr) = rhtr
-    _DIAG_VAR_S_(data%id_rhsp) = rhsp
-    _DIAG_VAR_S_(data%id_rhsp) = rhtd
+
+    ! ------------------------------------------------------------------
+    ! Seed germination HSI is the instantaneous rate-style output from the
+    ! current timestep. If a cumulative germination probability is wanted,
+    ! it should be calculated outside this routine (for example using a
+    ! start/end time window) so that the integration interval is explicit.
+    ! ------------------------------------------------------------------
+ 
+    ! Kept here for reference; this was the previous cumulative accumulator.
+    ! germ_progress = _DIAG_VAR_S_(data%id_rhsd_accum)
+    ! IF( pc_wet < 0.1 .OR. salt > data%sal_ge_high ) THEN
+    !   germ_progress = zero_
+    ! ELSE
+    !   germ_rate = rhsd_inst
+    !   germ_progress = MIN(one_, germ_progress + germ_rate*DDT)
+    ! ENDIF
+    ! _DIAG_VAR_S_(data%id_rhsd_accum) = germ_progress
+    ! _DIAG_VAR_S_(data%id_rhsd)       = germ_progress
+    ! ------------------------------------------------------------------
 
     ! Inundation time counter and wetness checker
     IF( pc_wet < 0.1 ) THEN
@@ -331,10 +348,10 @@ SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa(data,column,layer_idx,pc_we
     ENDIF
 
     ! Overall HSI : Habitat Suitability Index (Issue here re time integration)
-    _DIAG_VAR_S_(data%id_rhsi) = (rhpl+rhfl+rhsd+rhtr+rhsp)/5.
+    _DIAG_VAR_S_(data%id_rhsi) = (rhpl+rhfl+rhsd)/3. !for testing only. not for scientific interpretation
 
-    iF( diag_level>1 ) THEN
-      DO i = 1,6
+    IF( diag_level>1 ) THEN
+      DO i = 1,3
        _DIAG_VAR_S_(data%id_d_rupfs(i)) = limitation(i,1)
        _DIAG_VAR_S_(data%id_d_rupft(i)) = limitation(i,2)
        _DIAG_VAR_S_(data%id_d_rupfl(i)) = limitation(i,3)
@@ -349,20 +366,20 @@ END SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa
 
 
 !###############################################################################
-SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,depth,salt,temp,extc,fa,Io,vel,pc_wet,limitation)
+SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,depth,salt,temp,extc,fa,Io,vel,pc_wet,limitation)
 !-------------------------------------------------------------------------------
 ! Get the light extinction coefficient due to biogeochemical variables
 !-------------------------------------------------------------------------------
 !ARGUMENTS
    CLASS (aed_habitat_rmegacarpa_data_t),INTENT(in) :: data
-   AED_REAL :: rhpl,rhfl,rhsd,rhtr,rhsp,rhtd
+   AED_REAL :: rhpl,rhfl,rhsd
    AED_REAL :: depth,salt,temp,extc,fa,Io,vel,pc_wet
    AED_REAL :: limitation(:,:)
 !
 !LOCALS
    AED_REAL :: rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess
    AED_REAL :: light
-   INTEGER  :: model
+  !INTEGER  :: model
 !
 !-----------------------------------------------------------------------
 !BEGIN
@@ -370,7 +387,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
    rupp_salt=one_; rupp_temp=one_; rupp_lght=one_;
    rupp_falg=one_; rupp_matz=one_; rupp_dess=one_;
 
-   model = data%simRuppiaHabitat ! select either Gen 0 or Gen II model
+  !model = data%simRuppiaHabitat ! select either Gen 0 or Gen II model
 
    IF( depth<0.1 ) THEN
       light = 100.
@@ -384,7 +401,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
       rupp_dess = zero_    ! maybe need a time counter here.
 
    ELSE
-      ! Wet cell
+   ! Wet cell
       rupp_salt = rmegacarpa_salinity(salt, "adult")
       rupp_temp = rmegacarpa_temp    (temp, "adult")
       rupp_lght = rmegacarpa_light   (light,"adult")
@@ -424,23 +441,30 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
    limitation(2,5) = rupp_dess
    limitation(2,6) = rupp_matz
 
-   !-- Third do seed germination
+   !-- Third do seed germination instantaneous rate contribution --!
+   ! NOTE: unlike adult/flower, this is NOT a 0-1 suitability snapshot;
+   ! it is a daily fractional germination rate (1/days-to-germinate),
+   ! which can be integrated outside this routine if a cumulative probability
+   ! is desired over a specific start/end time window.
    IF( pc_wet < 0.1 ) THEN
-     ! Dry cell - set dessication factor
-
-     rupp_dess = 0.5    ! maybe need a time counter here.
-
+     rupp_dess = zero_
+  
    ELSE
-     ! Wet cell
+    ! Wet cell
      rupp_salt = rmegacarpa_salinity(salt, "seed")
      rupp_temp = rmegacarpa_temp    (temp, "seed")
      rupp_lght = one_
      rupp_falg = one_
      rupp_dess = rmegacarpa_depth   (depth,"seed")
-
    ENDIF
-   ! Habitat suitability for seed germination
-   rhsd = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+  ! Habitat suitability for seed germination
+   !rhsd = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
+     
+   IF( rupp_dess <= zero_ ) THEN
+     rhsd = zero_
+   ELSE
+     rhsd = rupp_salt
+   ENDIF
    limitation(3,1) = rupp_salt
    limitation(3,2) = rupp_temp
    limitation(3,3) = rupp_lght
@@ -449,86 +473,13 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
    limitation(3,6) = rupp_matz
 
 
-   !-- Fourth do sediment suitability for turion sprouting
-   IF( pc_wet < 0.1 ) THEN
-     ! Dry cell - set dessication factor
-
-     rupp_dess = zero_    ! maybe need a time counter here.
-
-   ELSE
-     ! Wet cell
-     rupp_salt = rmegacarpa_salinity(salt, "turion")
-     rupp_temp = rmegacarpa_temp    (temp, "turion")
-     rupp_lght = rmegacarpa_light   (light,"turion")
-     rupp_falg = one_
-     rupp_dess = rmegacarpa_depth   (depth,"turion")
-
-   ENDIF
-   !IF( .NOT. _STATE_VAR_S_(data%id_E_matz)==in_zone_set ) rupp_matz = zero_
-   ! overall habitat suitability for seed germination
-   rhtr = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
-   limitation(4,1) = rupp_salt
-   limitation(4,2) = rupp_temp
-   limitation(4,3) = rupp_lght
-   limitation(4,4) = rupp_falg
-   limitation(4,5) = rupp_dess
-   limitation(4,6) = rupp_matz
-
-   !-- Fifth do sprout tolerance
-   IF( pc_wet < 0.1 ) THEN
-      ! Dry cell - set dessication factor
-
-      rupp_dess = zero_    ! maybe need a time counter here.
-
-   ELSE
-      ! Wet cell
-      rupp_salt = rmegacarpa_salinity(salt, "sprout")
-      rupp_temp = rmegacarpa_temp    (temp, "sprout")
-      rupp_lght = rmegacarpa_light   (light,"sprout")
-      rupp_falg = rmegacarpa_filalgae(fa,   "sprout")
-      rupp_dess = rmegacarpa_depth   (depth,"sprout")
-
-   ENDIF
-   ! overall habitat suitability for sprouting
-   rhsp = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
-   limitation(5,1) = rupp_salt
-   limitation(5,2) = rupp_temp
-   limitation(5,3) = rupp_lght
-   limitation(5,4) = rupp_falg
-   limitation(5,5) = rupp_dess
-   limitation(5,6) = rupp_matz
-
-   !-- Sixth do turion viability during dormancy
-   IF( pc_wet < 0.1 ) THEN
-      ! Dry cell - set dessication factor
-
-      rupp_dess = one_    ! maybe need a time counter here.
-   ELSE
-      ! Wet cell
-      rupp_salt = rmegacarpa_salinity(salt, "dormant")
-      rupp_temp = one_
-      rupp_lght = one_
-      rupp_falg = one_
-      rupp_dess = one_
-   ENDIF
-
-   ! overall habitat suitability for turion viability
-   rhtd = MIN(rupp_salt,rupp_temp,rupp_lght,rupp_falg,rupp_matz,rupp_dess)
-   limitation(6,1) = rupp_salt
-   limitation(6,2) = rupp_temp
-   limitation(6,3) = rupp_lght
-   limitation(6,4) = rupp_falg
-   limitation(6,5) = rupp_dess
-   limitation(6,6) = rupp_matz
-
-
   !---------------------------------------------------------------------
   CONTAINS
 
   !#############################################################################
   AED_REAL FUNCTION rmegacarpa_salinity(salt,stage)
   !-----------------------------------------------------------------------------
-  ! Salinity function
+  ! Salinity function 
   !-----------------------------------------------------------------------------
   !ARGUMENTS
     AED_REAL,INTENT(in) :: salt
@@ -540,209 +491,43 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
 
      rmegacarpa_salinity = one_
 
-     IF ( TRIM(stage)=="seed" ) THEN
-
-       IF ( model==1 ) THEN
-         ! COORONG GENERATION 0
-
-         ! <10 unsuitable
-         !  10-30 suboptimal
-         !  40-60 optimal
-         !  60-85 suboptimal
-         ! >85 unsuitable
-         IF( salt<=10. ) THEN
-           rmegacarpa_salinity = zero_
-         ELSE IF ( salt>10. .AND. salt<=30.  ) THEN
-           rmegacarpa_salinity = 0. + ( (salt-10.)/(30.-10.) )
-         ELSE IF ( salt>30. .AND. salt<=60. ) THEN
-           rmegacarpa_salinity = one_
-         ELSE IF ( salt>60. .AND. salt<=85. ) THEN
-           rmegacarpa_salinity = 1. - ( (salt-60.)/(85.-60.) )
-         ELSE IF ( salt>85. ) THEN
-           rmegacarpa_salinity = zero_
-         ENDIF
-       ELSEIF( model==2 ) THEN
-         ! COORONG GENERATION II
-
+     IF( TRIM(stage)=="adult" .OR. TRIM(stage)=="flower" ) THEN
+       ! Use the supplied adult salinity curve for both adult and flower
          ! <1 unsuitable
-         !  1-5 suboptimal
-         !  5-40 optimal
-         !  40-85 suboptimal
-         ! >85 unsuitable
-         IF( salt<=1. ) THEN
-           rmegacarpa_salinity = zero_
-         ELSE IF ( salt>1. .AND. salt<=5.  ) THEN
-           rmegacarpa_salinity = 0. + ( (salt-1.)/(5.-1.) )
-         ELSE IF ( salt>5. .AND. salt<=40. ) THEN
+         !  1-12 suboptimal
+         !  12-40 optimal
+         !  40-50 suboptimal
+         ! >50 unsuitable
+       IF( salt<=1. ) THEN
+         rmegacarpa_salinity = zero_
+       ELSE IF ( salt>1. .AND. salt<=12.  ) THEN
+           rmegacarpa_salinity = 0. + ( (salt-1.)/(12.-1.) )
+         ELSE IF ( salt>12. .AND. salt<=40. ) THEN
            rmegacarpa_salinity = one_
-         ELSE IF ( salt>40. .AND. salt<=85. ) THEN
-           rmegacarpa_salinity = 1. - ( (salt-40.)/(85.-40.) )
-         ELSE IF ( salt>85. ) THEN
-           rmegacarpa_salinity = zero_
-         ENDIF
-       ENDIF
-
-     ELSEIF( TRIM(stage)=="sprout" ) THEN
-
-       optsal = 130. ; IF(model==2) optsal = 125.
-       ! <20 suboptimal
-       !  20-75 optimal
-       !  75 - 130 suboptimal
-       ! >130 unsuitable
-       IF( salt<=0.1 ) THEN
+         ELSE IF ( salt>40. .AND. salt<=50. ) THEN
+           rmegacarpa_salinity = 1. - ( (salt-40.)/(50.-40.) )
+         ELSE IF ( salt>50. ) THEN
          rmegacarpa_salinity = zero_
-       ELSE IF ( salt>0.1 .AND. salt<=20.  ) THEN
-         rmegacarpa_salinity = 0. + ( (salt-0.1)/(20.-0.1) )
-       ELSE IF ( salt>20. .AND. salt<=75. ) THEN
-         rmegacarpa_salinity = one_
-       ELSE IF ( salt>75. .AND. salt<=optsal ) THEN
-         rmegacarpa_salinity = 1. - ( (salt-75.)/(optsal-75.) )
-       ELSE IF ( salt>optsal ) THEN
-         rmegacarpa_salinity = zero_
-       ENDIF
+       ENDIF    
 
-     ELSEIF( TRIM(stage)=="adult" ) THEN
-
-      IF( model==1 ) THEN
-        ! COORONG GENERATION 0
-
-        !    0 - 10 unsuitable
-        !   10 - 71 suboptimal
-        !   72 - 123 optimal
-        !  123 - 230 suboptimal
-        ! >230 unsuitable
-        IF( salt<=10. ) THEN
-         rmegacarpa_salinity = zero_
-        ELSE IF ( salt>10. .AND. salt<=31.  ) THEN
-         rmegacarpa_salinity = 0. + ( (salt-10.)/(31.-10.) )
-        ELSE IF ( salt>31. .AND. salt<=123. ) THEN
-         rmegacarpa_salinity = one_
-        ELSE IF ( salt>123. .AND. salt<=230. ) THEN
-         rmegacarpa_salinity = 1. - ( (salt-123.)/(230.-123.) )
-        ELSE IF ( salt>230. ) THEN
-         rmegacarpa_salinity = zero_
-        ENDIF
-      ELSEIF( model==2 ) THEN
-        ! COORONG GENERATION II
-
-        !    0 - 10 unsuitable
-        !   10 - 19 suboptimal
-        !   19 - 124 optimal
-        !  124 - 230 suboptimal
-        ! >230 unsuitable
-        IF( salt<=10. ) THEN
-          rmegacarpa_salinity = zero_
-        ELSE IF ( salt>10. .AND. salt<=19.  ) THEN
-          rmegacarpa_salinity = 0. + ( (salt-10.)/(19.-10.) )
-        ELSE IF ( salt>19. .AND. salt<=124. ) THEN
-          rmegacarpa_salinity = one_
-        ELSE IF ( salt>124. .AND. salt<=230. ) THEN
-          rmegacarpa_salinity = 1. - ( (salt-124.)/(230.-124.) )
-        ELSE IF ( salt>230. ) THEN
-          rmegacarpa_salinity = zero_
-        ENDIF
+     ELSEIF( TRIM(stage)=="seed" ) THEN
+        !This function does not calculate HSI, but a daily fractional germination rate/progress then converted to per second
+        !(i.e. 1/days-to-germinate) as a function of salinity. 
+        ! which can be integrated outside this routine if a cumulative probability
+        ! is desired over a specific time window.
+        !<=10g/L, seed germinate in 5 days (daily germination progress 1/5 =0.2); 
+        !=30g/L, seed germinate in 10 days (daily germination progress 1/10=0.1);
+        !10-30g/L, germination days is linearly interpolated 
+        !days-to-germination = time_low + (time_high - time_low) * (sal - sal_low) / (sal_high - sal_low);
+        !>30g/L, germination progress=0
+      IF (salt<=10.) THEN
+        rmegacarpa_salinity = 1. /5. / 86400.
+      ELSE IF (salt>10. .AND. salt <= 30.) THEN
+        rmegacarpa_salinity = 1. /(5. + (10. - 5.) * (salt - 10.) / (30. - 10.)) / 86400.
+      ELSE IF (salt>30.) THEN
+        rmegacarpa_salinity = zero_
       ENDIF
-
-     ELSEIF( TRIM(stage)=="flower" ) THEN
-
-       IF( model==1 ) THEN
-         ! COORONG GENERATION 0
-
-         !  <10 unsuitable
-         !   10 - 35 suboptimal
-         !   35 - 62 optimal
-         !   62 - 100 suboptimal
-         ! >100 unsuitable
-         IF( salt<=10. ) THEN
-          rmegacarpa_salinity = zero_
-         ELSE IF ( salt>10. .AND. salt<=35.  ) THEN
-          rmegacarpa_salinity = 0. + ( (salt-10.)/(35.-10.) )
-         ELSE IF ( salt>35. .AND. salt<=62. ) THEN
-          rmegacarpa_salinity = one_
-         ELSE IF ( salt>62. .AND. salt<=100. ) THEN
-          rmegacarpa_salinity = 1. - ( (salt-62.)/(100.-62.) )
-         ELSE IF ( salt>100. ) THEN
-          rmegacarpa_salinity = zero_
-         ENDIF
-
-       ELSEIF( model==2 ) THEN
-         ! COORONG GENERATION II
-
-         !  <12 unsuitable
-         !   12 - 47 suboptimal
-         !   47 - 62 optimal
-         !   62 - 100 suboptimal
-         ! >100 unsuitable
-         IF( salt<=10. ) THEN
-          rmegacarpa_salinity = zero_
-         ELSE IF ( salt>10. .AND. salt<=47.  ) THEN
-          rmegacarpa_salinity = 0. + ( (salt-10.)/(47.-10.) )
-         ELSE IF ( salt>47. .AND. salt<=62. ) THEN
-          rmegacarpa_salinity = one_
-         ELSE IF ( salt>62. .AND. salt<=100. ) THEN
-          rmegacarpa_salinity = 1. - ( (salt-62.)/(100.-62.) )
-         ELSE IF ( salt>100. ) THEN
-          rmegacarpa_salinity = zero_
-         ENDIF
-       ENDIF
-
-     ELSEIF( TRIM(stage)=="turion" ) THEN
-
-       IF( model==1 ) THEN
-         ! COORONG GENERATION 0
-
-         ! <70 unsuitable
-         !  70 - 124 suboptimal
-         !  124 - 160 optimal
-         !  160 - 230 suboptimal
-         ! >230 unsuitable
-         IF( salt<=70. ) THEN
-           rmegacarpa_salinity = zero_
-         ELSE IF ( salt>70. .AND. salt<=124.  ) THEN
-           rmegacarpa_salinity = 0. + ( (salt-70.)/(124.-70.) )
-         ELSE IF ( salt>124. .AND. salt<=160. ) THEN
-           rmegacarpa_salinity = one_
-         ELSE IF ( salt>160. .AND. salt<=230. ) THEN
-           rmegacarpa_salinity = 1. - ( (salt-160.)/(230.-160.) )
-         ELSE IF ( salt>230. ) THEN
-           rmegacarpa_salinity = zero_
-         ENDIF
-
-       ELSEIF( model==2 ) THEN
-         ! COORONG GENERATION II
-
-         ! <40 unsuitable
-         !  40 - 70 suboptimal
-         !  70 - 160 optimal
-         !  160 - 230 suboptimal
-         ! >230 unsuitable
-         IF( salt<=40. ) THEN
-           rmegacarpa_salinity = zero_
-         ELSE IF ( salt>40. .AND. salt<=70.  ) THEN
-           rmegacarpa_salinity = 0. + ( (salt-40.)/(70.-40.) )
-         ELSE IF ( salt>70. .AND. salt<=160. ) THEN
-           rmegacarpa_salinity = one_
-         ELSE IF ( salt>160. .AND. salt<=230. ) THEN
-           rmegacarpa_salinity = 1. - ( (salt-160.)/(230.-160.) )
-         ELSE IF ( salt>230. ) THEN
-           rmegacarpa_salinity = zero_
-         ENDIF
-
-       ENDIF
-
-     ELSEIF( TRIM(stage)=="dormant" ) THEN
-
-       IF (model==2 ) THEN
-         IF ( salt<=135. ) THEN
-           rmegacarpa_salinity = one_
-         ELSE IF ( salt>135. .AND. salt<=165. ) THEN
-           rmegacarpa_salinity = 1. - ( (salt-135.)/(165.-135.) )
-         ELSE IF ( salt>165. ) THEN
-           rmegacarpa_salinity = zero_
-         ENDIF
-       ENDIF
-
-     ENDIF
+    ENDIF
 
   END FUNCTION rmegacarpa_salinity
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -750,7 +535,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
   !#############################################################################
   AED_REAL FUNCTION rmegacarpa_temp(temp,stage)
   !-----------------------------------------------------------------------------
-  ! Salinity function
+  ! Temperature function 
   !-----------------------------------------------------------------------------
   !ARGUMENTS
     AED_REAL,INTENT(in) :: temp
@@ -760,48 +545,16 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
   !BEGIN
      rmegacarpa_temp = one_
 
-     IF( model==1 ) THEN
-       ! COORONG GENERATION 0
-
-       IF( TRIM(stage)=="seed"   .OR. &
-           TRIM(stage)=="sprout" .OR. &
-           TRIM(stage)=="adult"  .OR. &
-           TRIM(stage)=="flower" .OR. &
-           TRIM(stage)=="turion"      ) THEN
-
-         !  <4 unsuitable
-         !   4 - 10 suboptimal
-         !  10 - 20 optimal
-         !  20-30 suboptimal
-         ! >30 unsuitable
-         IF( temp<=4. ) THEN
-          rmegacarpa_temp = zero_
-         ELSE IF ( temp>4. .AND. temp<=10.  ) THEN
-          rmegacarpa_temp = 0. + ( (temp-4.)/(10.-4.) )
-         ELSE IF ( temp>10. .AND. temp<=20. ) THEN
-          rmegacarpa_temp = one_
-         ELSE IF ( temp>20. .AND. temp<=30. ) THEN
-          rmegacarpa_temp = 1. - ( (temp-20.)/(30.-20.) )
-         ELSE IF ( temp>30. ) THEN
-          rmegacarpa_temp = zero_
-         ENDIF
-       ENDIF
-
-     ELSEIF( model==2 ) THEN
-         ! COORONG GENERATION II
-
-         IF( TRIM(stage)=="adult"  .OR. &
-             TRIM(stage)=="seed"   .OR. &
-             TRIM(stage)=="sprout" .OR. &
-             TRIM(stage)=="flower" .OR. &
-             TRIM(stage)=="turion"      ) THEN
-
+     IF( TRIM(stage)=="adult"  .OR. &
+         TRIM(stage)=="flower" .OR. &
+         TRIM(stage)=="seed"   ) THEN
+           ! thresholds unknown, assume same as Ruppia tuberosa
            !  <4 unsuitable
            !   4 - 20 suboptimal
            !  20 - 23 optimal
            !  23-30 suboptimal
            ! >30 unsuitable
-           IF( temp<=4. ) THEN
+          IF( temp<=4. ) THEN
             rmegacarpa_temp = zero_
           ELSE IF ( temp>4. .AND. temp<=12.  ) THEN
             rmegacarpa_temp = 0. + ( (temp-4.)/(12.-4.) )
@@ -809,10 +562,9 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
             rmegacarpa_temp = one_
           ELSE IF ( temp>23. .AND. temp<=30. ) THEN
             rmegacarpa_temp = 1. - ( (temp-23.)/(30.-23.) )
-           ELSE IF ( temp>30. ) THEN
+          ELSE IF ( temp>30. ) THEN
             rmegacarpa_temp = zero_
-           ENDIF
-         ENDIF
+       ENDIF
      ENDIF
 
   END FUNCTION rmegacarpa_temp
@@ -820,7 +572,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
   !#############################################################################
   AED_REAL FUNCTION rmegacarpa_light(light,stage)
   !-----------------------------------------------------------------------------
-  ! Salinity function
+  ! Light function
   !-----------------------------------------------------------------------------
   !ARGUMENTS
     AED_REAL,INTENT(in) :: light
@@ -831,41 +583,18 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
 
     rmegacarpa_light = one_
 
-    IF( model==1 ) THEN
-     ! COORONG GENERATION 0
-
-     IF( TRIM(stage)=="sprout" .OR. &
-         TRIM(stage)=="adult"  ) THEN
-       !  0 - 7.5 unsuitable
-       !  7.5 - 24 suboptimal
-       ! >24 optimal
-       IF( light<=7.5 ) THEN
-         rmegacarpa_light = zero_
-       ELSE IF ( light>7.5 .AND. light<=24.  ) THEN
-         rmegacarpa_light = 0. + ( (light-7.5)/(24.-7.5) )
-       ELSE IF ( light>24. ) THEN
-         rmegacarpa_light = one_
-       ENDIF
-     ENDIF
-
-    ELSEIF( model==2 ) THEN
-     ! COORONG GENERATION II
-
-     IF( TRIM(stage)=="sprout" .OR. &
-         TRIM(stage)=="turion" .OR. &
-         TRIM(stage)=="flower" .OR. &
-         TRIM(stage)=="adult"  ) THEN
+    IF( TRIM(stage)=="adult" .OR. &
+        TRIM(stage)=="flower" ) THEN
        !   0 - 5 unsuitable
-       !   5 - 36 suboptimal
-       ! >36 optimal
+       !   5 - 15 suboptimal
+       !   >15 optimal
        IF( light<=5.0 ) THEN
          rmegacarpa_light = zero_
-       ELSE IF ( light>5.0 .AND. light<=36.  ) THEN
-         rmegacarpa_light = 0. + ( (light-5.0)/(36.-5.0) )
-       ELSE IF ( light>36. ) THEN
+       ELSE IF ( light>5.0 .AND. light<=15.  ) THEN
+         rmegacarpa_light = 0. + ( (light-5.0)/(15.-5.0) )
+       ELSE IF ( light>15. ) THEN
          rmegacarpa_light = one_
-       ENDIF
-     ENDIF
+      ENDIF
     ENDIF
 
   END FUNCTION rmegacarpa_light
@@ -874,7 +603,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
   !#############################################################################
   AED_REAL FUNCTION rmegacarpa_filalgae(fa,stage)
   !-----------------------------------------------------------------------------
-  ! Salinity function
+  ! Filamentous algae function
   !-----------------------------------------------------------------------------
   !ARGUMENTS
     AED_REAL,INTENT(in) :: fa
@@ -885,46 +614,30 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
 
     rmegacarpa_filalgae = one_
 
-    IF( model==1 ) THEN
-     ! COORONG GENERATION 0
+    ! The algae HSI is currently kept at 1.0 for all stages until species-
+    ! specific thresholds are available.
 
-     IF( TRIM(stage)=="adult"  .OR. &
-         TRIM(stage)=="flower" ) THEN
-
-       IF ( fa>=0. .AND. fa<=25. ) THEN
-         rmegacarpa_filalgae = one_
-       ELSE IF ( fa>25. .AND. fa<=100. ) THEN
-         rmegacarpa_filalgae = 1. - ( (fa-25.)/(100.-25.) )
-       ELSE IF ( fa>100. ) THEN
-         rmegacarpa_filalgae = zero_
-       ENDIF
-     ENDIF
-
-    ELSEIF( model==2 ) THEN
-     ! COORONG GENERATION II
-
-     IF( TRIM(stage)=="adult" ) THEN
-
-       IF ( fa>=0. .AND. fa<=100. ) THEN
-         rmegacarpa_filalgae = one_
-       ELSE IF ( fa>100. .AND. fa<=368. ) THEN
-         rmegacarpa_filalgae = 1. - ( (fa-100.)/(368.-100.) )
-       ELSE IF ( fa>368. ) THEN
-         rmegacarpa_filalgae = zero_
-       ENDIF
-
-     ELSEIF( TRIM(stage)=="flower" ) THEN
-
-       IF ( fa>=0. .AND. fa<=100. ) THEN
-         rmegacarpa_filalgae = one_
-       ELSE IF ( fa>100. .AND. fa<=184. ) THEN
-         rmegacarpa_filalgae = 1. - ( (fa-100.)/(184.-100.) )
-       ELSE IF ( fa>184. ) THEN
-         rmegacarpa_filalgae = zero_
-       ENDIF
-     ENDIF
-
-    ENDIF
+    ! R. tuberosa threshold-based code retained for reference:
+!    IF( TRIM(stage)=="adult" ) THEN
+!
+!      IF ( fa>=0. .AND. fa<=100. ) THEN
+!        rmegacarpa_filalgae = one_
+!      ELSE IF ( fa>100. .AND. fa<=368. ) THEN
+!        rmegacarpa_filalgae = 1. - ( (fa-100.)/(368.-100.) )
+!      ELSE IF ( fa>368. ) THEN
+!        rmegacarpa_filalgae = zero_
+!      ENDIF
+!
+!    ELSEIF( TRIM(stage)=="flower" ) THEN
+!
+!      IF ( fa>=0. .AND. fa<=100. ) THEN
+!        rmegacarpa_filalgae = one_
+!      ELSE IF ( fa>100. .AND. fa<=184. ) THEN
+!        rmegacarpa_filalgae = 1. - ( (fa-100.)/(184.-100.) )
+!      ELSE IF ( fa>184. ) THEN
+!        rmegacarpa_filalgae = zero_
+!      ENDIF
+!    ENDIF
 
   END FUNCTION rmegacarpa_filalgae
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -932,7 +645,7 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
   !#############################################################################
   AED_REAL FUNCTION rmegacarpa_depth(depth,stage)
   !-----------------------------------------------------------------------------
-  ! Salinity function
+  ! Depth function
   !-----------------------------------------------------------------------------
   !ARGUMENTS
     AED_REAL,INTENT(in) :: depth
@@ -945,41 +658,45 @@ SUBROUTINE rmegacarpa_habitat_suitability(data,rhpl,rhfl,rhsd,rhtr,rhsp,rhtd,dep
      rmegacarpa_depth = one_
 
      IF( TRIM(stage)=="adult" ) THEN
-
+           !  <0.1 unsuitable
+           !  0.1 - 0.5 suboptimal
+           !  0.5 - 2 optimal
+           !  2-3.5 suboptimal
+           !  >3.5 unsuitable
        IF ( depth<=0.1 ) THEN
          rmegacarpa_depth = zero_
-       ELSE IF ( depth>0.1 .AND. depth<=0.2 ) THEN
-         rmegacarpa_depth = 1. - ( (depth-0.1)/(0.2-0.1) )
-       ELSE IF ( depth>0.2 ) THEN
+       ELSE IF ( depth>0.1 .AND. depth<=0.5 ) THEN
+         rmegacarpa_depth = 1. - ( (depth-0.1)/(0.5-0.1) )
+       ELSE IF ( depth>0.5 .AND. depth<=2 ) THEN
          rmegacarpa_depth = one_
+       ELSE IF ( depth>2 .AND. depth<=3.5 ) THEN
+         rmegacarpa_depth = 1. - ( (depth-2)/(3.5-2) )
+       ELSE IF ( depth>3.5 ) THEN
+         rmegacarpa_depth = zero_
        ENDIF
 
-     ELSEIF( TRIM(stage)=="sprout" ) THEN
-
-       IF ( depth<=0.01 ) THEN
+     ELSEIF( TRIM(stage)=="seed" ) THEN
+       ! Seeds simply need to be wet.
+       IF( depth<=0.01 ) THEN
          rmegacarpa_depth = zero_
-       ELSE IF ( depth>0.01 .AND. depth<=0.2 ) THEN
-         rmegacarpa_depth = 1. - ( (depth-0.01)/(0.2-0.01) )
-       ELSE IF ( depth>0.2 ) THEN
+       ELSE
          rmegacarpa_depth = one_
        ENDIF
 
      ELSEIF( TRIM(stage)=="flower" ) THEN
-
-       maxdep = 1.0 ; IF(model==2) maxdep=0.9
-
-       IF ( depth<=0.01 ) THEN
+           !  <0.1 unsuitable
+           !  0.1 - 0.5 suboptimal
+           !  0.5 - 1 optimal
+           !  >1 unsuitable
+       IF ( depth<=0.1 ) THEN
          rmegacarpa_depth = zero_
-       ELSE IF ( depth>0.01 .AND. depth<=0.1 ) THEN
-         rmegacarpa_depth = 1. - ( (depth-0.01)/(0.1-0.01) )
-       ELSE IF ( depth>0.1 .AND. depth<=0.4 ) THEN
+       ELSE IF ( depth>0.1 .AND. depth<=0.5 ) THEN
+         rmegacarpa_depth = 1. - ( (depth-0.1)/(0.5-0.1) )
+       ELSE IF ( depth>0.5 .AND. depth<=1 ) THEN
          rmegacarpa_depth = one_
-       ELSE IF ( depth>0.4 .AND. depth<=maxdep ) THEN
-         rmegacarpa_depth = 1. - ( (depth-0.4)/(maxdep-0.4) )
-       ELSE IF ( depth>maxdep ) THEN
+       ELSE IF ( depth>1 ) THEN
          rmegacarpa_depth = zero_
        ENDIF
-
      ENDIF
 
   END FUNCTION rmegacarpa_depth
