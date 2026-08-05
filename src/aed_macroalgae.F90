@@ -1316,6 +1316,8 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
    DTday = _STATE_VAR_S_(data%id_dt)/secs_per_day
    DTsec = DTday * secs_per_day
 
+   fT = 0. ! CAB - otherwise gets used un-initialised
+
   !-- Benthic light fraction and extinction, for diagnostics
   extc  = _STATE_VAR_  (data%id_extc)    ! extinction coefficient of bottom cell
   depth = _STATE_VAR_  (data%id_dz)      ! water column depth (cell depth if 2D)
