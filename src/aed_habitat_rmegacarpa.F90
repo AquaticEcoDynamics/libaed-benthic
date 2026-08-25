@@ -273,7 +273,7 @@ SUBROUTINE aed_calculate_riparian_habitat_rmegacarpa(data,column,layer_idx,pc_we
    AED_REAL :: temp, salt, wlevel, extc, bathy, matz, Io, Ig, vel, stress, tau0, stem05, stem25
 
    ! State
-   AED_REAL :: depth, ph, hab, sdepth, uzaass, aass, conc, mtox, turb, grav, stem, svwc
+   AED_REAL :: depth, ph, hab, sdepth, uzaass, aass, conc, mtox, turb, grav, stem, svwc, falg
 
    ! Temporary variables
    INTEGER  :: i
