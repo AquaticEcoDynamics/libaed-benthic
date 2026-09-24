@@ -50,6 +50,19 @@ MODULE aed_macroalgae
 
    PUBLIC aed_macroalgae_data_t
 
+   !#---------------------------------------------------------------------------
+   !# Physiology model selectors - namelist array physiology_model(:), one entry
+   !# per simulated group.  Physiology and sloughing (slough_model) are
+   !# INDEPENDENT: any physiology may be paired with any slough model, subject to
+   !# the id_slough_trig contract documented in cladophora_calculate_cgm.
+   INTEGER,PARAMETER :: PHYS_AUTO    = -1  !# infer from p_name (legacy, deprecated)
+   INTEGER,PARAMETER :: PHYS_GENERIC =  0  !# generic AED macroalgae physiology
+   INTEGER,PARAMETER :: PHYS_CGM     =  1  !# Cladophora Growth Model (Erie CGM)
+   INTEGER,PARAMETER :: PHYS_GLCM    =  2  !# Great Lakes Cladophora Model v3
+                                           !#   (Kuczynski et al. 2022,
+                                           !#    Ecol. Model. 473:110118)
+   INTEGER,PARAMETER :: PHYS_MIN = PHYS_AUTO, PHYS_MAX = PHYS_GLCM
+
 
    TYPE,extends(aed_model_data_t) :: aed_macroalgae_data_t
       !# Variable identifiers
@@ -96,7 +109,27 @@ MODULE aed_macroalgae
       LOGICAL  :: simMalgFeedback, simStaticBiomass, simAging
       INTEGER  :: simSloughing
       INTEGER  :: simMalgHSI
-      INTEGER  :: simCGM
+      !# Index of the group that OWNS the shared cladophora state machine - the
+      !# six persistent accumulators cgm_sltg/slst/sldy/tavg/lavg/savg.  0 = none.
+      !# NOTE(2026-09-23): replaces simCGM, which conflated three separate
+      !#   questions: (a) which group index owns the accumulators, (b) which
+      !#   physiology a given group uses, and (c) whether the accumulators exist
+      !#   at all.  (b) is now per-group in malgs(i)%physiology_model; (a) and (c)
+      !#   are this scalar.  Phase 2 replaces it with per-group accumulators.
+      INTEGER  :: cgmGroup
+      !# GLCMv3 per-group calibration coefficients, in the namelist's own units.
+      !# Ref: Kuczynski et al. (2022) Ecol. Model. 473:110118, Table 2.
+      !# NOTE(2026-09-23): these live here rather than in phyto_data_t because
+      !#   they apply to exactly one physiology (physiology_model = PHYS_GLCM).
+      !#   Before this they were either hard-coded (k_alg = 68, the Lake Erie
+      !#   value) or simply never assigned at all (Qmin/umax/Rmax), so the
+      !#   GLCMv3 growth and uptake terms were computed from uninitialised
+      !#   memory.  See the changelog, Step 3 / defects B3, B9 and D12.
+      AED_REAL, ALLOCATABLE :: glcm_kalg(:)  !# mat light extinction     (/m)
+      AED_REAL, ALLOCATABLE :: glcm_qmin(:)  !# subsistence P quota      (%DM)
+      AED_REAL, ALLOCATABLE :: glcm_umax(:)  !# max gross growth         (/day)
+      AED_REAL, ALLOCATABLE :: glcm_rmax(:)  !# max light-dep respiration(/day)
+      AED_REAL, ALLOCATABLE :: glcm_kp(:)    !# P uptake half-saturation (mmolP/m3)
       !# Special case: force the environmental drivers feeding the response
       !# functions with constants (cf. aed_bivalve simFixedEnv) - for sensitivity
       !# testing outside the host's realised T / light regime.
@@ -236,7 +269,10 @@ END FUNCTION load_csv
 
 !###############################################################################
 SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
-                                 growth_form, slough_model, resuspension, tau_0)
+                                 growth_form, slough_model, physiology_model,  &
+                                 resuspension, tau_0,                          &
+                                 slough_rate_p, slough_stress_p, slough_burial_p, &
+                                 k_alg_glcm, Qmin_glcm, umax_glcm, Rmax_glcm, K_P_glcm)
 !-------------------------------------------------------------------------------
    USE aed_util,ONLY : param_file_type, CSV_TYPE, NML_TYPE
 !-------------------------------------------------------------------------------
@@ -248,8 +284,17 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
    INTEGER,INTENT(in)          :: settling(*)
    INTEGER,INTENT(in)          :: growth_form(*)
    INTEGER,INTENT(in)          :: slough_model(*)
+   INTEGER,INTENT(in)          :: physiology_model(*)
    AED_REAL,INTENT(in)         :: resuspension(*)
    AED_REAL,INTENT(in)         :: tau_0(*)
+   AED_REAL,INTENT(in)         :: slough_rate_p(*)
+   AED_REAL,INTENT(in)         :: slough_stress_p(*)
+   AED_REAL,INTENT(in)         :: slough_burial_p(*)
+   AED_REAL,INTENT(in)         :: k_alg_glcm(*)
+   AED_REAL,INTENT(in)         :: Qmin_glcm(*)
+   AED_REAL,INTENT(in)         :: umax_glcm(*)
+   AED_REAL,INTENT(in)         :: Rmax_glcm(*)
+   AED_REAL,INTENT(in)         :: K_P_glcm(*)
 !
 !LOCALS
    INTEGER  :: status
@@ -276,7 +321,7 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
     IF (status /= 0) STOP 'Error reading namelist malgae_data'
 
     !---------------------------------------------------------------------------
-    data%simCGM = 0
+    data%cgmGroup = 0
     data%num_malgae = count
     ALLOCATE(data%malgs(count))
     ALLOCATE(data%id_p(count)) ; data%id_p(:) = 0
@@ -286,6 +331,12 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
     ALLOCATE(data%id_pben(count)) ; data%id_p(:) = 0
     ALLOCATE(data%id_inben(count)) ; data%id_inben(:) = 0
     ALLOCATE(data%id_ipben(count)) ; data%id_ipben(:) = 0
+    !-- GLCMv3 per-group calibration coefficients (see the type declaration).
+    ALLOCATE(data%glcm_kalg(count)) ; data%glcm_kalg(:) = zero_
+    ALLOCATE(data%glcm_qmin(count)) ; data%glcm_qmin(:) = zero_
+    ALLOCATE(data%glcm_umax(count)) ; data%glcm_umax(:) = zero_
+    ALLOCATE(data%glcm_rmax(count)) ; data%glcm_rmax(:) = zero_
+    ALLOCATE(data%glcm_kp(count))   ; data%glcm_kp(:)   = zero_
     IF (diag_level>9) THEN
        ALLOCATE(data%id_c2p(count)) ; data%id_c2p(:) = 0
        ALLOCATE(data%id_n2p(count)) ; data%id_n2p(:) = 0
@@ -375,16 +426,102 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
        !   2 : water column
        !   3 : surface
 
-       IF(TRIM(data%malgs(i)%p_name)== 'cgm') THEN
-           data%simCGM = i
-            ! If sloughing is requested for CGM force to 2 ... for now
+       !-- Physiology model selection.
+       !   NOTE(2026-09-23): physiology is now chosen EXPLICITLY, per group, via
+       !   the namelist array physiology_model(:).  It used to be inferred from
+       !   the group's name being literally 'cgm', which made the GLCMv3
+       !   physiology unreachable.  physiology_model(i) = -1 (PHYS_AUTO, the
+       !   default) reproduces the legacy name-based rule exactly, so every
+       !   existing aed.nml keeps working - but it is deprecated and warns.
+       IF ( physiology_model(i) < PHYS_MIN .OR. physiology_model(i) > PHYS_MAX ) THEN
+           PRINT *,'          ERROR - physiology_model(',i,') = ',physiology_model(i), &
+                   ' is not valid. Use -1 (auto), 0 (generic), 1 (CGM) or 2 (GLCMv3).'
+           STOP 'aed_macroalgae: invalid physiology_model'
+       ENDIF
+
+       IF ( physiology_model(i) == PHYS_AUTO ) THEN
+           IF ( TRIM(data%malgs(i)%p_name) == 'cgm' ) THEN
+               data%malgs(i)%physiology_model = PHYS_CGM
+               PRINT *,'          WARNING - group "cgm" selected the CGM physiology by NAME.'
+               PRINT *,'                    This is deprecated; set physiology_model = 1 in'
+               PRINT *,'                    &aed_macroalgae to make the choice explicit.'
+           ELSE
+               data%malgs(i)%physiology_model = PHYS_GENERIC
+           ENDIF
+       ELSE
+           data%malgs(i)%physiology_model = physiology_model(i)
+       ENDIF
+
+       !-- GLCMv3 calibration coefficients (Kuczynski et al. 2022, Table 2).
+       !   Loaded for every group so the arrays are always well defined, but
+       !   only read by cladophora_calculate_glcmv3.  Validated only for the
+       !   groups that will actually use them, so a nonsense value left in the
+       !   namelist for an unrelated group cannot stop the run.
+       data%glcm_kalg(i) = k_alg_glcm(i)
+       data%glcm_qmin(i) = Qmin_glcm(i)
+       data%glcm_umax(i) = umax_glcm(i)
+       data%glcm_rmax(i) = Rmax_glcm(i)
+       data%glcm_kp(i)   = K_P_glcm(i)
+       IF ( data%malgs(i)%physiology_model == PHYS_GLCM ) THEN
+           IF ( data%glcm_kalg(i) <= zero_ .OR. data%glcm_qmin(i) <= zero_ .OR.  &
+                data%glcm_umax(i) <= zero_ .OR. data%glcm_rmax(i) <  zero_ .OR.  &
+                data%glcm_kp(i)   <= zero_ ) THEN
+               PRINT *,'          ERROR - GLCMv3 group ',i,' has an invalid coefficient.'
+               PRINT *,'                  k_alg_glcm (>0) = ',data%glcm_kalg(i)
+               PRINT *,'                  Qmin_glcm  (>0) = ',data%glcm_qmin(i)
+               PRINT *,'                  umax_glcm  (>0) = ',data%glcm_umax(i)
+               PRINT *,'                  Rmax_glcm (>=0) = ',data%glcm_rmax(i)
+               PRINT *,'                  K_P_glcm   (>0) = ',data%glcm_kp(i)
+               STOP 'aed_macroalgae: invalid GLCMv3 coefficient'
+           ENDIF
+           PRINT *,'          MAG group ',i,' GLCMv3 coefficients: k_alg=',       &
+                   data%glcm_kalg(i),' /m, Qmin=',data%glcm_qmin(i),' %DM, umax=',&
+                   data%glcm_umax(i),' /d, Rmax=',data%glcm_rmax(i),' /d, K_P=',  &
+                   data%glcm_kp(i),' mmolP/m3'
+       ENDIF
+
+       !-- Claim ownership of the shared cladophora state machine (the six
+       !   persistent accumulators).  Both the cladophora physiologies and the
+       !   cladophora slough models (2,3,4) read and write them, so either is
+       !   enough to require them.  Only one group may own them - see cgmGroup.
+       IF ( data%malgs(i)%physiology_model /= PHYS_GENERIC .OR.                &
+           (data%simSloughing > 0 .AND. data%malgs(i)%slough_model >= 2        &
+                                  .AND. data%malgs(i)%slough_model <= 4) ) THEN
+
+           ! If sloughing is requested for a cladophora group, force a
+           ! compatible slough model ... for now
            IF(data%simSloughing>0) data%simSloughing = 2
            IF(data%simSloughing>0 .and. (data%malgs(i)%slough_model < 2 .or. data%malgs(i)%slough_model > 4)) &
               data%malgs(i)%slough_model = 2
+
+           IF ( data%cgmGroup == 0 ) THEN
+               data%cgmGroup = i
+           ELSE
+               PRINT *,'          ERROR - only ONE macroalgae group may use the CGM/GLCM'
+               PRINT *,'                  physiology or slough models 2-4, because the'
+               PRINT *,'                  accumulators they rely on are single-instance.'
+               PRINT *,'                  Conflicting groups: ',data%cgmGroup,' and ',i
+               STOP 'aed_macroalgae: multiple cladophora groups not supported'
+           ENDIF
        ENDIF
 
+       !-- Per-group sloughing parameters.  These default to the module-wide
+       !   &aed_macroalgae scalars; the *_p arrays override them per group.
+       !   Sentinels are negative because all three are physically non-negative
+       !   (slough_stress is now a day-fraction in 0-1, see the Step 1 notes).
+       data%malgs(i)%slough_rate   = data%slough_rate            ! already /sec
+       data%malgs(i)%slough_stress = data%slough_stress
+       data%malgs(i)%slough_burial = data%slough_burial          ! already /sec
+       IF ( slough_rate_p(i)   >= zero_ ) data%malgs(i)%slough_rate   = slough_rate_p(i)/secs_per_day
+       IF ( slough_stress_p(i) >= zero_ ) data%malgs(i)%slough_stress = slough_stress_p(i)
+       IF ( slough_burial_p(i) >= zero_ ) data%malgs(i)%slough_burial = slough_burial_p(i)/secs_per_day
+
        !-- Group requires a water column / pelagic pool
-       IF ( growth_form(i)==0 .or. slough_model(i)>0 ) THEN
+       !   NOTE(2026-09-23): test the STORED values, not the raw namelist arrays.
+       !   Any adjustment made above (e.g. the slough_model forcing) must be
+       !   honoured here, otherwise a slough model can run against an
+       !   unregistered id_p(i) and the slough flux at ~:1725 writes to id 0.
+       IF ( data%malgs(i)%growth_form==0 .or. data%malgs(i)%slough_model>0 ) THEN
 
          ! Register a water column pool for the group as a state variable
          data%id_p(i) = aed_define_variable(                                   &
@@ -540,6 +677,30 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    INTEGER            :: settling(MAX_PHYTO_TYPES) =  _MOB_CONST_
    INTEGER            :: slough_model(MAX_PHYTO_TYPES) = 0
    INTEGER            :: growth_form(MAX_PHYTO_TYPES) = 0
+   !# physiology_model: per-group growth formulation. Independent of slough_model.
+   !#   -1 = auto: infer from the group name (legacy, deprecated - warns)
+   !#    0 = generic AED macroalgae physiology
+   !#    1 = CGM     (Erie Cladophora Growth Model)
+   !#    2 = GLCMv3  (Great Lakes Cladophora Model v3, Kuczynski et al. 2022)
+   INTEGER            :: physiology_model(MAX_PHYTO_TYPES) = PHYS_AUTO
+   !# Optional per-group overrides of the module-wide slough scalars below.
+   !#   <0 (the default) means "use the module-wide scalar".
+   !#   Supplied in the same units as the scalars: slough_rate /day,
+   !#   slough_burial /day, slough_stress a day-fraction in 0-1.
+   AED_REAL           :: slough_rate_p(MAX_PHYTO_TYPES) = -1.
+   AED_REAL           :: slough_stress_p(MAX_PHYTO_TYPES) = -1.
+   AED_REAL           :: slough_burial_p(MAX_PHYTO_TYPES) = -1.
+   !# GLCMv3 (physiology_model = 2) per-group calibration coefficients.
+   !#   Ref: Kuczynski et al. (2022) Ecol. Model. 473:110118, Table 2.
+   !#   Defaults are the paper's Lake Erie calibration; ignored by every other
+   !#   physiology.  k_alg is the single most sensitive coefficient in the
+   !#   paper's analysis - reported values are 24 (Michigan), 30 (Huron),
+   !#   68 (Erie) and 75 (Ontario) /m, with 10-150 a reasonable search range.
+   AED_REAL           :: k_alg_glcm(MAX_PHYTO_TYPES) = 68.    !# mat light extinction (/m)
+   AED_REAL           :: Qmin_glcm(MAX_PHYTO_TYPES)  = 0.04   !# subsistence P quota (%DM); paper explores 0.028-0.050
+   AED_REAL           :: umax_glcm(MAX_PHYTO_TYPES)  = 1.40   !# max gross specific growth (/day)
+   AED_REAL           :: Rmax_glcm(MAX_PHYTO_TYPES)  = 0.50   !# max light-dependent respiration (/day)
+   AED_REAL           :: K_P_glcm(MAX_PHYTO_TYPES)   = 4.036  !# P uptake half-saturation (mmolP/m3) = 125 ugP/L
    AED_REAL           :: resuspension(MAX_PHYTO_TYPES) = 0.
    AED_REAL           :: tau_0(MAX_PHYTO_TYPES) = 0.1
    CHARACTER(len=64)  :: p_excretion_target_variable = ''
@@ -560,7 +721,11 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    AED_REAL           :: zerolimitfudgefactor = 15.*60.
    AED_REAL           :: min_rho = 900.
    AED_REAL           :: max_rho = 1200.
-   AED_REAL           :: slough_stress = -1.0
+   !# slough_stress: day-fraction (0-1) of carbon deficit at the mat base that
+   !#   triggers bulk slough of weakened filaments in slough_model=2.
+   !#   NOTE(2026-09-23): sign convention changed - was a negative cumulative
+   !#   carbon-deficit threshold (default -1.0), which was unreachable.
+   AED_REAL           :: slough_stress = 0.95
    AED_REAL           :: slough_burial = zero_
    AED_REAL           :: slough_rate = 0.08 ! %/day
    INTEGER            :: simMalgHSI = 0
@@ -598,6 +763,9 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
                      simMalgHSI, n_zones, active_zones, simMalgFeedback,       &
                     extra_debug, extra_diag, diag_level, tau_0, dtlim,         &
                     growth_form, slough_model, slough_burial, slough_rate,     &
+                    physiology_model, slough_rate_p, slough_stress_p,          &
+                     slough_burial_p,                                          &
+                    k_alg_glcm, Qmin_glcm, umax_glcm, Rmax_glcm, K_P_glcm,     &
                     simStaticBiomass, simAging,                                &
                     simFixedEnv, fixed_temp, fixed_sal, fixed_par
 !-----------------------------------------------------------------------
@@ -624,6 +792,16 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 
    data%simSloughing = simSloughing
    data%slough_stress = slough_stress
+   !# Guard legacy namelists written against the old (negative) sign convention.
+   !# Under the current convention a negative threshold is always exceeded, which
+   !# would slough 95% of the bed every timestep - so trap it loudly.
+   IF ( slough_stress < zero_ ) THEN
+     PRINT *,'          WARNING - slough_stress is now a POSITIVE day-fraction (0-1)'
+     PRINT *,'                    of carbon deficit at the mat base. The supplied value ', &
+                                  slough_stress,' uses the old convention;'
+     PRINT *,'                    resetting to the default of 0.95. Please update aed.nml.'
+     data%slough_stress = 0.95
+   ENDIF
    data%slough_burial = slough_burial / secs_per_day
    data%slough_rate = slough_rate / secs_per_day
 
@@ -645,7 +823,20 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    ! Note: all rates must be provided in values per day,
    !       but are converted in here to rates per second
    CALL aed_macroalgae_load_params(data,dbase,num_malgae,the_malgae,settling,  &
-                                    growth_form,slough_model,resuspension,tau_0)
+                                    growth_form,slough_model,physiology_model, &
+                                    resuspension,tau_0,                        &
+                                    slough_rate_p,slough_stress_p,slough_burial_p, &
+                                    k_alg_glcm,Qmin_glcm,umax_glcm,Rmax_glcm,K_P_glcm)
+
+   !# Report the resolved per-group configuration, so the physiology and
+   !# sloughing choices are visible in the log rather than inferred.
+   DO i = 1,data%num_malgae
+     PRINT *,'          MAG group ',i,' "',TRIM(data%malgs(i)%p_name),         &
+             '": growth_form=',data%malgs(i)%growth_form,                      &
+             ' physiology_model=',data%malgs(i)%physiology_model,              &
+             ' slough_model=',data%malgs(i)%slough_model
+   ENDDO
+   IF ( data%cgmGroup > 0 ) PRINT *,'          MAG cladophora state machine owned by group ',data%cgmGroup
 
    CALL aed_bio_temp_function(data%num_malgae,             &
                                data%malgs%theta_growth,     &
@@ -762,7 +953,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
    IF ( simMalgHSI>0 ) &
      data%id_mhsi  = aed_define_sheet_diag_variable('HSI','-', 'MAG: macroalgae habitat suitability')
 
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
      !# These are running accumulators (moving averages / daily counters) that
      !# MUST persist across timesteps - so opt out of the default per-step
      !# diagnostic rezeroing (aed_api zeroes diags each step unless rezero=.FALSE.)
@@ -837,16 +1028,23 @@ SUBROUTINE aed_initialize_benthic_macroalgae(data, column, layer_idx)
           _STATE_VAR_S_(data%id_ipben(mag_i)) = _STATE_VAR_S_(data%id_pben(mag_i)) * data%malgs(mag_i)%X_pcon
        ENDIF
      ENDDO
-     RETURN
+
+     !# Seed the persistent cladophora accumulators (moving averages and day
+     !# counters). These are registered with rezero=.FALSE. so they carry across
+     !# timesteps and must be given a sensible starting value here. Only
+     !# colonisable zones need seeding.
+     !# NOTE(2026-09-23): this block was previously unreachable - it sat after an
+     !#   IF...RETURN ELSE...RETURN construct, so these seeds were never applied
+     !#   and the accumulators started from the diagnostic default of zero.
+     IF ( data%cgmGroup >0 ) THEN
+       _DIAG_VAR_S_(data%id_tem_avg) = 4.      !_STATE_VAR_S_(data%id_tem)
+       _DIAG_VAR_S_(data%id_tau_avg) = 0.001   !_STATE_VAR_S_(data%id_taub)
+       _DIAG_VAR_S_(data%id_par_avg) = 0.1     !_STATE_VAR_S_(data%id_par)
+       _DIAG_VAR_S_(data%id_slough_days) = 0.0 !
+       _DIAG_VAR_S_(data%id_slough_tsta) = 0.0 !
+       _DIAG_VAR_S_(data%id_slough_trig) = 0.0 !
+     ENDIF
    ENDIF
-   IF ( data%simCGM >0 ) THEN
-     _DIAG_VAR_S_(data%id_tem_avg) = 4.      !_STATE_VAR_S_(data%id_tem)
-     _DIAG_VAR_S_(data%id_tau_avg) = 0.001   !_STATE_VAR_S_(data%id_taub)
-     _DIAG_VAR_S_(data%id_par_avg) = 0.1     !_STATE_VAR_S_(data%id_par)
-     _DIAG_VAR_S_(data%id_slough_days) = 0.0 !
-     _DIAG_VAR_S_(data%id_slough_tsta) = 0.0 !
-     _DIAG_VAR_S_(data%id_slough_trig) = 0.0 !
-    ENDIF
 
 END SUBROUTINE aed_initialize_benthic_macroalgae
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -939,7 +1137,13 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
       fI = zero_; fNit = zero_; fPho = zero_; fSil = one_; fSal = one_; fXl = one_
 
 
-      IF ( mag_i==data%simCGM ) THEN
+      !-- NOTE(2026-09-23): was "mag_i==data%simCGM", i.e. tied to the single
+      !   name-selected CGM group.  The real question is whether this group's
+      !   water-column pool holds DETACHED cladophora slough rather than a
+      !   growing population, which is a property of the physiology - so it now
+      !   applies to any cladophora-family group, GLCM included.  Under the
+      !   legacy auto-selection this is exactly the old test.
+      IF ( data%malgs(mag_i)%physiology_model /= PHYS_GENERIC ) THEN
 
         ! Don't grow CGM slough
         primprod(mag_i) = zero_
@@ -1390,8 +1594,11 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        malg = _STATE_VAR_S_(data%id_pben(mag_i)) ! local malg density
 
 
-       !-- Use the generic approach or CGM approach
-       IF( .NOT. mag_i == data%simCGM ) THEN
+       !-- Use the generic approach, or one of the cladophora physiologies.
+       !   NOTE(2026-09-23): was "IF( .NOT. mag_i == data%simCGM )" - a 2-way
+       !   branch on the name-selected group, which is why the GLCMv3 routine
+       !   was never reachable.  Selection is now per-group and explicit.
+       IF( data%malgs(mag_i)%physiology_model == PHYS_GENERIC ) THEN
 
          ! Get the temperature limitation function
          fT = fTemp_function(data%malgs(mag_i)%fT_Method,    &
@@ -1585,15 +1792,32 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
         ! IF(diag_level>9) _DIAG_VAR_S_(data%id_dPAR) = par
 
 
-       ELSE ! group check for CGM
+       ELSE ! one of the cladophora physiologies
 
-         !-- User has selected the special CGM approach (Cladophora Growth Model)
-         CALL cladophora_calculate_cgm(data,column,layer_idx,mag_i,         &
-                                               primprod(mag_i),             &
-                                               respiration(mag_i),          &
-                                               puptake(mag_i,1),            &
-                                               nuptake(mag_i,1),            &
+         !-- User has selected a cladophora physiology.  The two routines are
+         !   drop-in compatible: same arity, shapes and intents - the 5th/6th
+         !   dummies are just named pf/rf vs u_canopy/r_canopy.
+         SELECT CASE ( data%malgs(mag_i)%physiology_model )
+
+           CASE ( PHYS_CGM )
+             !-- Cladophora Growth Model (Erie CGM)
+             CALL cladophora_calculate_cgm(data,column,layer_idx,mag_i,       &
+                                               primprod(mag_i),               &
+                                               respiration(mag_i),            &
+                                               puptake(mag_i,1),              &
+                                               nuptake(mag_i,1),              &
                                                INi,IPi)
+
+           CASE ( PHYS_GLCM )
+             !-- Great Lakes Cladophora Model v3 (Kuczynski et al. 2022)
+             CALL cladophora_calculate_glcmv3(data,column,layer_idx,mag_i,    &
+                                               primprod(mag_i),               &
+                                               respiration(mag_i),            &
+                                               puptake(mag_i,1),              &
+                                               nuptake(mag_i,1),              &
+                                               INi,IPi)
+
+         END SELECT
 
 
          exudation(mag_i)  = MAX( zero_,primprod(mag_i)*data%malgs(mag_i)%f_pr )      ! /second
@@ -1705,15 +1929,18 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
             slough_frac = 0.0
           ENDIF
 
+         !-- NOTE(2026-09-23): slough_rate is now taken per-group from
+         !   malgs(mag_i)%slough_rate, which defaults to the module-wide
+         !   data%slough_rate unless slough_rate_p(mag_i) overrides it.
          ELSEIF( data%malgs(mag_i)%slough_model == 2) THEN
            ! The Erie CGM approach
-           CALL cladophora_slough_cgm(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+           CALL cladophora_slough_cgm(data,column,layer_idx,mag_i,data%malgs(mag_i)%slough_rate,slough_frac)
          ELSEIF( data%malgs(mag_i)%slough_model == 3) THEN
             ! The Erie GLCMv3 approach
-            CALL cladophora_slough_glcmv3(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+            CALL cladophora_slough_glcmv3(data,column,layer_idx,mag_i,data%malgs(mag_i)%slough_rate,slough_frac)
          ELSEIF( data%malgs(mag_i)%slough_model == 4) THEN
             ! The Erie AED (hybrid) approach
-            CALL cladophora_slough_aed(data,column,layer_idx,mag_i,data%slough_rate,slough_frac)
+            CALL cladophora_slough_aed(data,column,layer_idx,mag_i,data%malgs(mag_i)%slough_rate,slough_frac)
 
          ELSE
            ! No sloughing
@@ -1743,7 +1970,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
 
          !# Move a fraction of bottom slough biomass into the sediment - slough "burial".
-         slough_burial = data%slough_burial ! rate per sec
+         slough_burial = data%malgs(mag_i)%slough_burial ! rate per sec (per-group)
 
          slough = _STATE_VAR_(data%id_p(mag_i)) ! local slough density
          _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) - &
@@ -2112,7 +2339,7 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
    !----------------------------------------------------------------------------
    !-- Update moving average for daily temp
    !   (averaged over the past 1 day)
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
      _DIAG_VAR_S_(data%id_tem_avg) = _DIAG_VAR_S_(data%id_tem_avg) &
                                 * (1-(DTday/TempAvgTime)) + temp*(DTday/TempAvgTime)
      AvgTemp = _DIAG_VAR_S_(data%id_tem_avg)
@@ -2140,7 +2367,7 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
       !-------------------------------------------------------------------------
       !-- Update moving avg for daily light (averaged over the photo-period, PP)
 
-      IF ( data%simCGM >0 ) THEN
+      IF ( data%cgmGroup >0 ) THEN
         _DIAG_VAR_S_(data%id_par_avg) = _DIAG_VAR_S_(data%id_par_avg) &
                           * (1-(DTday/LgtAvgTime)) + macroPAR_Top*(DTday/LgtAvgTime)
         AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83   ! AvgLight in uE for CGM
@@ -2315,6 +2542,20 @@ SUBROUTINE cladophora_calculate_cgm(data,column,layer_idx,cgm,pf,rf, &
 !      _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + pf_MB*DTday*secs_per_day
 !    ENDIF
 
+    !###########################################################################
+    !# CONTRACT for id_slough_trig (diagnostic MAG_cgm_sltg)
+    !#   id_slough_trig = the FRACTION OF THE CURRENT DAY (0-1) during which the
+    !#   net specific growth rate AT THE MAT BASE (pf_MB) was negative.
+    !#   Reset to zero at midnight; incremented by DTday (in DAYS) each step
+    !#   with pf_MB < 0.  Written by the physiology routine
+    !#   (cladophora_calculate_cgm / _glcmv3), read by the slough routine.
+    !#   Slough models 3 and 4 test "> 0.999" (a wholly dark day); slough
+    !#   model 2 tests "> slough_stress".  Any new physiology or slough model
+    !#   MUST honour this sign, range and unit.  Ref: Kuczynski et al. (2022)
+    !#   Ecol. Model. 473:110118, Sec 3.3.3 - sloughing is initiated on the
+    !#   first day during which net growth at the mat bottom is <= 0.
+    !###########################################################################
+
     ! Daily reset of bottom filament checker
     hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0)
 
@@ -2366,7 +2607,7 @@ SUBROUTINE cladophora_slough_cgm(data,column,layer_idx,cgm,slough_rate,hf)
    bottom_stress = MIN( _STATE_VAR_S_(data%id_taub), 100. )
 
    !-- Update moving average for stress (averaged over the past 2 hrs)
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
       AvgStress = _DIAG_VAR_S_(data%id_tau_avg) &
                 * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
       _DIAG_VAR_S_(data%id_tau_avg) = AvgStress
@@ -2377,14 +2618,18 @@ SUBROUTINE cladophora_slough_cgm(data,column,layer_idx,cgm,slough_rate,hf)
    !-- Retrieve current (local) state variable values.
    malg = _STATE_VAR_S_(data%id_pben(cgm))
 
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
+     !-- NOTE(2026-09-23): id_slough_trig is a NON-NEGATIVE day-fraction (0-1) of
+     !   carbon deficit at the mat base - see the CONTRACT note in
+     !   cladophora_calculate_cgm.  The tests below previously used the opposite
+     !   sign (< slough_stress, default -1.0; and < -0.001), which the accumulator
+     !   can never satisfy, so this routine could never return a non-zero rate.
+     !   There was also an unconditional clip to zero here that destroyed the
+     !   accumulator every step; the midnight reset is the physiology routine's job.
      slough_trigger = _DIAG_VAR_S_(data%id_slough_trig)
 
-     !-- Check if growth phase; if so clip to 0
-     IF(slough_trigger > zero_) _DIAG_VAR_S_(data%id_slough_trig) = zero_
-
      !-- Slough off weakened filaments (those with cumulative respiration excess)
-     IF(slough_trigger < data%slough_stress) THEN
+     IF(slough_trigger > data%malgs(cgm)%slough_stress) THEN
          hf = 0.95/DTsec
          _DIAG_VAR_S_(data%id_slough_trig) = zero_
          RETURN
@@ -2396,12 +2641,12 @@ SUBROUTINE cladophora_slough_cgm(data,column,layer_idx,cgm,slough_rate,hf)
    ENDIF
 
    !-- Sloughing of healthy filaments if the shear stress is high enough
-   IF(malg>data%malgs(cgm)%p0 .AND. slough_trigger<-0.001 .AND. AvgStress>data%malgs(cgm)%tau_0)THEN
+   IF(malg>data%malgs(cgm)%p0 .AND. slough_trigger>0.001 .AND. AvgStress>data%malgs(cgm)%tau_0)THEN
 
       !-------------------------------------------------------------------------
       ! Depth (light) based carrying capacity amount, computed empirically with
       ! *0.25 to get from g DM to g C, /12 to get mol C, and 1e3 to get to mmol
-      IF ( data%simCGM >0 ) THEN
+      IF ( data%cgmGroup >0 ) THEN
         AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83 ! AvgLight in uE for CGM
       ELSE
         AvgLight = 0.
@@ -2418,7 +2663,7 @@ SUBROUTINE cladophora_slough_cgm(data,column,layer_idx,cgm,slough_rate,hf)
       IF (hf*DTsec>0.95) hf = 0.95/DTsec    ! no more than 95% slough in one interval
 
       !-- Update the malg and slough variables with following the slough event
-      IF ( data%simCGM >0 ) &
+      IF ( data%cgmGroup >0 ) &
         _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) * hf*DTsec/malg ! 0.5
    ENDIF
 
@@ -2447,15 +2692,17 @@ AED_REAL, INTENT(inout) :: u_canopy,r_canopy,pu,nu,mag_in,mag_ip
 AED_REAL :: malg
 AED_REAL :: matz, extc, dz, par, Io, temp, salinity, frp
 AED_REAL :: AvgTemp, AvgLight
-AED_REAL :: lght, pplt, prlt, pf_MB
+AED_REAL :: lght, pf_MB
 
-AED_REAL :: X_maxp, Kq
+AED_REAL :: X_maxp
 AED_REAL :: macroPAR_Top, macroPAR_Bot
 AED_REAL :: sf,tf,lf
 AED_REAL :: fRIT, Rb, FuIT
 
-AED_REAL :: Q, X, S, Iz, Imat, X_layer, X_left, X_calc, S_calc, Q_layer, fQ
-AED_REAL :: Qmin, rho, U, R, Rmax, pu_canopy, hour, unet_canopy, umax, unet, pf, rf
+AED_REAL :: Q, X, X_total, S, Iz, Imat, X_layer, X_left, X_calc, S_calc, Q_layer, fQ
+AED_REAL :: rho, u, r, pu_canopy, hour, pf, rf
+!# GLCMv3 calibration coefficients, resolved per group from &aed_macroalgae.
+AED_REAL :: Qmin, umax, Rmax, kalg, kp
 INTEGER :: layer, total_layers
 !
 !-------------------------------------------------------------------------------
@@ -2466,6 +2713,19 @@ INTEGER :: layer, total_layers
    !-- Check this cell is in an active zone for cladophoras
    matz = _STATE_VAR_S_(data%id_sedzone)
    IF ( .NOT. in_zone_set(matz, data%active_zones) ) RETURN
+
+   !----------------------------------------------------------------------------
+   !-- GLCMv3 CALIBRATION COEFFICIENTS (Kuczynski et al. 2022, Table 2)
+   !   NOTE(2026-09-23): Qmin, umax and Rmax used to be declared and then never
+   !   assigned - every growth, respiration and Droop term below was computed
+   !   from uninitialised memory - and kalg was the hard-coded Lake Erie value
+   !   68 /m.  All five are now per-group namelist parameters; see the &aed_
+   !   macroalgae declarations for defaults and reported ranges.
+   Qmin = data%glcm_qmin(cgm)   ! subsistence P quota           (%DM)
+   umax = data%glcm_umax(cgm)   ! max gross specific growth     (/day)
+   Rmax = data%glcm_rmax(cgm)   ! max light-dependent resp.     (/day)
+   kalg = data%glcm_kalg(cgm)   ! light extinction in the mat   (/m)
+   kp   = data%glcm_kp(cgm)     ! P uptake half-saturation      (mmolP/m3)
 
    !-- Retrieve current environmental conditions
    salinity = _STATE_VAR_(data%id_sal)        ! local salinity
@@ -2491,7 +2751,7 @@ INTEGER :: layer, total_layers
    malg = _STATE_VAR_S_(data%id_pben(cgm)) * (12. / 1e3) / data%malgs(cgm)%Xcc
 
    macroHgt = (1./100.) * 1.9415 * ( malg )**0.4138 ! Formulation from S Malkin; GLCMv3 model
-   macroExt = 68. ! 7.840 * ( malg )**0.240   ! Higgins et al 2006 Fig 6
+   macroExt = kalg                                  ! was hard-coded 68. (Erie)
    macroPAR_Top = MAX( MIN( par*exp(-extc*( MAX(dz-macroHgt,zero_))),Io), zero_)
    macroPAR_Bot = MAX( macroPAR_Top * exp(-(extc+macroExt)*macroHgt), zero_)
 
@@ -2512,7 +2772,7 @@ INTEGER :: layer, total_layers
    !----------------------------------------------------------------------------
    !-- Update moving average for daily temp
    !   (averaged over the past 1 day)
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
      _DIAG_VAR_S_(data%id_tem_avg) = _DIAG_VAR_S_(data%id_tem_avg) &
                 * (1-(DTday/TempAvgTime)) + temp*(DTday/TempAvgTime)
      AvgTemp = _DIAG_VAR_S_(data%id_tem_avg)
@@ -2521,106 +2781,179 @@ INTEGER :: layer, total_layers
    ENDIF
 
    !----------------------------------------------------------------------------
-   ! Calculate current Q and Q limitation factor
-   Q = mag_ip/malg * 100;
-   X = malg
+   !-- CANOPY-RESOLVED GROWTH, RESPIRATION AND P UPTAKE
+   !   The mat is divided into 1 cm layers; each layer only sees the light that
+   !   has survived the layers above it, so gross growth falls away with depth
+   !   into the canopy.  This layered light climate is the whole point of the
+   !   GLCMv3 relative to the CGM.
+   !
+   !   CONTRACT (matches cladophora_calculate_cgm):
+   !     u_canopy = biomass-weighted mean gross specific growth rate  (/s)
+   !     r_canopy = biomass-weighted mean specific respiration rate   (/s)
+   !     pu       = specific rate of change of the internal P store   (/s),
+   !                positive when the store is filling; the caller turns this
+   !                into a water-column flux as puptake = -pu * IPi.
+   !
+   !   NOTE(2026-09-23): X is carried here in mmolC/m2, not the paper's gDM/m2.
+   !   That is harmless because every use of X is a ratio - X_calc/X_total for
+   !   the canopy means, and S = Q*X/100 in the denominator of pu - so the
+   !   biomass unit cancels exactly.  Q, by contrast, MUST be in the paper's
+   !   units of %DM, because Qmin, the Droop term and the rho(Q) power law are
+   !   all calibrated against gP/gDM percentages.
 
-   ! Light attenuation through water depth - bed height, top of the mat
-   Iz = macroPAR_Top
+   !-- Internal P quota as a PERCENTAGE OF DRY MASS (Kuczynski Eq. 3).
+   !   NOTE(2026-09-23): was "Q = mag_ip/malg * 100", which is a MOLAR P:C
+   !   percentage.  Converting properly:
+   !      gP/m2  = mag_ip [mmolP/m2] * 30.974e-3
+   !      gDM/m2 = malg   [mmolC/m2] * 12.011e-3 / Xcc
+   !   so Q[%DM] = 100 * 30.974 * Xcc / 12.011 * (mag_ip/malg).  At the default
+   !   Xcc = 0.25 that is 64.47*(mag_ip/malg), i.e. the old expression
+   !   overstated the quota by a factor of 1.551.
+   Q = zero_
+   IF ( malg > zero_ ) &
+      Q = 100. * (mag_ip * 30.974) / (malg * 12.011 / data%malgs(cgm)%Xcc)
 
-   ! Mat depth / canopy height (in cm) (biomass density of each layer in canopy)
-   X_layer = X / MAX( macroHgt*100. ,1.)
+   X_total = malg                  ! mmolC/m2 - see the unit note above
+   S       = Q * X_total / 100.    ! internal P store, same arbitrary unit
 
-   ! Count the number of 1cm layers in the algae mat (canopy height/mat thickness)
-   ! Start with 1 layer
-   Total_layers =  1
-   DO WHILE ( X >= X_layer )
-     Total_layers = Total_layers + 1
-     X = X - X_layer
-   ENDDO
-   ! Biomass left after filling each layer to its capacity
-   X_left = X
+   ! Light at the top of the mat.
+   ! NOTE(2026-09-23): macroPAR_Top is PAR in W/m2, but PhotoRate/RespRate are
+   !   calibrated in uE/m2/s (as the CGM path acknowledges when it forms
+   !   AvgLight = par_avg * 4.83).  The conversion was missing here, so the
+   !   canopy saw light ~4.8x too dim at every layer.
+   Iz = macroPAR_Top * 4.83
 
-   unet_canopy = zero_
-   ! First, fill canopy layers with biomass and P mass
-   DO layer = 1,Total_layers
-     IF (layer == 1) THEN
-       ! Leftover X goes into the top layer
-       X_calc = X_left
-     else
-       ! Fill each layer with constant amount
-       X_calc = X_layer
-     endif
+   !-- Ambient FRP driving the uptake kinetics.
+   !   NOTE(2026-09-23): frp used to be read AFTER this loop, so rho was formed
+   !   from an unassigned variable (use before assignment).
+   frp = zero_
+   IF ( data%id_Pupttarget(1) > 0 ) frp = MAX( _STATE_VAR_(data%id_Pupttarget(1)), zero_ )
 
-     ! Fill each layer with P mass
-     S_calc = Q * X_calc/100.
+   u_canopy = zero_ ; r_canopy = zero_ ; pu_canopy = zero_ ; pu = zero_
+   Total_layers = 0 ; fQ = zero_
 
-     ! Calculate Q limitation factor
-     Q_layer = S_calc/X_calc * 100
-     fQ = 1 - (Qmin/Q_layer)
+   !-- NOTE(2026-09-23): guard the canopy machinery against an empty bed.  With
+   !   malg = 0, X_layer = 0 and "DO WHILE (X >= X_layer)" never terminates, and
+   !   Q_layer = S_calc/X_calc divides by zero.  The moving averages above and
+   !   the diagnostics below still run, so the bed can re-seed normally.
+   IF ( X_total > zero_ .AND. Q > zero_ ) THEN
 
-     ! P uptake: Michaelis-Menten, linear at low Q,
-     ! retaining high km = 125 ug/L
-     ! P uptake rate (%P/hr)(%P/s)
-     rho = (0.012 * (Q_layer**(-2.3))) * (frp / (frp+ 125))   /secs_per_day   ! %P/s
+     ! Mat depth / canopy height (in cm) (biomass density of each layer in canopy)
+     X = X_total
+     X_layer = X / MAX( macroHgt*100. ,1.)
 
-     ! Light extinction through the algae mat
-     ! Substract 1 cm for light at top of layer and convert
-     ! into meters
-     Imat = Iz * exp( -macroExt * (layer - 1) / 100.)
+     ! Count the number of 1cm layers in the algae mat (canopy height/mat thickness)
+     ! Start with 1 layer
+     Total_layers =  1
+     DO WHILE ( X >= X_layer )
+       Total_layers = Total_layers + 1
+       X = X - X_layer
+     ENDDO
+     ! Biomass left after filling each layer to its capacity
+     X_left = X
 
-     ! Gross growth rate depending on light,
-     ! temperature and store P (1/hr)(1/s)
-     fuIT = PhotoRate(Imat, AvgTemp)
-     u = umax * fQ * fuIT / secs_per_day;
+     ! First, fill canopy layers with biomass and P mass
+     DO layer = 1,Total_layers
+       IF (layer == 1) THEN
+         ! Leftover X goes into the top layer
+         X_calc = X_left
+       ELSE
+         ! Fill each layer with constant amount
+         X_calc = X_layer
+       ENDIF
+       IF ( X_calc <= zero_ ) CYCLE
 
-     ! Total respiration = RIT + Rbasal (1/hr)(1/s)
-     fRIT = RespRate(Imat, AvgTemp);
-     Rb = BasalResp(AvgTemp);
-     r = (Rmax * fRIT + Rb) / secs_per_day;
+       ! Fill each layer with P mass
+       S_calc = Q * X_calc/100.
 
-     ! Interval u and r in the current layer
-     u_canopy = u_canopy + u * X_calc
-     r_canopy = r_canopy + r * X_calc
-     pu_canopy = pu_canopy + (rho / 100 * X_calc - r * S_calc)
+       ! Calculate Q limitation factor (Droop).  The quota is uniform through
+       ! the mat so Q_layer == Q; the layer form is kept to match the paper.
+       ! Floored at Qmin so that a starving mat gives fQ = 0 (no growth) and a
+       ! finite - maximal - uptake rate, rather than rho -> infinity.
+       Q_layer = MAX( S_calc/X_calc * 100. , Qmin )
+       fQ = 1. - (Qmin/Q_layer)
+       IF (fQ < zero_) fQ = zero_  ;  IF (fQ > one_) fQ = one_
 
-enddo
+       ! P uptake: Michaelis-Menten, linear at low Q, retaining the high
+       ! half-saturation constant kp (default 4.036 mmolP/m3 = 125 ugP/L).
+       ! NOTE(2026-09-23): the literal 125 here was in ugP/L while frp is in
+       !   mmolP/m3 - a factor of 30.974 - so uptake was suppressed ~30-fold at
+       !   realistic FRP.  kp is now a parameter, expressed in mmolP/m3.
+       ! P uptake rate (%P/day -> %P/s)
+       rho = (0.012 * (Q_layer**(-2.3))) * (frp / (frp + kp)) / secs_per_day
 
-u_canopy = u_canopy / X
-r_canopy = r_canopy / X
-pu_canopy = pu_canopy / S
+       ! Light extinction through the algae mat
+       ! Substract 1 cm for light at top of layer and convert
+       ! into meters
+       Imat = Iz * exp( -macroExt * (layer - 1) / 100.)
+
+       ! Gross growth rate depending on light,
+       ! temperature and store P (1/day)(1/s)
+       fuIT = PhotoRate(Imat, AvgTemp)
+       u = umax * fQ * fuIT / secs_per_day
+
+       ! Total respiration = RIT + Rbasal (1/day)(1/s)
+       fRIT = RespRate(Imat, AvgTemp)
+       Rb = BasalResp(AvgTemp)
+       r = (Rmax * fRIT + Rb) / secs_per_day
+
+       ! Integrate u, r and dS/dt over the layers of the canopy
+       u_canopy  = u_canopy  + u * X_calc
+       r_canopy  = r_canopy  + r * X_calc
+       pu_canopy = pu_canopy + (rho / 100. * X_calc - r * S_calc)
+     ENDDO
+
+     !-- Canopy means.
+     !   NOTE(2026-09-23): the divisor used to be X, which the DO WHILE loop
+     !   above has already decremented to the leftover top-layer biomass.  That
+     !   inflated both means by roughly the mat height in cm, and divided by
+     !   zero whenever the mat filled its layers exactly.  The divisor is now
+     !   the total biomass the layers were filled from.
+     u_canopy  = u_canopy  / X_total
+     r_canopy  = r_canopy  / X_total
+
+     !-- Specific rate of change of the internal P store (Kuczynski Eq. 2).
+     !   NOTE(2026-09-23): S was never assigned - this was a division by an
+     !   uninitialised variable - and the result was then discarded, because pu
+     !   was overwritten further down by the CGM's Droop-Michaelis form.  The
+     !   store equation is the point of the canopy loop, so it now survives;
+     !   the CGM-style block below has been removed.
+     IF ( S > zero_ ) pu = pu_canopy / S
+   ENDIF
+
+   IF (diag_level>9) _DIAG_VAR_S_(data%id_fPho_ben(cgm)) = fQ
 
 
-! Daily reset of bottom filament checker
-hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0)
-
-IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_
-
-! Increment bottom filament checker, if unet <0
-IF(malg > data%malgs(cgm)%p0) THEN
-  !-- SloughTrigger = SloughTrigger * DTday
-  unet = u_canopy-r_canopy
-  IF( (unet) < zero_ ) &
-    _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
-ENDIF
+!# NOTE(2026-09-23): the slough-trigger accumulator was maintained here using the
+!#   CANOPY-MEAN net growth (u_canopy-r_canopy), and again at the end of this
+!#   routine using the MAT-BASE net growth (pf_MB) - with the second block
+!#   clobbering the first.  Kuczynski et al. (2022) Sec 3.3.3 specifies the
+!#   MAT-BASE rate, so the single surviving writer is the one at the end of this
+!#   routine.  See the CONTRACT note in cladophora_calculate_cgm.
 
 
 
 !-------------------------------------------------------------------------
 !-- Calculate the nutrient limitation (phosphorus & nitrogen) and
-!   find the most limiting
+!   find the most limiting.
+!   NOTE(2026-09-23): under the GLCMv3 this CGM-style quota term no longer
+!   limits growth - the Droop term fQ in the canopy loop above does, and fQ is
+!   what is now reported in MAG_<grp>_fPho_ben.  Likewise the self-shading term
+!   lf below: in the GLCMv3 self-shading IS the layered light attenuation
+!   through the canopy, so lf must not be applied a second time.  sf and lf are
+!   therefore retained as DIAGNOSTICS ONLY.
+sf = zero_
 IF (malg > zero_) THEN
   sf = mag_ip/malg
 ENDIF
 IF (sf > zero_) THEN
   sf = 1.0 - (data%malgs(cgm)%X_pmin/sf)
 ENDIF
-IF (diag_level>9) _DIAG_VAR_S_(data%id_fPho_ben(cgm)) =  sf
 
 !-------------------------------------------------------------------------
 !-- Update moving avg for daily light (averaged over the photo-period, PP)
 
-IF ( data%simCGM >0 ) THEN
+IF ( data%cgmGroup >0 ) THEN
   _DIAG_VAR_S_(data%id_par_avg) = _DIAG_VAR_S_(data%id_par_avg) &
     * (1-(DTday/LgtAvgTime)) + macroPAR_Top*(DTday/LgtAvgTime)
   AvgLight = _DIAG_VAR_S_(data%id_par_avg) * 4.83   ! AvgLight in uE for CGM
@@ -2643,22 +2976,10 @@ IF(diag_level>9) _DIAG_VAR_S_(data%id_fI_ben(cgm)) =  lf
 
 IF(diag_level>9) _DIAG_VAR_S_(data%id_fSal_ben(cgm)) = macroPAR_Bot/MAX(macroPAR_Top,1.)
 
-!-------------------------------------------------------------------------
-!-- Now light and temperature function for photosynthesis
-
-temp = AvgTemp
-lght = AvgLight  !MIN(600.0,AvgLight)/1235.0      ! Capped at 600: Higgins et al 2006
-pplt = PhotoRate(lght,temp)
-pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
-
-!-------------------------------------------------------------------------
-!-- Now light and temperature function for daytime respiration
-
-! Total respiration = RIT + Rbasal (1/hr)
-fRIT = RespRate(lght,temp);
-Rb = BasalResp(temp);
-rf = (data%malgs(cgm)%R_Resp * fRIT + Rb) ;
-
+!# NOTE(2026-09-23): a first pf/rf pair was computed here from AvgLight, then
+!#   unconditionally overwritten by the macroPAR_Bot pair near the end of this
+!#   routine without ever being read.  The dead block has been removed; only
+!#   the mat-base pair, which feeds pf_MB and the slough trigger, survives.
 
 !---------------------------------------------------------------------------
 !-- Get the temperature function for nutrient uptake
@@ -2671,22 +2992,13 @@ ENDIF
 IF (diag_level>9) _DIAG_VAR_S_(data%id_fT_ben(cgm)) =  tf
 
 !---------------------------------------------------------------------------
-!-- Get the INTERNAL PHOSPHORUS stores for the macroalgae groups.
-!   Recall that int. nutrient is in mol and must be converted to molP/molC
-!   by division by macroalgae biomass for the nutrient limitation / uptake
-
-!-- Compute the internal phosphorus ratio
-pu = data%malgs(cgm)%X_pmin
-IF( malg>zero_ ) pu = mag_ip/malg
-
-Kq = 0.0028 * (12e3/31e3) ! 0.07% = 0.0028gP/gC & 12/31 is mol wgt conversion
-
-frp = _STATE_VAR_(data%id_Pupttarget(1))
-
-!-- IPmax = Kq; IPmin = Qo; KP = Km; R_puptake = pmax; tau = tf
-pu = data%malgs(cgm)%R_puptake * tf                                                &
-* (frp/(frp + data%malgs(cgm)%K_P))                 &
-* (Kq /(Kq + MAX(pu - data%malgs(cgm)%X_pmin,zero_)))
+!-- INTERNAL PHOSPHORUS.
+!   NOTE(2026-09-23): the CGM's Droop-Michaelis uptake block used to sit here
+!   and overwrite pu, silently discarding everything the canopy loop had
+!   computed (and reading frp for the first time, well after the canopy loop
+!   had already used it).  Under the GLCMv3 the store equation IS the canopy
+!   integral of Kuczynski Eq. 2, so pu is now set there and left alone.
+!   The CGM path is untouched and still uses the Droop-Michaelis form.
 
 !---------------------------------------------------------------------------
 !-- Get the INTERNAL NITROGEN stores for the macroalgae groups.
@@ -2717,32 +3029,50 @@ _STATE_VAR_S_(data%id_inben(cgm)) =  0.9 * data%malgs(cgm)%X_nmax * malg
 
 
 !-------------------------------------------------------------------------
-!-- Now light and temperature function for photosynthesis
+!-- NET SPECIFIC GROWTH RATE AT THE MAT BASE (pf_MB), which drives sloughing.
+!   NOTE(2026-09-23): this pair used to mix formulations and units.  It took
+!   R_growth / R_resp (already per SECOND, from the CSV) from the CGM but then
+!   added the basal respiration Rb (per DAY) without converting - so the Rb
+!   term alone was ~86400x too large, pf_MB was negative at every single step
+!   and the slough trigger saturated every day.  It also fed PhotoRate and
+!   RespRate raw W/m2 where they are calibrated in uE/m2/s.  It now uses the
+!   same GLCMv3 coefficients, the same light units and the same per-day ->
+!   per-second convention as the canopy loop, evaluated at the mat base.
 
 temp = AvgTemp
-lght = macroPAR_Bot  !MIN(600.0,AvgLight)/1235.0      ! Capped at 600: Higgins et al 2006
-pplt = PhotoRate(lght,temp)
-pf = (data%malgs(cgm)%R_growth * pplt) * sf * lf
+lght = macroPAR_Bot * 4.83                        ! W/m2 -> uE/m2/s
 
-!-------------------------------------------------------------------------
-!-- Now light and temperature function for daytime respiration
+! Gross growth rate at the mat base (1/day)(1/s)
+fuIT = PhotoRate(lght,temp)
+pf   = umax * fQ * fuIT / secs_per_day
 
-! Total respiration = RIT + Rbasal (1/hr)
-fRIT = RespRate(lght,temp);
-Rb = BasalResp(temp);
-rf = (data%malgs(cgm)%R_resp * fRIT + Rb) ;
+! Total respiration = RIT + Rbasal (1/day)(1/s)
+fRIT = RespRate(lght,temp)
+Rb   = BasalResp(temp)
+rf   = (Rmax * fRIT + Rb) / secs_per_day
 
 pf_MB = pf-rf
 
-_DIAG_VAR_S_(data%id_slough_trig) = pf_MB
+_DIAG_VAR_S_(data%id_gpp_bot) = pf_MB
 
+!# Daily reset of bottom filament checker
+!# NOTE(2026-09-23): this block previously (a) clobbered the accumulator with
+!#   "= pf_MB", destroying the day's history every step, (b) incremented in
+!#   SECONDS (DTday*secs_per_day) where the consumers expect DAYS, and (c) had
+!#   no midnight reset.  It now matches cladophora_calculate_cgm exactly - see
+!#   the CONTRACT note there.
+hour = mod(_STATE_VAR_S_(data%id_yearday), 1.0)
+
+IF(hour < 0.01) _DIAG_VAR_S_(data%id_slough_trig) = zero_
+
+!# Increment bottom filament checker if pf_MB <0
 IF(malg > data%malgs(cgm)%p0) THEN
-  !-- SloughTrigger = SloughTrigger + pf_MB * DTday
-  IF( pf_MB < 0 ) &
-    _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday * secs_per_day)
+  IF( pf_MB < zero_ ) &
+    _DIAG_VAR_S_(data%id_slough_trig) = _DIAG_VAR_S_(data%id_slough_trig) + (DTday)
 ENDIF
 
-sf = one_
+!# NOTE(2026-09-23): a trailing "sf = one_" was removed here - sf is a local,
+!#   so the assignment could not be read by anything.
 
 END SUBROUTINE cladophora_calculate_glcmv3
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2855,7 +3185,7 @@ SUBROUTINE cladophora_slough_aed(data,column,layer_idx,cgm,slough_rate,L)
    bottom_stress = MIN( _STATE_VAR_S_(data%id_taub), 10. )
 
    !-- Update moving average for stress (averaged over the past 2 hrs)
-   IF ( data%simCGM >0 ) THEN
+   IF ( data%cgmGroup >0 ) THEN
       AvgStress = _DIAG_VAR_S_(data%id_tau_avg) &
                 * (1-(DTday/StrAvgTime)) + bottom_stress *(DTday/StrAvgTime)
       _DIAG_VAR_S_(data%id_tau_avg) = AvgStress
