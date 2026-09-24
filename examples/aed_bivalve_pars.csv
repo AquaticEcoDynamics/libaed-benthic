@@ -3,8 +3,17 @@ name, 'zebra', 'quagga',[COMMENT],string, Name of bivalve group
 initial_conc, 833, 833,[COMMENT],real, Initial concentration of bivalve (mmolC/m2)
 min, 8.3, 8.3,[COMMENT],real, Minimum concentration of bivalve (mmolC/m3)
 length, 15, 15,[COMMENT],real, Length of bivalve (mm)
-INC, 291.67, 291.67,[COMMENT],real, Ratio of internal nitrogen to carbon of bivalve (-)
-IPC, 64.58, 64.58,[COMMENT],real, Ratio of internal phosphorus to carbon of bivalve (-)
+[COMMENT],! NOTE(2026-09-24): INC/IPC were 291.67 and 64.58, which are mgN/gC and mgP/gC.
+[COMMENT],! aed_bivalve uses them as DIMENSIONLESS molar ratios (aed_bivalve.F90:924,
+[COMMENT],! same convention as INC_zoo/IPC_zoo in aed_zoop_pars.csv).  Converted:
+[COMMENT],!    (291.67e-3 gN/gC / 14 gN/mol) * 12 gC/mol = 0.25  molN/molC
+[COMMENT],!    ( 64.58e-3 gP/gC / 31 gP/mol) * 12 gC/mol = 0.025 molP/molC
+[COMMENT],! i.e. C:N = 4, C:P = 40, N:P = 10 -- dreissenid soft tissue.  At the old
+[COMMENT],! values don_excr goes negative every step, the N-limited branch at :952
+[COMMENT],! fires, and growth is pinned ~1167x too slow while the assimilated carbon
+[COMMENT],! is dumped to dc_target_variable.  It fails quietly, not loudly.
+INC, 0.25, 0.25,[COMMENT],real, Ratio of internal nitrogen to carbon of bivalve (molN/molC)
+IPC, 0.025, 0.025,[COMMENT],real, Ratio of internal phosphorus to carbon of bivalve (molP/molC)
 [COMMENT],!-- FILTRATION & INGESTION Parameters
 Rgrz, 1.9, 0.12,[COMMENT],real, Maximum ingestion rate of bivalve (mmol/mmol/day) (Spillman et al. 2008) Calculated from Schneider 1992 based on 15 mm mussel
 Ing, 0, 0,[COMMENT],integer, Type of maximum ingestion for bivalve; 0=Enter (mmol/mmol/d) or 1=Calculate based on length

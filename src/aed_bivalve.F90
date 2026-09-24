@@ -119,6 +119,12 @@ MODULE aed_bivalve
       INTEGER  :: id_Cexctarget,id_Cmorttarget
       INTEGER  :: id_DOupttarget,id_SSupttarget
       INTEGER  :: id_tem,id_sal,id_sed_zone
+      !# NOTE(2026-09-24): id_dz added.  biv is a SHEET variable (mmolC/m2) but
+      !# this routine's grazing/excretion logic was inherited from
+      !# aed_zooplankton, where the equivalent state variable is 3D (mmolC/m3).
+      !# The layer thickness is what reconciles the two -- see the calculate
+      !# routine.
+      INTEGER  :: id_dz
       INTEGER  :: id_grz,id_resp,id_mort,id_excr,id_egst
       INTEGER  :: id_excr_n,id_excr_p,id_egst_n,id_egst_p,id_grz_n,id_grz_p
       INTEGER  :: id_tbiv,id_nmp,id_fT,id_fD,id_fG
@@ -565,6 +571,16 @@ SUBROUTINE aed_define_bivalve(data, namlst)
      data%id_SSupttarget = aed_locate_variable(ss_uptake_variable)
    ENDIF
 
+   !# NOTE(2026-09-24): id_bivtr MUST be zeroed here.  It is assigned only
+   !# inside the IF below, but aed_calculate_benthic_bivalve guards both of its
+   !# uses with `IF (data%id_bivtr>0)` -- so with simBivTracer = .false. that
+   !# test was reading uninitialised memory.  When the garbage happened to be
+   !# positive, `bt = _STATE_VAR_(data%id_bivtr)` indexed the column array out
+   !# of bounds and segfaulted.  Latent since the tracer was added: whether it
+   !# fires depends on heap layout, so it survived until adding id_dz to this
+   !# type shifted the offsets.  Same idiom as aed_macroalgae.F90:327-343.
+   data%id_bivtr = 0
+
    IF (simBivTracer) THEN
       ! Register group as a state variable
       data%id_bivtr = aed_define_variable(                                    &
@@ -597,18 +613,26 @@ SUBROUTINE aed_define_bivalve(data, namlst)
       data%id_mort = aed_define_sheet_diag_variable('mort','/d','bivalve mortality')
       data%id_egst = aed_define_sheet_diag_variable('egst','/d','bivalve egestion')
       data%id_excr = aed_define_sheet_diag_variable('excr','/d','bivalve excretion')
-      data%id_excr_n = aed_define_sheet_diag_variable('excr_n','/d','bivalve excretion')
-      data%id_excr_p = aed_define_sheet_diag_variable('excr_p','/d','bivalve excretion')
-      data%id_egst_n = aed_define_sheet_diag_variable('egst_n','/d','bivalve excretion')
-      data%id_egst_p = aed_define_sheet_diag_variable('egst_p','/d','bivalve excretion')
-      data%id_grz_n = aed_define_sheet_diag_variable('grz_n','/d','bivalve excretion')
-      data%id_grz_p = aed_define_sheet_diag_variable('grz_p','/d','bivalve excretion')
+      !# NOTE(2026-09-24): these six carried the unit '/d' and, all six of them,
+      !# the description 'bivalve excretion'.  They are not specific rates and
+      !# four of them are not excretion -- they accumulate don/dop/pon/pop_excr
+      !# and gn/gp, which are areal mass fluxes once scaled by dz in the
+      !# calculate routine.  Relabelled to match what is actually stored.
+      data%id_excr_n = aed_define_sheet_diag_variable('excr_n','mmolN/m**2/d','bivalve dissolved N excretion')
+      data%id_excr_p = aed_define_sheet_diag_variable('excr_p','mmolP/m**2/d','bivalve dissolved P excretion')
+      data%id_egst_n = aed_define_sheet_diag_variable('egst_n','mmolN/m**2/d','bivalve particulate N egestion')
+      data%id_egst_p = aed_define_sheet_diag_variable('egst_p','mmolP/m**2/d','bivalve particulate P egestion')
+      data%id_grz_n = aed_define_sheet_diag_variable('grz_n','mmolN/m**2/d','bivalve N grazing uptake')
+      data%id_grz_p = aed_define_sheet_diag_variable('grz_p','mmolP/m**2/d','bivalve P grazing uptake')
    ENDIF
 
    ! Register environmental dependencies
    data%id_tem = aed_locate_global('temperature')
    data%id_sal = aed_locate_global('salinity')
    data%id_sed_zone = aed_locate_sheet_global('sed_zone')
+   !# NOTE(2026-09-24): needed to convert the mussels' areal rates (per m2 of
+   !# bed) into the volumetric rates (per m3 of water) that _FLUX_VAR_ expects.
+   data%id_dz = aed_locate_global('layer_ht')
 
 
 !
@@ -674,6 +698,7 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    AED_REAL :: don_excr, dop_excr, doc_excr, delta_C !DOM excretion rates
    AED_REAL :: f_Dens, W, Imax, psuedofaeces, ingestion, excretion, egestion, iteg, R20
    AED_REAL :: bt, fr, Rbt !BivTracer vars
+   AED_REAL :: dz, bivv    !## NOTE(2026-09-24) layer thickness (m), and biv/dz
    INTEGER  :: biv_i,prey_i,prey_j,phy_i !Counters
 !
 !-------------------------------------------------------------------------------
@@ -687,6 +712,13 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
    IF ( data%initFromDensity ) THEN
       IF ( _DIAG_VAR_S_(data%id_bnum) <1e-3 ) RETURN
    ENDIF
+
+   !## NOTE(2026-09-24): thickness of the water layer this bed exchanges with.
+   !# Every rate below that is "per m2 of bed" has to be divided by this before
+   !# it can be handed to _FLUX_VAR_, which is "per m3 of water".  Floored the
+   !# same way aed_macroalgae.F90 floors it, so a vanishingly thin bottom cell
+   !# cannot produce a divide-by-zero or an unbounded flux.
+   dz = MAX(_STATE_VAR_(data%id_dz), 0.05)
 
    ! Retrieve current environmental conditions.
    IF (data%simFixedEnv) THEN
@@ -744,6 +776,13 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       biv = MAX(_STATE_VAR_S_(data%id_biv(biv_i)),zero_)
       !_DIAG_VAR_S_(data%id_pbiv) = _DIAG_VAR_S_(data%id_pbiv) + biv
 
+      !## NOTE(2026-09-24): the same biomass expressed per unit volume of the
+      !# overlying layer (mmolC/m3).  Use biv for anything that stays on the
+      !# bed (the _FLUX_VAR_B_ biomass tendency, the areal sheet diagnostics)
+      !# and bivv for anything that crosses into the water column.  Getting
+      !# this wrong is silent: it does not crash, it just stops conserving mass.
+      bivv = biv / dz
+
       grazing       = zero_
       respiration   = zero_
       mortality     = zero_
@@ -795,14 +834,23 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       IF(data%bivalves(biv_i)%Ing==2) FR = data%bivalves(biv_i)%Rgrz /0.5  ! FR = m3/s /m2
 
       ! Now determine available prey and limit grazing amount to availability of prey
-      ! food is total amount of food in units of mass/unit volume/unit time (mmolC/m2/s)
-      food = grazing * biv
+      !## NOTE(2026-09-24): was `food = grazing * biv`, with the comment below
+      !# claiming mass/volume/time but the units mmolC/m2/s.  Both cannot be
+      !# true, and it was the areal one: biv is a sheet variable.  The clamp
+      !# just below, and grazing_prey / grazing_n / grazing_p downstream, are
+      !# all compared or applied against Ctotal_prey and prey(), which are
+      !# mmolC/m3 -- so food must be volumetric.  (This block is inherited from
+      !# aed_zooplankton:511, where the equivalent variable IS 3D and the code
+      !# is correct as written.)  Using bivv makes every downstream quantity
+      !# volumetric and consistent with the prey pools.
+      ! food is total amount of food in units of mass/unit volume/unit time (mmolC/m3/s)
+      food = grazing * bivv
       IF (Ctotal_prey < data%bivalves(biv_i)%num_prey * data%bivalves(biv_i)%Cmin_grz ) THEN
          food = zero_
          grazing = zero_
       ELSEIF (food > Ctotal_prey - data%bivalves(biv_i)%num_prey * data%bivalves(biv_i)%Cmin_grz ) THEN
          food = Ctotal_prey - data%bivalves(biv_i)%num_prey * data%bivalves(biv_i)%Cmin_grz
-         grazing = food / MAX(biv,1e-2)  !/s
+         grazing = food / MAX(bivv,1e-2)  !/s   ## NOTE(2026-09-24) bivv, not biv
       ENDIF
 
       ! Now determine prey composition based on preference factors and availability of prey
@@ -899,20 +947,27 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
          mortality = mortality + data%bivalves(biv_i)%Rpred
       ENDIF
 
-      ! Calculate losses into the particulate organic matter pools - (mmolC/m2/s)
-      poc_excr = (psuedofaeces + egestion + mortality)*biv
+      !## NOTE(2026-09-24): *bivv, not *biv.  These three go straight into
+      !# _FLUX_VAR_(id_C/N/Pmorttarget) below, which is mmol/m3/s.
+      ! Calculate losses into the particulate organic matter pools - (mmolC/m3/s)
+      poc_excr = (psuedofaeces + egestion + mortality)*bivv
 
       pon_excr = (psuedofaeces * (grazing_n / MAX(food,1e-10))   &
-                   + (egestion + mortality)*data%bivalves(biv_i)%INC )*biv
+                   + (egestion + mortality)*data%bivalves(biv_i)%INC )*bivv
 
       pop_excr = (psuedofaeces * (grazing_p / MAX(food,1e-10))   &
-                   + (egestion + mortality)*data%bivalves(biv_i)%IPC )*biv
+                   + (egestion + mortality)*data%bivalves(biv_i)%IPC )*bivv
 
       ! Now we know the rates of carbon consumption and excretion, calculate
       ! the rates of n & p excretion to maintain internal nutrient stores
 
-      ! First, compute rate of change so far of bivalve carbon (mmolC/m2/s)
-      delta_C = (ingestion - respiration - egestion - excretion - mortality)*biv
+      !## NOTE(2026-09-24): *bivv, not *biv.  delta_C is used ONLY in the
+      !# don_excr/dop_excr balance below, which is a water-column budget and
+      !# must be in the same units as grazing_n/grazing_p and pon_excr/pop_excr.
+      !# The bivalve's own carbon tendency is formed separately, and correctly,
+      !# with *biv at the _FLUX_VAR_B_ site further down.
+      ! First, compute rate of change so far of bivalve carbon (mmolC/m3/s)
+      delta_C = (ingestion - respiration - egestion - excretion - mortality)*bivv
 
       ! Then calc nutrient excretion require to balance internal nutrient store
       ! Note pon_excr includes loss due to psuedofaeces so no need to include
@@ -967,7 +1022,10 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       ELSE
          doc_excr = zero_
       ENDIF
-      excretion = excretion+doc_excr/biv
+      !## NOTE(2026-09-24): /bivv, not /biv -- doc_excr is now volumetric, and
+      !# excretion is a specific rate (/s), so the divisor must match.  MAX()
+      !# guard added: at biv = 0 every term above is zero and this was 0/0.
+      excretion = excretion+doc_excr/MAX(bivv,1e-10)
 
       ! ELSEIF (don_excr < zero_) THEN !nitrogen limited
       !    don_excr = zero_
@@ -1027,30 +1085,38 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn)=_DIAG_VAR_(data%id_3d_exn) - gn*secs_per_day
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_exp)=_DIAG_VAR_(data%id_3d_exp) - gp*secs_per_day
 
-            IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_n)=_DIAG_VAR_S_(data%id_grz_n) + gn*secs_per_day
-            IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_p)=_DIAG_VAR_S_(data%id_grz_p) + gp*secs_per_day
+            !## NOTE(2026-09-24): *dz added.  gn/gp are volumetric (mmol/m3/s)
+            !# because grazing_prey is, but id_grz_n/p are SHEET diagnostics and
+            !# so have to be reported per m2 of bed.  (Pre-existing: this was
+            !# already mixing units before the biv/bivv fix.)
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_n)=_DIAG_VAR_S_(data%id_grz_n) + gn*dz*secs_per_day
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_grz_p)=_DIAG_VAR_S_(data%id_grz_p) + gp*dz*secs_per_day
          ENDDO
 
          ! Now manage excretion contributions to DOM/DIM pool
          IF (data%simDCexcr) THEN
+            !## NOTE(2026-09-24): *bivv, not *biv.  _FLUX_VAR_ is mmol/m**3/s
+            !# and id_3d_grz is registered 'mmolC/m**3/day', so both need the
+            !# volumetric biomass.  Every other term added into id_3d_grz below
+            !# (grazing_prey, poc_excr) is already volumetric.
             _FLUX_VAR_(data%id_Cexctarget) = &
-                           _FLUX_VAR_(data%id_Cexctarget) + excretion*biv !+ doc_excr
+                           _FLUX_VAR_(data%id_Cexctarget) + excretion*bivv !+ doc_excr
             IF (diag_level>2) &
-               _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + excretion*biv*secs_per_day
+               _DIAG_VAR_(data%id_3d_grz) = _DIAG_VAR_(data%id_3d_grz) + excretion*bivv*secs_per_day
          ENDIF
          IF (data%simDNexcr) THEN
             _FLUX_VAR_(data%id_Nexctarget) = _FLUX_VAR_(data%id_Nexctarget) + don_excr
             IF(diag_level>2) &
                _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn)   + don_excr*secs_per_day
-            IF(diag_level>9) &
-               _DIAG_VAR_S_(data%id_excr_n)=_DIAG_VAR_S_(data%id_excr_n) - don_excr*secs_per_day
+            IF(diag_level>9) &   !## NOTE(2026-09-24) *dz: sheet diag, volumetric source
+               _DIAG_VAR_S_(data%id_excr_n)=_DIAG_VAR_S_(data%id_excr_n) - don_excr*dz*secs_per_day
          ENDIF
          IF (data%simDPexcr) THEN
             _FLUX_VAR_(data%id_Pexctarget) = _FLUX_VAR_(data%id_Pexctarget) + dop_excr
             IF (diag_level>2) &
                _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp)   + dop_excr*secs_per_day
-            IF (diag_level>9) &
-               _DIAG_VAR_S_(data%id_excr_p)=_DIAG_VAR_S_(data%id_excr_p) - dop_excr*secs_per_day
+            IF (diag_level>9) &  !## NOTE(2026-09-24) *dz: sheet diag, volumetric source
+               _DIAG_VAR_S_(data%id_excr_p)=_DIAG_VAR_S_(data%id_excr_p) - dop_excr*dz*secs_per_day
          ENDIF
 
          ! Now manage psuedofaeces, egestion and mortality contributions to POM
@@ -1061,20 +1127,27 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
          IF (data%simPNexcr) THEN
             _FLUX_VAR_(data%id_Nmorttarget) = _FLUX_VAR_(data%id_Nmorttarget) + pon_excr
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_exn) = _DIAG_VAR_(data%id_3d_exn) + pon_excr*secs_per_day
-            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_n)=_DIAG_VAR_S_(data%id_egst_n) - pon_excr*secs_per_day
+            !## NOTE(2026-09-24) *dz: sheet diag, volumetric source
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_n)=_DIAG_VAR_S_(data%id_egst_n) - pon_excr*dz*secs_per_day
          ENDIF
          IF (data%simPPexcr) THEN
             _FLUX_VAR_(data%id_Pmorttarget) = _FLUX_VAR_(data%id_Pmorttarget) + pop_excr
             IF(diag_level>2) _DIAG_VAR_(data%id_3d_exp) = _DIAG_VAR_(data%id_3d_exp) + pop_excr*secs_per_day
-            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_p)=_DIAG_VAR_S_(data%id_egst_p) - pop_excr*secs_per_day
+            !## NOTE(2026-09-24) *dz: sheet diag, volumetric source
+            IF(diag_level>9) _DIAG_VAR_S_(data%id_egst_p)=_DIAG_VAR_S_(data%id_egst_p) - pop_excr*dz*secs_per_day
          ENDIF
 
          ! Now effects of respiration
+         !## NOTE(2026-09-24): *bivv, not *biv.  This was the single largest
+         !# error in the routine: with a 0.5 m bottom cell the bed's oxygen
+         !# demand was applied at half strength, and with a thin one it was
+         !# applied at many times strength.  The commented-out CO2 line below
+         !# has been given the same treatment so it stays correct if enabled.
          !IF (data%id_DOupttarget) THEN
-             _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) - respiration*biv
+             _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) - respiration*bivv
          !ENDIF
          !IF (data%id_CO2upttarget) THEN
-         !   _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) + respiration*biv
+         !   _FLUX_VAR_(data%id_DOupttarget) = _FLUX_VAR_(data%id_DOupttarget) + respiration*bivv
          !ENDIF
 
       ENDIF
@@ -1100,8 +1173,12 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       ENDIF
 
       ! Update biv_tracer
+      !## NOTE(2026-09-24): (fr*bivv), not (fr*biv).  id_bivtr is a 3D state
+      !# variable, so its flux is per m3.  (Fortran is case-insensitive, so the
+      !# `fr` here is the same variable as the `FR` filtration rate set above --
+      !# this line is live, not dead.)
       IF (data%id_bivtr>0) THEN
-         _FLUX_VAR_(data%id_bivtr) = _FLUX_VAR_(data%id_bivtr) + (fr*biv)*(1.-MIN(bt,1.)) - Rbt
+         _FLUX_VAR_(data%id_bivtr) = _FLUX_VAR_(data%id_bivtr) + (fr*bivv)*(1.-MIN(bt,1.)) - Rbt
       END IF
    ENDDO
 !
