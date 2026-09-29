@@ -1562,14 +1562,13 @@ SUBROUTINE aed_light_extinction_macrophyte(data, column, layer_idx, extinction)
 !
 !-------------------------------------------------------------------------------
 !BEGIN
-   extinction = zero_
-
    ! Check this cell is in an active zone for macrophytes
    matz = _STATE_VAR_S_(data%id_sed_zone)
    if ( .NOT. in_zone_set(matz, data%active_zones) ) return
 
    ! Recall extinction value (for this cell) recorded during column loop calculations
-   extinction = MIN( _DIAG_VAR_(data%id_kemac) , max_extc)
+   ! Accumulate, never assign: extinction holds earlier modules' contributions
+   extinction = extinction + MIN( _DIAG_VAR_(data%id_kemac) , max_extc)
 END SUBROUTINE aed_light_extinction_macrophyte
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
