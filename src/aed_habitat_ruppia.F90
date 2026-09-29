@@ -92,7 +92,6 @@ MODULE aed_habitat_ruppia
 
 !-------------------------------------------------------------------------------
 !MODULE VARIABLES
-   AED_REAL, PARAMETER :: DDT = 0.25/24.    ! Currently assuming 15 min timestep
    LOGICAL :: extra_diag = .false.
    INTEGER :: diag_level = 10                ! 0 = no diagnostic outputs
                                              ! 1 = basic diagnostic outputs
@@ -323,10 +322,10 @@ SUBROUTINE aed_calculate_riparian_habitat_ruppia(data,column,layer_idx,pc_wet)
 
     ! Inundation time counter and wetness checker
     IF( pc_wet < 0.1 ) THEN
-      _DIAG_VAR_S_(data%id_drytime) = _DIAG_VAR_S_(data%id_drytime) + DDT
+      _DIAG_VAR_S_(data%id_drytime) = _DIAG_VAR_S_(data%id_drytime) + aed_get_timestep()/secs_per_day
       IF( _DIAG_VAR_S_(data%id_drytime)>2. ) _DIAG_VAR_S_(data%id_wettime) = zero_
     ELSE
-      _DIAG_VAR_S_(data%id_wettime) = _DIAG_VAR_S_(data%id_wettime) + DDT
+      _DIAG_VAR_S_(data%id_wettime) = _DIAG_VAR_S_(data%id_wettime) + aed_get_timestep()/secs_per_day
       IF( _DIAG_VAR_S_(data%id_wettime)>2. )_DIAG_VAR_S_(data%id_drytime) = zero_
     ENDIF
 
