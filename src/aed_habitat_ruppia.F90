@@ -158,9 +158,13 @@ SUBROUTINE aed_define_habitat_ruppia(data, namlst)
    print *,"        aed_habitat_ruppia initialization"
    print *,"          WARNING! aed_habitat model is under development"
 
+   !# 2026-08-29 FIX: namelist defaults for the metal-toxicity arrays are set HERE, before
+   !#   the read, instead of being reset afterwards (which discarded the supplied values).
+   mtox_vars = '' ;  mtox_lims = 1.0
+
    ! Read the namelist
    read(namlst,nml=aed_habitat_ruppia,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_habitat'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_habitat'
 
    ! Update module level switches
    data%num_habitats = 0
@@ -184,7 +188,10 @@ SUBROUTINE aed_define_habitat_ruppia(data, namlst)
      mtox_acid_link = 'CAR_pH'
      mtox_aass_link = 'ASS_uzaass'
 
-     mtox_vars = '' ;  mtox_lims = 1.0
+     !# 2026-08-29 FIX: `mtox_vars = '' ; mtox_lims = 1.0` used to sit HERE, i.e. AFTER the
+     !#   namelist read, so it discarded whatever the user supplied and num_mtox was always
+     !#   0 - simMetalTox could never do anything. The defaults are now applied before the
+     !#   READ (see above), which is also what makes the '' terminator test below valid.
      num_mtox = 0
      DO i=1,10 ; IF (mtox_vars(i)  .EQ. '' ) THEN ; num_mtox = i-1 ; EXIT ; ENDIF ; ENDDO
      ALLOCATE(data%id_l_mtox(num_mtox)); ALLOCATE(data%mtox_lims(num_mtox))
@@ -210,7 +217,7 @@ SUBROUTINE aed_define_habitat_ruppia(data, namlst)
 !    rhsi_falg_link = 'MAG_ulva_ben'
 !    rhsi_salg_link = 'MAG_ulva'
    IF (rhsi_falg_link .EQ. "") THEN
-       STOP 'need to set rhsi_falg_link and rhsi_salg_link'
+       ERROR STOP 'need to set rhsi_falg_link and rhsi_salg_link'
    ENDIF
 
    data%id_l_salg  = aed_locate_variable(TRIM(rhsi_salg_link))
@@ -319,7 +326,9 @@ SUBROUTINE aed_calculate_riparian_habitat_ruppia(data,column,layer_idx,pc_wet)
     _DIAG_VAR_S_(data%id_rhsd) = rhsd
     _DIAG_VAR_S_(data%id_rhtr) = rhtr
     _DIAG_VAR_S_(data%id_rhsp) = rhsp
-    _DIAG_VAR_S_(data%id_rhsp) = rhtd
+    !# 2026-08-29 FIX: second line targeted id_rhsp again, overwriting the sprout metric
+    !#   with the turion-dormancy value and leaving id_rhtd never written.
+    _DIAG_VAR_S_(data%id_rhtd) = rhtd
 
     ! Inundation time counter and wetness checker
     IF( pc_wet < 0.1 ) THEN
