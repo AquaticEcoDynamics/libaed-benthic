@@ -249,7 +249,7 @@ SUBROUTINE aed_seagrass_load_params(data, dbase, count, list)
        print *,'Unknown file type "',TRIM(dbase),'"'; status=1
     ENDIF
 
-    IF (status /= 0) STOP 'Error reading seagrass database'
+    IF (status /= 0) ERROR STOP 'Error reading seagrass database'
 
     ALLOCATE(data%grasses(count))
     DO i=1,count
@@ -332,7 +332,7 @@ SUBROUTINE aed_define_habitat_seagrass(data, namlst)
 
    ! Read the namelist
    read(namlst,nml=aed_habitat_seagrass,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_habitat'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_habitat'
 
    ! Update module level switches
     data%num_habitats = 0
