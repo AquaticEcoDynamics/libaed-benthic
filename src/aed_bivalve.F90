@@ -305,7 +305,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
            bivalve_param%name = ''
            open(NEWUNIT=tfil,file=dbase, status='OLD',iostat=status)
-           IF (status /= 0) STOP 'Error opening bivalves_params namelist file'
+           IF (status /= 0) ERROR STOP 'Error opening bivalves_params namelist file'
            read(tfil,nml=bivalve_params,iostat=status)
            close(tfil)
            dbsize = 0
@@ -317,7 +317,7 @@ SUBROUTINE aed_bivalve_load_params(data, dbase, count, list, X_c)
        CASE DEFAULT
            print *,'Unknown file type "',TRIM(dbase),'"'; status=1
     END SELECT
-    IF (status /= 0) STOP 'Error reading namelist bivalves_params'
+    IF (status /= 0) ERROR STOP 'Error reading namelist bivalves_params'
 
     data%num_biv = 0
     allocate(data%bivalves(count))
@@ -471,7 +471,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
 
    ! Read the namelist
    read(namlst,nml=aed_bivalve,iostat=status)
-   IF (status /= 0) STOP 'ERROR reading namelist aed_bivalve'
+   IF (status /= 0) ERROR STOP 'ERROR reading namelist aed_bivalve'
 
    IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
 
@@ -563,7 +563,7 @@ SUBROUTINE aed_define_bivalve(data, namlst)
      data%id_Cmorttarget = aed_locate_variable(pc_target_variable)
    ENDIF
 
-   IF (do_uptake_variable .EQ. '') STOP 'bivalve needs DO uptake variable'
+   IF (do_uptake_variable .EQ. '') ERROR STOP 'bivalve needs DO uptake variable'
    data%id_DOupttarget = aed_locate_variable(do_uptake_variable)
 
    data%simSSlim = ss_uptake_variable .NE. ''
@@ -862,8 +862,12 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
          DO prey_i = 1,data%bivalves(biv_i)%num_prey
             ! Add up preferences for remaining prey
             pref_factor = zero_
+            !# 2026-08-29 FIX: the loop body subscripted prey() with biv_i (the BIVALVE
+            !#   group index) instead of the loop variable prey_j, so the same preference
+            !#   was summed num_prey times - and it read out of bounds whenever
+            !#   biv_i > num_prey.
             DO prey_j = prey_i,data%bivalves(biv_i)%num_prey
-               pref_factor = pref_factor + data%bivalves(biv_i)%prey(biv_i)%Pbiv_prey
+               pref_factor = pref_factor + data%bivalves(biv_i)%prey(prey_j)%Pbiv_prey
             ENDDO
             IF (food * data%bivalves(biv_i)%prey(prey_i)%Pbiv_prey / pref_factor <= &
                               prey(prey_i) - data%bivalves(biv_i)%Cmin_grz) THEN
