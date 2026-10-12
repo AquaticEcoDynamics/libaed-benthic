@@ -184,9 +184,13 @@ SUBROUTINE aed_define_habitat_galaxiid(data, namlst)
    print *,"        aed_habitat_galaxiid initialization"
    print *,"          WARNING! aed_habitat model is under development"
 
+   !# 2026-08-29 FIX: namelist defaults for the metal-toxicity arrays are set HERE, before
+   !#   the read, instead of being reset afterwards (which discarded the supplied values).
+   mtox_vars = '' ;  mtox_lims = 1.0
+
    ! Read the namelist
    read(namlst,nml=aed_habitat_galaxiid,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_habitat'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_habitat'
 
    ! Update module level switches
    data%num_habitats = 0
@@ -216,7 +220,10 @@ SUBROUTINE aed_define_habitat_galaxiid(data, namlst)
      mtox_acid_link = 'CAR_pH'
      mtox_aass_link = 'ASS_uzaass'
 
-     mtox_vars = '' ;  mtox_lims = 1.0
+     !# 2026-08-29 FIX: `mtox_vars = '' ; mtox_lims = 1.0` used to sit HERE, i.e. AFTER the
+     !#   namelist read, so it discarded whatever the user supplied and num_mtox was always
+     !#   0 - simMetalTox could never do anything. The defaults are now applied before the
+     !#   READ (see above), which is also what makes the '' terminator test below valid.
      num_mtox = 0
      DO i=1,10 ; IF (mtox_vars(i)  .EQ. '' ) THEN ; num_mtox = i-1 ; EXIT ; ENDIF ; ENDDO
      ALLOCATE(data%id_l_mtox(num_mtox)); ALLOCATE(data%mtox_lims(num_mtox))
@@ -259,7 +266,7 @@ SUBROUTINE aed_define_habitat_galaxiid(data, namlst)
 !    rhsi_falg_link = 'MAG_ulva_ben'
 !    rhsi_salg_link = 'MAG_ulva'
      IF (rhsi_falg_link .EQ. "") THEN
-         STOP 'need to set rhsi_falg_link and rhsi_salg_link'
+         ERROR STOP 'need to set rhsi_falg_link and rhsi_salg_link'
      ENDIF
 
      data%id_l_salg  = aed_locate_variable(TRIM(rhsi_salg_link))
@@ -307,8 +314,14 @@ SUBROUTINE aed_define_habitat_galaxiid(data, namlst)
 
      chhsi_falg_link = 'MAG_cladophora_ben'
      chhsi_salg_link = 'MAG_cladophora'
-     data%id_l_salg  = 0 !aed_locate_variable(TRIM(rhsi_salg_link))
-     data%id_l_falg  = 0 !aed_locate_sheet_variable(TRIM(rhsi_falg_link))
+     !# 2026-08-29 FIX: this block used to zero id_l_salg/id_l_falg unconditionally, but
+     !#   the Ruppia template above sets them and the Ruppia calculation still reads them
+     !#   (see the falg/salg lines around 461-462) - a column(0) index whenever both templates
+     !#   were switched on. Only clear them if the Ruppia template did not claim them.
+     IF( simRuppiaHabitat<=0 ) THEN
+       data%id_l_salg  = 0 !aed_locate_variable(TRIM(rhsi_salg_link))
+       data%id_l_falg  = 0 !aed_locate_sheet_variable(TRIM(rhsi_falg_link))
+     ENDIF
 
      chhsi_ncs1_link = 'NCS_fs1'
      chhsi_ncs2_link = 'NCS_fs2'

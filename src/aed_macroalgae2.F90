@@ -147,10 +147,10 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
 !BEGIN
     ALLOCATE(pd(MAX_PHYTO_TYPES))
     open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
-    IF (status /= 0) STOP 'Cannot open malgae_data namelist file: ' !,dbase
+    IF (status /= 0) ERROR STOP 'Cannot open malgae_data namelist file: ' !,dbase
     read(tfil,nml=malgae_data,iostat=status)
     close(tfil)
-    IF (status /= 0) STOP 'Error reading namelist malgae_data'
+    IF (status /= 0) ERROR STOP 'Error reading namelist malgae_data'
 
     data%simCGM = 0
 
@@ -161,7 +161,9 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling, resusp
     ALLOCATE(data%id_ip(count)) ; data%id_ip(:) = 0
     ALLOCATE(data%id_rho(count)) ; data%id_rho(:) = 0
     ALLOCATE(data%id_NtoP(count)) ; data%id_NtoP(:) = 0
-    ALLOCATE(data%id_pben(count)) ; data%id_p(:) = 0
+    !# 2026-08-29 FIX: was `data%id_p(:) = 0` - a copy-paste that re-zeroed id_p (already
+    !#   zeroed three lines up) and left id_pben with whatever ALLOCATE gave it.
+    ALLOCATE(data%id_pben(count)) ; data%id_pben(:) = 0
     ALLOCATE(data%id_inben(count)) ; data%id_inben(:) = 0
     ALLOCATE(data%id_ipben(count)) ; data%id_ipben(:) = 0
     IF ( diag_level >= 10 ) THEN
@@ -450,7 +452,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 
    ! Read the namelist, and set module parameters
    read(namlst,nml=aed_macroalgae,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_macroalgae'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_macroalgae'
    dtlim = zerolimitfudgefactor
    IF( extra_debug ) extra_diag = .true.       ! legacy use of extra_debug
    IF ( extra_diag ) diag_level = 10
@@ -488,11 +490,14 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
      data%id_Pexr = aed_locate_variable( p_excretion_target_variable)
    ENDIF
    data%do_Nexc = n_excretion_target_variable .NE. ''
-   IF (data%do_Pexc) THEN
+   !# 2026-08-29 FIX: guard was `data%do_Pexc` (copy-paste) for both the N and the C
+   !#   excretion targets, so id_Nexr / id_Cexr were located only when a PHOSPHORUS
+   !#   target was named, and were left unset otherwise.
+   IF (data%do_Nexc) THEN
      data%id_Nexr = aed_locate_variable( n_excretion_target_variable)
    ENDIF
    data%do_Cexc = c_excretion_target_variable .NE. ''
-   IF (data%do_Pexc) THEN
+   IF (data%do_Cexc) THEN
      data%id_Cexr = aed_locate_variable( c_excretion_target_variable)
    ENDIF
    data%do_Siexc = si_excretion_target_variable .NE. ''
@@ -696,8 +701,13 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
    !-- Loop through the floating macroalgal groups
    DO mag_i=1,data%num_malgae
 
-      IF ( mag_i==data%simCGM ) CYCLE  ! Don't grow CGM slough
-
+      !# 2026-08-29 FIX: the per-group working arrays are zeroed BEFORE the CGM CYCLE.
+      !#   They are automatic (stack) arrays with no initial value, so for the CGM group
+      !#   they used to be left undefined - yet the derivative loop further down
+      !#   ("SET TEMPORAL DERIVATIVES FOR ODE SOLVER") has no matching CYCLE and reads
+      !#   primprod/respiration/exudation/nuptake/puptake for every group, as do the
+      !#   sum(cuptake)/sum(nuptake)/sum(siuptake) uptake limiters above it.
+      !#   aed_macroalgae.F90 has no such CYCLE and initialises every group.
       a_nfix(mag_i)      = zero_
       primprod(mag_i)    = zero_
       exudation(mag_i)   = zero_
@@ -712,6 +722,11 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
       puptake(mag_i,:)   = zero_
       pexcretion(mag_i)  = zero_
       pmortality(mag_i)  = zero_
+      siuptake(mag_i)    = zero_
+      siexcretion(mag_i) = zero_
+      simortality(mag_i) = zero_
+
+      IF ( mag_i==data%simCGM ) CYCLE  ! Don't grow CGM slough
 
       ! Retrieve this macroalgae group
       phy = _STATE_VAR_(data%id_p(mag_i))
@@ -768,7 +783,7 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
       IF (data%malgs(mag_i)%simNFixation /= 0) THEN
          ! Nitrogen fixer: apply no N limitation. N Fixation ability
          ! depends on DIN concentration
-         a_nfix = (one_ - fNit)
+         a_nfix(mag_i) = (one_ - fNit)  !# 2026-08-29 FIX: was a whole-array assign
          fNit = one_
       ENDIF
 
@@ -1089,7 +1104,10 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
    AED_REAL :: siuptake(data%num_malgae), siexcretion(data%num_malgae), simortality(data%num_malgae)
    AED_REAL :: fT, fNit, fPho, fSil, fXl, fSal, PNf
    AED_REAL :: upTot, net_cuptake, available, flux
-   AED_REAL :: slough_frac = zero_
+   !# 2026-08-29 FIX: dropped the `= zero_` declaration initialiser. In Fortran that
+   !#   implies SAVE, so slough_frac persisted across cells, columns and timesteps.
+   !#   It is now reset explicitly at the top of the sloughing block below.
+   AED_REAL :: slough_frac
 !
 !-------------------------------------------------------------------------------
 !BEGIN
@@ -1112,6 +1130,11 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
   _DIAG_VAR_S_(data%id_mag_ben) = zero_
   _DIAG_VAR_S_(data%id_min_ben) = zero_
   _DIAG_VAR_S_(data%id_mip_ben) = zero_
+  !# 2026-08-29 FIX: gpp_ben/nmp_ben are now reset here so they can be ACCUMULATED over
+  !#   the group loop below (they were assigned with `=` inside the loop, so only the
+  !#   last group survived). Mirrors aed_macroalgae.F90:1300-1301 / :1593-1597.
+  _DIAG_VAR_S_(data%id_gpp_ben) = zero_
+  _DIAG_VAR_S_(data%id_nmp_ben) = zero_
 
   !-- Loop through selected groups, determining if benthic/attached is active
   DO mag_i=1,data%num_malgae
@@ -1210,7 +1233,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
        IF (data%malgs(mag_i)%simNFixation /= 0) THEN
           ! Nitrogen fixer: apply no N limitation. N Fixation ability
           ! depends on DIN concentration
-          a_nfix = (one_ - fNit)
+          a_nfix(mag_i) = (one_ - fNit)  !# 2026-08-29 FIX: was a whole-array assign
           fNit = one_
        ENDIF
 
@@ -1319,8 +1342,10 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
      _DIAG_VAR_S_(data%id_mip_ben) = _DIAG_VAR_S_(data%id_mip_ben) + IPi
 
      !# Record gross productivity and repsiration rates (/day)
-     _DIAG_VAR_S_(data%id_gpp_ben) = cuptake(mag_i) *secs_per_day
-     _DIAG_VAR_S_(data%id_nmp_ben) = malg_flux *secs_per_day
+     !# 2026-08-29 FIX: accumulate over groups (was `=`, so only the last group's value
+     !#   reached the output while the neighbouring mag_ben/min_ben/mip_ben summed).
+     _DIAG_VAR_S_(data%id_gpp_ben) = _DIAG_VAR_S_(data%id_gpp_ben) + cuptake(mag_i) *secs_per_day
+     _DIAG_VAR_S_(data%id_nmp_ben) = _DIAG_VAR_S_(data%id_nmp_ben) + malg_flux *secs_per_day
 
 
      !# Update the attached (carbon) biomass based on the net growth rate
@@ -1366,12 +1391,22 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
 
 
       !# Redistribute biomass into the water column if sloughing occurs.
+      !# 2026-08-29 FIX: reset slough_frac for every group/cell. Combined with the missing
+      !#   ELSE below and the (removed) SAVE-implying declaration initialiser, once a storm
+      !#   set slough_frac it never returned to zero again.
+      slough_frac = zero_
       IF( data%simSloughing == 1) THEN
         ! The Coorong Ulva approach
+        !# 2026-08-29 FIX: 0.3 / 0.67 are per-EVENT fractions, but slough_frac is applied
+        !#   below as a per-second rate (_FLUX_VAR_ terms are rates). Convert with the
+        !#   timestep, as aed_macroalgae.F90:1663-1665 does.
         IF( bottom_stress>data%slough_stress*2. ) THEN
-          slough_frac = 0.3
+          slough_frac = 0.3 / (DTday*secs_per_day)
         ELSEIF( bottom_stress>data%slough_stress .AND. salinity>60.) THEN
-          slough_frac = 0.67
+          slough_frac = 0.67 / (DTday*secs_per_day)
+        ELSE
+          !# 2026-08-29 FIX: this ELSE was missing
+          slough_frac = zero_
         ENDIF
       ELSEIF( data%simSloughing == 2) THEN
         ! The Erie CGM approach

@@ -156,7 +156,12 @@ MODULE aed_macrophyte
       INTEGER :: id_canopy_stem_diam, id_canopy_stem_dens, id_canopy_height, id_canopy_biovolume
       INTEGER :: id_canopy_sh_dens, id_canopy_sh_diam, id_canopy_frarea
       INTEGER :: id_canopy_velocity, id_canopy_drag, id_canopy_blockage, id_canopy_lai
-      INTEGER :: id_parc, id_aeff, id_kemac, id_mac_fr, id_mac_ft, id_mac_gt
+      INTEGER :: id_parc, id_aeff, id_kemac
+      !# 2026-08-29 FIX: default-initialised to -1. These are registered only inside
+      !#   IF (ANY(mpars%fruit_model > 0)) in aed_define_macrophyte, but were read/written
+      !#   under the different test `data%simFruiting` (and, for id_mac_gt, with no test at
+      !#   all), so an unset id indexed the diagnostic column at 0.
+      INTEGER :: id_mac_fr = -1, id_mac_ft = -1, id_mac_gt = -1
       INTEGER :: id_oxy, id_dic, id_nox, id_nh4, id_po4
       INTEGER :: id_doc, id_don, id_dop
 
@@ -403,13 +408,13 @@ SUBROUTINE aed_macrophyte_load_params(data, dbase, count, list)
            status = load_csv(dbase, md)
        CASE (NML_TYPE)
            open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
-           IF (status /= 0) STOP 'Cannot open macrophyte_data namelist file for macrophytes'
+           IF (status /= 0) ERROR STOP 'Cannot open macrophyte_data namelist file for macrophytes'
            read(tfil,nml=macrophyte_data,iostat=status)
            close(tfil)
        CASE DEFAULT
            print *,'Unknown file type "',TRIM(dbase),'"'; status=1
     END SELECT
-    IF (status /= 0) STOP 'Error reading namelist macrophyte_data for macrophytes'
+    IF (status /= 0) ERROR STOP 'Error reading namelist macrophyte_data for macrophytes'
 
     data%num_mphy = count
     ALLOCATE(data%mpars(count))
@@ -600,7 +605,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
    ! Read the namelist
    read(namlst,nml=aed_macrophyte,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_macrophyte'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_macrophyte'
 
    data%simStaticBiomass = simStaticBiomass
    data%simMacFeedback = simMacFeedback
@@ -938,6 +943,14 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 !-------------------------------------------------------------------------------
 !BEGIN
 
+   !# 2026-08-29 NOTE - DELIBERATELY LEFT IN PLACE. This bare RETURN disables the whole
+   !#   layer-resolved column model: id_kemac is therefore never written here, and
+   !#   aed_light_extinction_macrophyte (below) reads it as whatever the host left in the
+   !#   diagnostic array. The two latent defects that were hiding behind this RETURN have
+   !#   been fixed below (`temp` was used but never assigned; an operator-precedence error
+   !#   in the epiphyte self-shading term), but the RETURN itself is NOT removed here - the
+   !#   epiphyte flux terms in this routine still need the same benthic-vs-pelagic scaling
+   !#   review as aed_calculate_benthic_macrophyte, and enabling it would change results.
    RETURN
 
    ! Check this column is in an active zone for macrophytes
@@ -949,6 +962,9 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
 
    ! Set column environmental conditions (from host)
    yearday  = _STATE_VAR_S_(data%id_yearday)
+   !# 2026-08-29 FIX: `temp` was declared and used (epiphyte growth/respiration theta terms
+   !#   below) but never assigned in this routine - an uninitialised read.
+   temp = _STATE_VAR_(data%id_tem)             ! temperature
    extc = _STATE_VAR_(data%id_extc)            ! extinction
    par = _STATE_VAR_(data%id_par)              ! photosynthetically active radiation
    dz = _STATE_VAR_(data%id_dz)                ! cell thickness
@@ -1025,8 +1041,11 @@ SUBROUTINE aed_calculate_column_macrophyte(data,column,layer_map)
          ! Compute photosynthesis and respiration
          epi =  _STATE_VAR_S_(data%id_epi) * canopy_frac ! biomass of epiphytes in this layer
          fI = photosynthesis_irradiance(10,data%I_Kepi,data%I_Kepi,canopy_par,extc,Io,dz)
+         !# 2026-08-29 FIX: operator precedence. `MIN(...)/data%epi_max*canopy_frac` parses
+         !#   as `(MIN(...)/epi_max)*canopy_frac`, not as division by the layer's carrying
+         !#   capacity `epi_max*canopy_frac`. Parenthesised.
          epi_prod = data%R_epig*fI*(data%theta_epi_growth**(temp-20.))* &
-                       (1.-(MIN(epi,data%epi_max*canopy_frac)/data%epi_max*canopy_frac))
+                       (1.-(MIN(epi,data%epi_max*canopy_frac)/(data%epi_max*canopy_frac)))
          epi_resp = (data%R_epir*(data%theta_epi_resp**(temp-20.)))
          epi_flux = (epi_prod-epi_resp)*epi * (canopy_leaf_area/dz)
 
@@ -1166,13 +1185,18 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
    _DIAG_VAR_S_(data%id_gpp) = zero_
 
    !IF (data%mpars(mi)%fruit_model == 1) THEN
-   IF( data%simFruiting ) THEN
-      _DIAG_VAR_S_(data%id_mac_fr) = zero_
-      _DIAG_VAR_S_(data%id_mac_ft) = zero_
-   ENDIF
+   !# 2026-08-29 FIX: test the id itself, not data%simFruiting. Registration is conditional
+   !#   on ANY(mpars%fruit_model > 0) (aed_define_macrophyte), which is NOT the same test:
+   !#   with simFruiting = .true. and every fruit_model = 0 the ids stay unregistered, and
+   !#   these became writes/reads through an unset index. id_mac_gt was read with no test
+   !#   at all.
+   IF( data%simFruiting .AND. data%id_mac_fr > 0 ) _DIAG_VAR_S_(data%id_mac_fr) = zero_
+   IF( data%simFruiting .AND. data%id_mac_ft > 0 ) _DIAG_VAR_S_(data%id_mac_ft) = zero_
 
    ! Initialise fruit growth control variables
-   trigger_fruit_growth = _DIAG_VAR_S_(data%id_mac_gt)    ! =0 when start releasing
+   trigger_fruit_growth = zero_
+   IF( data%id_mac_gt > 0 ) &
+      trigger_fruit_growth = _DIAG_VAR_S_(data%id_mac_gt) ! =0 when start releasing
    MAC_F = zero_                                          ! default fruit mass
 
    !--- LOOP THROUGH EACH GROUP/SPECIES
@@ -1281,7 +1305,14 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
          ! use Baird approach with AED spectrally-resolved light
 
          light_int = _DIAG_VAR_S_(data%id_parc)           ! light capture by plant leaves (returned from OASIM)
-         factor    = 1./(h*c*Av*1e9)                      ! conversion constant of photons from W/m2 to photon/m2/s
+         !# 2026-08-29 FIX: mol photon per joule is lambda[nm]/(h*c*N_A*1e9); the wavelength
+         !#   term was missing here, leaving `factor` short by a factor of ~550 and kI (and
+         !#   hence primprod) correspondingly small. light_model==2 supplies the wavelength
+         !#   inside light_int via the WLmid weighting of its spectral integral, but the
+         !#   OASIM-derived light_int used here is a plain W/m2 so it has to be applied
+         !#   explicitly. 550 nm is the mid-PAR reference this routine already uses for its
+         !#   photon<->carbon conversions (factor2 = 550./5500.*1000. below).
+         factor    = 550.0/(h*c*Av*1e9)                   ! conversion constant of photons from W/m2 to photon/m2/s
          kI        = factor*light_int                     ! rate of photon capture, mol photon/m2/s;
          primprod(mi) = kI  !?
 
@@ -1402,27 +1433,32 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
      ENDIF
 
      !--- FEEDBACK TO WATER COLUMN (NUTRIENTS, OXYGEN)
+     !# 2026-08-29 FIX: removed the `/dz` from every pelagic term below. This is a benthic
+     !#   routine, and the HOST already divides flux_pel by the layer height after
+     !#   aed_calculate_benthic returns (GLM/src/glm_aed.F90:1731/1758/1774) - so these were
+     !#   divided by dz twice, i.e. under-fed the water column by a further factor of dz.
+     !#   aed_macroalgae2.F90:1349-1363 does the equivalent correctly (no division).
      IF( data%simMacFeedback .and. dz>0.05 ) THEN
         IF(data%id_oxy>0)&
-          _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + npp/dz
+          _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + npp
         IF(data%id_dic>0)&
-          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp/dz
+          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp
 
         ! ASSUMED NUTRIENT STOICHIOMETRY FOR NOW - NEED TO ADD SPECIES SPECIFIC VALUES FOR N and P
         IF(npp>0) THEN
           IF(data%id_nox>0) _FLUX_VAR_(data%id_nox) = &
-                   _FLUX_VAR_(data%id_nox) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+                   _FLUX_VAR_(data%id_nox) - npp * (16./106.) * 0.5 * data%water_nutrient_frac
           IF(data%id_nh4>0) _FLUX_VAR_(data%id_nh4) = &
-                   _FLUX_VAR_(data%id_nh4) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+                   _FLUX_VAR_(data%id_nh4) - npp * (16./106.) * 0.5 * data%water_nutrient_frac
           IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
-                   _FLUX_VAR_(data%id_po4) - (npp/dz) * (1./106.) * data%water_nutrient_frac
+                   _FLUX_VAR_(data%id_po4) - npp * (1./106.) * data%water_nutrient_frac
         ELSEIF(npp<0) THEN
          IF(data%id_doc>0) _FLUX_VAR_(data%id_doc) = &
-                   _FLUX_VAR_(data%id_doc) - (npp/dz) * data%water_excr_frac
+                   _FLUX_VAR_(data%id_doc) - npp * data%water_excr_frac
          IF(data%id_don>0) _FLUX_VAR_(data%id_don) = &
-                   _FLUX_VAR_(data%id_don) - (npp/dz) * (16./106.) * data%water_excr_frac
+                   _FLUX_VAR_(data%id_don) - npp * (16./106.) * data%water_excr_frac
          IF(data%id_dop>0) _FLUX_VAR_(data%id_dop) = &
-                   _FLUX_VAR_(data%id_dop) - (npp/dz) * (1./106.) * data%water_excr_frac
+                   _FLUX_VAR_(data%id_dop) - npp * (1./106.) * data%water_excr_frac
         ENDIF
      ENDIF
 
@@ -1497,19 +1533,22 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi
 
       ! Add/remove any metabolism products to this water layer
+      !# 2026-08-29 FIX: removed the `/dz` from every pelagic term below - same defect as
+      !#   the macrophyte feedback block above: the host divides flux_pel by the layer
+      !#   height after aed_calculate_benthic returns, so these were double-divided.
       IF( data%simMacFeedback .and. dz>0.05 ) THEN
         ! Update flux terms for O2 (mmol O2/m2/s)
 
-         _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux/dz
+         _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
         IF (data%id_dic>0 ) THEN
           ! Update flux terms for CO2 (mmol C/m2/s)
-          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux/dz
+          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux
         ENDIF
         IF (data%id_nox>0 ) THEN
           ! Update flux terms for nitrogen (mmol N/m2/s)
           ratio = data%epi_Xnc
-          _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5 /dz
-          _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5 /dz
+          _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5
+          _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5
           ! log this uptake into the bulk community N uptake diagnostic (mmol N/m3/d)
           !   _DIAG_VAR_(data%id_NUP1)= _DIAG_VAR_(data%id_NUP1)- (epi_flux) * ratio *0.5 * secs_per_day
           !   _DIAG_VAR_(data%id_NUP2)= _DIAG_VAR_(data%id_NUP2)- (epi_flux) * ratio *0.5 * secs_per_day
@@ -1517,7 +1556,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
         IF (data%id_po4>0 ) THEN
           ! Update flux terms for phosphate (mmol P/m2/s)
           ratio = data%epi_Xpc
-          _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio /dz
+          _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio
           ! log this uptake into the bulk community P uptake diagnostic (mmol P/m3/d)
           !   _DIAG_VAR_(data%id_PUP) = _DIAG_VAR_(data%id_PUP) - mpb_flux * ratio * secs_per_day
         ENDIF
@@ -1664,8 +1703,26 @@ FUNCTION vegetation_drag(n,vp,d,Sx,Sy,Ub,hv,Cd) RESULT(Uc)
      Uc    = (1-Lambdap) * Up/(1-d*nSqrt)
    ENDIF
 
-   Rec = Uc * d / nu            ! Stem Reynolds number
-   Cd  = 1 + Rec**(-2/3)        ! Drag coefficient
+      !# 2026-08-29 FIX: `10**(-6)` is INTEGER**INTEGER = 0, so nu was 0 and Rec below
+      !#   divided by zero.
+      nu = 1.0e-6                  ! Kinematic viscosity of water
+      Lambdap = n * 3.1418  * d**2 / 4  ! Planar area (dimensionless)
+      Up = Ub / (1-Lambdap);       ! Pore velocity (m/s)
+
+      IF (vp == 1) THEN
+        !(a) If linear or staggered arrangement, use a constricted velocity
+        Beta  = Sx / Sy
+        Uc    = (1-Lambdap) * Up/(1-sqrt(4*Lambdap/(3.1418 *Beta)))
+      ELSE
+        !(b) If random array of stems, use the following relationship for Uc :
+        nSqrt = sqrt(REAL(n))
+        Uc    = (1-Lambdap) * Up/(1-d*nSqrt)
+      ENDIF
+
+      Rec = Uc * d / nu            ! Stem Reynolds number
+      !# 2026-08-29 FIX: `-2/3` is INTEGER division = 0, so Rec**0 = 1 and Cd was always 2.
+      Cd  = 1. + Rec**(-2./3.)     ! Drag coefficient
+
 END FUNCTION vegetation_drag
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

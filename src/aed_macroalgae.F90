@@ -312,13 +312,13 @@ SUBROUTINE aed_macroalgae_load_params(data, dbase, count, list, settling,      &
        CASE (NML_TYPE)
            print*,"nml format parameter file is deprecated. Please update to CSV format"
            open(NEWUNIT=tfil,file=dbase, status='OLD', iostat=status)
-           IF (status /= 0) STOP 'Cannot open malgae_data namelist file: ' !,dbase
+           IF (status /= 0) ERROR STOP 'Cannot open malgae_data namelist file: ' !,dbase
            read(tfil,nml=malgae_data,iostat=status)
            close(tfil)
        CASE DEFAULT
            print *,'Unknown file type "',TRIM(dbase),'"'; status=1
     END SELECT
-    IF (status /= 0) STOP 'Error reading namelist malgae_data'
+    IF (status /= 0) ERROR STOP 'Error reading namelist malgae_data'
 
     !---------------------------------------------------------------------------
     data%cgmGroup = 0
@@ -777,7 +777,7 @@ SUBROUTINE aed_define_macroalgae(data, namlst)
 
    ! Read the namelist, and set module parameters
    read(namlst,nml=aed_macroalgae,iostat=status)
-   IF (status /= 0) STOP 'Error reading namelist aed_macroalgae'
+   IF (status /= 0) ERROR STOP 'Error reading namelist aed_macroalgae'
    IF( extra_debug )  extra_diag = .true.       ! legacy use of extra_debug
    IF( extra_diag )   diag_level = 10           ! legacy use of extra_debug
    data%min_rho = min_rho ; data%max_rho = max_rho
@@ -1208,7 +1208,7 @@ SUBROUTINE aed_calculate_macroalgae(data,column,layer_idx)
         IF (data%malgs(mag_i)%simNFixation /= 0) THEN
          ! Nitrogen fixer: apply no N limitation. N Fixation ability
          ! depends on DIN concentration
-         a_nfix = (one_ - fNit)
+         a_nfix(mag_i) = (one_ - fNit)  !# 2026-08-29 FIX: was a whole-array assign
          fNit = one_
         ENDIF
 
@@ -1634,7 +1634,7 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          IF (data%malgs(mag_i)%simNFixation /= 0) THEN
            ! Nitrogen fixer: apply no N limitation. N Fixation ability
            ! depends on DIN concentration
-           a_nfix = (one_ - fNit)
+           a_nfix(mag_i) = (one_ - fNit)  !# 2026-08-29 FIX: was a whole-array assign
            fNit = one_
          ENDIF
 
@@ -1713,7 +1713,11 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          !fSal = fSal_function(salinity, minS, Smin, Smax, maxS )
          !fSal = one_  !fSal_function(salinity, 5., 18., 35., 45. )
 
-         !salt = salinity       !COORONG (Ulva) Make me flexible
+         !# 2026-08-29 FIX: `salt` was read by the fSal ramp below but never assigned (this
+         !#   line was commented out with the ramp above it). The ramp's result is overwritten
+         !#   a few lines later by phyto_salinity(), so there is no numerical consequence, but
+         !#   it was an uninitialised read that traps under -ffpe-trap / -finit-real=snan.
+         salt = salinity        !COORONG (Ulva) Make me flexible
          !IF( salt<=5. ) THEN
         !   fSal = zero_
         ! ELSE IF ( salt>5. .AND. salt<=18.  ) THEN
@@ -1948,19 +1952,25 @@ SUBROUTINE aed_calculate_benthic_macroalgae(data,column,layer_idx)
          ENDIF
 
          ! Now apply the rate of sloughing to the benthic biomass variable, and add to water pool
+         !# 2026-08-29 FIX: removed the `/depth` from the three pelagic terms. The benthic
+         !#   side removes slough_frac*X per m2 while the pelagic side added the same mass
+         !#   already divided by depth - and the HOST then divides flux_pel by the layer
+         !#   height again after aed_calculate_benthic returns (GLM/src/glm_aed.F90:1731).
+         !#   The neighbouring water-column feedback terms above (id_Cupttarget etc.) do not
+         !#   divide, so the sloughing terms were inconsistent within this same routine.
          _FLUX_VAR_B_(data%id_pben(mag_i)) = _FLUX_VAR_B_(data%id_pben(mag_i)) - (slough_frac*malg) !/DTsec
          _FLUX_VAR_(data%id_p(mag_i)) = _FLUX_VAR_(data%id_p(mag_i)) +              &
-                                                     ((slough_frac*malg)/depth) !/DTsec
+                                                     (slough_frac*malg) !/DTsec
          IF (data%malgs(mag_i)%simIPDynamics /= 0) THEN
           _FLUX_VAR_B_(data%id_ipben(mag_i)) = _FLUX_VAR_B_(data%id_ipben(mag_i)) - &
                                                      (slough_frac*_STATE_VAR_S_(data%id_ipben(mag_i))) !/DTsec
           _FLUX_VAR_(data%id_ip(mag_i)) = _FLUX_VAR_(data%id_ip(mag_i)) +           &
-                                                     ((slough_frac*IPi)/depth) !/DTsec
+                                                     (slough_frac*IPi) !/DTsec
          ENDIF
          IF (data%malgs(mag_i)%simINDynamics /= 0) THEN
           _FLUX_VAR_B_(data%id_inben(mag_i)) = _FLUX_VAR_B_(data%id_inben(mag_i)) - (slough_frac*INi) !/DTsec
           _FLUX_VAR_(data%id_in(mag_i)) = _FLUX_VAR_(data%id_in(mag_i)) + &
-                                                     ((slough_frac*INi)/depth) !/DTsec
+                                                     (slough_frac*INi) !/DTsec
          ENDIF
          IF (diag_level>1) THEN
           !_DIAG_VAR_S_(data%id_slg_ben) = _DIAG_VAR_S_(data%id_slg_ben) - (slough_frac*malg/DTsec)*secs_per_day
