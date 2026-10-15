@@ -713,7 +713,12 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
       data%id_nox = aed_locate_variable('NIT_nit')
       data%id_nh4 = aed_locate_variable('NIT_amm')
       data%id_po4 = aed_locate_variable('PHS_frp')
-      data%id_dic = 0 !aed_locate_sheet_variable('CAR_dic')
+      !# DIC is a water-column state of aed_carbon. Link it when that module is
+      !# configured (aed_find_variable does not create a placeholder), so the
+      !# plants' photosynthesis and respiration exchange carbon (K8).
+      data%id_dic = 0
+      IF ( aed_find_variable('CAR_dic') /= 0 ) data%id_dic = aed_locate_variable('CAR_dic')
+      IF ( data%id_dic == 0 ) print *,'    WARNING: aed_macrophyte: no CAR_dic - plant carbon is not exchanged with DIC'
       data%id_doc = aed_locate_variable('OGM_doc')
       data%id_don = aed_locate_variable('OGM_don')
       data%id_dop = aed_locate_variable('OGM_dop')
@@ -1401,28 +1406,37 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
         _DIAG_VAR_S_(data%id_mac_ft) = _DIAG_VAR_S_(data%id_mac_ft) - f_tran_fruit
      ENDIF
 
-     !--- FEEDBACK TO WATER COLUMN (NUTRIENTS, OXYGEN)
-     IF( data%simMacFeedback .and. dz>0.05 ) THEN
-        IF(data%id_oxy>0)&
-          _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + npp/dz
-        IF(data%id_dic>0)&
-          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp/dz
 
-        ! ASSUMED NUTRIENT STOICHIOMETRY FOR NOW - NEED TO ADD SPECIES SPECIFIC VALUES FOR N and P
+     !--- FEEDBACK TO WATER COLUMN (CARBON, OXYGEN, NUTRIENTS)
+     !# Benthic fluxes are per m2 of bed (the host converts them to the layer it
+     !# sits under), so no /dz (K8: they were divided by dz on top of that).
+     !# Net production npp is exchanged at the species' X_ncon / X_pcon (not
+     !# 16:106 and 1:106) with DIC linked, so that it creates nothing:
+     !#  - npp > 0: photosynthesis, DIC -> plant, O2 released, N and P taken from
+     !#    the water (water_nutrient_frac; the rest from the sediment, untracked
+     !#    by design);
+     !#  - npp < 0: respiration, plant -> DIC, O2 used, N and P returned as NH4
+     !#    and PO4 (water_excr_frac).
+     !# The other losses of plant biomass have NO receiving pool and leave the
+     !# system (harness known issue K95): below-ground respiration (light_model 1,
+     !# respiration_B), mortality (light_models 2 and 3, mort_A and mort_B) and
+     !# fruit release (fruit_model 1). Whether they go to DOM, POM, DIC or the
+     !# sediment, and where the roots' oxygen comes from, are open science choices.
+     IF( data%simMacFeedback ) THEN
+        IF(data%id_oxy>0) _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + npp
+        IF(data%id_dic>0) _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp
         IF(npp>0) THEN
           IF(data%id_nox>0) _FLUX_VAR_(data%id_nox) = &
-                   _FLUX_VAR_(data%id_nox) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+                   _FLUX_VAR_(data%id_nox) - npp * data%mpars(mi)%X_ncon * 0.5 * data%water_nutrient_frac
           IF(data%id_nh4>0) _FLUX_VAR_(data%id_nh4) = &
-                   _FLUX_VAR_(data%id_nh4) - (npp/dz) * (16./106.) * 0.5 * data%water_nutrient_frac
+                   _FLUX_VAR_(data%id_nh4) - npp * data%mpars(mi)%X_ncon * 0.5 * data%water_nutrient_frac
           IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
-                   _FLUX_VAR_(data%id_po4) - (npp/dz) * (1./106.) * data%water_nutrient_frac
-        ELSEIF(npp<0) THEN
-         IF(data%id_doc>0) _FLUX_VAR_(data%id_doc) = &
-                   _FLUX_VAR_(data%id_doc) - (npp/dz) * data%water_excr_frac
-         IF(data%id_don>0) _FLUX_VAR_(data%id_don) = &
-                   _FLUX_VAR_(data%id_don) - (npp/dz) * (16./106.) * data%water_excr_frac
-         IF(data%id_dop>0) _FLUX_VAR_(data%id_dop) = &
-                   _FLUX_VAR_(data%id_dop) - (npp/dz) * (1./106.) * data%water_excr_frac
+                   _FLUX_VAR_(data%id_po4) - npp * data%mpars(mi)%X_pcon * data%water_nutrient_frac
+        ELSE
+          IF(data%id_nh4>0) _FLUX_VAR_(data%id_nh4) = &
+                   _FLUX_VAR_(data%id_nh4) - npp * data%mpars(mi)%X_ncon * data%water_excr_frac
+          IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
+                   _FLUX_VAR_(data%id_po4) - npp * data%mpars(mi)%X_pcon * data%water_excr_frac
         ENDIF
      ENDIF
 
@@ -1497,19 +1511,19 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi
 
       ! Add/remove any metabolism products to this water layer
-      IF( data%simMacFeedback .and. dz>0.05 ) THEN
-        ! Update flux terms for O2 (mmol O2/m2/s)
+      IF( data%simMacFeedback ) THEN
+        ! Update flux terms for O2 (mmol O2/m2/s; benthic fluxes are per m2, no /dz - K8)
 
-         _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux/dz
+         _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
         IF (data%id_dic>0 ) THEN
           ! Update flux terms for CO2 (mmol C/m2/s)
-          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux/dz
+          _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux
         ENDIF
         IF (data%id_nox>0 ) THEN
           ! Update flux terms for nitrogen (mmol N/m2/s)
           ratio = data%epi_Xnc
-          _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5 /dz
-          _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5 /dz
+          _FLUX_VAR_(data%id_nox) = _FLUX_VAR_(data%id_nox) - epi_flux * ratio * 0.5
+          _FLUX_VAR_(data%id_nh4) = _FLUX_VAR_(data%id_nh4) - epi_flux * ratio * 0.5
           ! log this uptake into the bulk community N uptake diagnostic (mmol N/m3/d)
           !   _DIAG_VAR_(data%id_NUP1)= _DIAG_VAR_(data%id_NUP1)- (epi_flux) * ratio *0.5 * secs_per_day
           !   _DIAG_VAR_(data%id_NUP2)= _DIAG_VAR_(data%id_NUP2)- (epi_flux) * ratio *0.5 * secs_per_day
@@ -1517,7 +1531,7 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
         IF (data%id_po4>0 ) THEN
           ! Update flux terms for phosphate (mmol P/m2/s)
           ratio = data%epi_Xpc
-          _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio /dz
+          _FLUX_VAR_(data%id_po4) = _FLUX_VAR_(data%id_po4) - epi_flux * ratio
           ! log this uptake into the bulk community P uptake diagnostic (mmol P/m3/d)
           !   _DIAG_VAR_(data%id_PUP) = _DIAG_VAR_(data%id_PUP) - mpb_flux * ratio * secs_per_day
         ENDIF
