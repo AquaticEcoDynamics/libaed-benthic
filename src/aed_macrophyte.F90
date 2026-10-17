@@ -167,6 +167,7 @@ MODULE aed_macrophyte
       LOGICAL  :: simEpiphytes, simFruiting, simMacDrag
       INTEGER  :: drag_model, mac_pattern, mac_mode, mac_initial
       AED_REAL :: water_nutrient_frac, water_excr_frac
+      AED_REAL :: active_layer_limit
       AED_REAL,ALLOCATABLE :: active_zones(:)
 
       !# Macrophyte module species parameters
@@ -564,6 +565,15 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 
    AED_REAL           :: water_nutrient_frac = zero_
    AED_REAL           :: water_excr_frac = zero_
+   AED_REAL           :: active_layer_limit = 0.05
+
+   CHARACTER(len=64)  :: do_uptake_target_variable = 'OXY_oxy'
+   CHARACTER(len=64)  :: c_uptake_target_variable = ''
+   CHARACTER(len=64)  :: n1_uptake_target_variable = 'NIT_nit'
+   CHARACTER(len=64)  :: n2_uptake_target_variable = 'NIT_amm'
+   CHARACTER(len=64)  :: p1_uptake_target_variable = 'PHS_frp'
+   CHARACTER(len=64)  :: n_excretion_target_variable = 'OGM_don'
+   CHARACTER(len=64)  :: p_excretion_target_variable = 'OGM_dop'
 
    !AED_REAL           :: bg_gpp_frac = 0.1
    !AED_REAL           :: coef_bm_hgt = 1e-5
@@ -589,6 +599,14 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
                              simMacFeedback, simStaticBiomass,        &
                              simEpiphytes, simFruiting, simMacDrag,   &
                              water_nutrient_frac,water_excr_frac,     &
+                             active_layer_limit,                      &
+                             do_uptake_target_variable,               &
+                             c_uptake_target_variable,                &
+                             n1_uptake_target_variable,               &
+                             n2_uptake_target_variable,               &
+                             p1_uptake_target_variable,               &
+                             n_excretion_target_variable,             &
+                             p_excretion_target_variable,             &
                              epi_model,R_epig,R_epib,R_epir,I_Kepi,epi_max,  &
                              epi_Xnc,epi_Xpc,epi_K_N,epi_K_P,         &
                              theta_epi_growth,theta_epi_resp,         &
@@ -609,6 +627,7 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
    data%simMacDrag = simMacDrag
    data%water_nutrient_frac = water_nutrient_frac
    data%water_excr_frac = water_excr_frac
+   data%active_layer_limit = active_layer_limit
 
    data%mac_initial = mac_initial
    data%epi_initial = epi_initial
@@ -708,21 +727,29 @@ SUBROUTINE aed_define_macrophyte(data, namlst)
 !  ENDIF
 
    ! Link to variables from other modules
+   !  (set a target to '' in the namelist to switch that exchange off)
+   data%id_oxy = 0 ; data%id_dic = 0
+   data%id_nox = 0 ; data%id_nh4 = 0 ; data%id_po4 = 0
+   data%id_doc = 0 ; data%id_don = 0 ; data%id_dop = 0
    IF ( simMacFeedback .or. simEpiphytes ) THEN
-      data%id_oxy = aed_locate_variable('OXY_oxy')
-      data%id_nox = aed_locate_variable('NIT_nit')
-      data%id_nh4 = aed_locate_variable('NIT_amm')
-      data%id_po4 = aed_locate_variable('PHS_frp')
-      !# DIC is a water-column state of aed_carbon. Link it when that module is
-      !# configured (aed_find_variable does not create a placeholder), so the
-      !# plants' photosynthesis and respiration exchange carbon (K8).
-      data%id_dic = 0
-      IF ( aed_find_variable('CAR_dic') /= 0 ) data%id_dic = aed_locate_variable('CAR_dic')
-      IF ( data%id_dic == 0 ) print *,'    WARNING: aed_macrophyte: no CAR_dic - plant carbon is not exchanged with DIC'
-      data%id_doc = aed_locate_variable('OGM_doc')
-      data%id_don = aed_locate_variable('OGM_don')
-      data%id_dop = aed_locate_variable('OGM_dop')
+      IF (do_uptake_target_variable .NE. '') &
+         data%id_oxy = aed_locate_variable(do_uptake_target_variable)
+      IF (c_uptake_target_variable .NE. '') &
+         data%id_dic = aed_locate_variable(c_uptake_target_variable)
+      IF (n1_uptake_target_variable .NE. '') &
+         data%id_nox = aed_locate_variable(n1_uptake_target_variable)
+      IF (n2_uptake_target_variable .NE. '') &
+         data%id_nh4 = aed_locate_variable(n2_uptake_target_variable)
+      IF (p1_uptake_target_variable .NE. '') &
+         data%id_po4 = aed_locate_variable(p1_uptake_target_variable)
+      IF (n_excretion_target_variable .NE. '') &
+         data%id_don = aed_locate_variable(n_excretion_target_variable)
+      IF (p_excretion_target_variable .NE. '') &
+         data%id_dop = aed_locate_variable(p_excretion_target_variable)
    ENDIF
+   data%do_Cuptake = data%id_dic > 0
+   data%do_Nuptake = data%id_nox > 0 .OR. data%id_nh4 > 0
+   data%do_Puptake = data%id_po4 > 0
 
    ! Register environmental dependenciess
    data%id_tem      = aed_locate_global('temperature')
@@ -1408,21 +1435,16 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
 
 
      !--- FEEDBACK TO WATER COLUMN (CARBON, OXYGEN, NUTRIENTS)
-     !# Benthic fluxes are per m2 of bed (the host converts them to the layer it
-     !# sits under), so no /dz (K8: they were divided by dz on top of that).
-     !# Net production npp is exchanged at the species' X_ncon / X_pcon (not
-     !# 16:106 and 1:106) with DIC linked, so that it creates nothing:
+     !# Benthic fluxes are per m2 of bed (the API call converts them to volumetric 
+     !# rates based on the cell's thickness. Net production npp is exchanged at 
+     !# the species' X_ncon / X_pcon :
      !#  - npp > 0: photosynthesis, DIC -> plant, O2 released, N and P taken from
-     !#    the water (water_nutrient_frac; the rest from the sediment, untracked
-     !#    by design);
-     !#  - npp < 0: respiration, plant -> DIC, O2 used, N and P returned as NH4
-     !#    and PO4 (water_excr_frac).
-     !# The other losses of plant biomass have NO receiving pool and leave the
-     !# system (harness known issue K95): below-ground respiration (light_model 1,
-     !# respiration_B), mortality (light_models 2 and 3, mort_A and mort_B) and
-     !# fruit release (fruit_model 1). Whether they go to DOM, POM, DIC or the
-     !# sediment, and where the roots' oxygen comes from, are open science choices.
-     IF( data%simMacFeedback ) THEN
+     !#    the water (water_nutrient_frac; the rest from the sediment);
+     !#  - npp < 0: respiration, plant -> DIC, O2 used, N and P returned as DON
+     !#    and DOP (water_excr_frac; the rest to the sediment (if linked)).
+     !# No feedback when the bottom cell is thinner than active_layer_limit (m),
+     !# as the host spreads the flux over dz and very thin cells may blow up.
+     IF( data%simMacFeedback .AND. dz>data%active_layer_limit ) THEN
         IF(data%id_oxy>0) _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + npp
         IF(data%id_dic>0) _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - npp
         IF(npp>0) THEN
@@ -1433,10 +1455,10 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
           IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
                    _FLUX_VAR_(data%id_po4) - npp * data%mpars(mi)%X_pcon * data%water_nutrient_frac
         ELSE
-          IF(data%id_nh4>0) _FLUX_VAR_(data%id_nh4) = &
-                   _FLUX_VAR_(data%id_nh4) - npp * data%mpars(mi)%X_ncon * data%water_excr_frac
-          IF(data%id_po4>0) _FLUX_VAR_(data%id_po4) = &
-                   _FLUX_VAR_(data%id_po4) - npp * data%mpars(mi)%X_pcon * data%water_excr_frac
+          IF(data%id_don>0) _FLUX_VAR_(data%id_don) = &
+                   _FLUX_VAR_(data%id_don) - npp * data%mpars(mi)%X_ncon * data%water_excr_frac
+          IF(data%id_dop>0) _FLUX_VAR_(data%id_dop) = &
+                   _FLUX_VAR_(data%id_dop) - npp * data%mpars(mi)%X_pcon * data%water_excr_frac
         ENDIF
      ENDIF
 
@@ -1511,10 +1533,10 @@ SUBROUTINE aed_calculate_benthic_macrophyte(data,column,layer_idx)
       IF (diag_level>1) _DIAG_VAR_S_(data%id_epir) = _DIAG_VAR_S_(data%id_epir) + epi_resp *epi
 
       ! Add/remove any metabolism products to this water layer
-      IF( data%simMacFeedback ) THEN
+      IF( data%simMacFeedback .AND. dz>data%active_layer_limit ) THEN
         ! Update flux terms for O2 (mmol O2/m2/s; benthic fluxes are per m2, no /dz - K8)
 
-         _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
+         IF (data%id_oxy>0 ) _FLUX_VAR_(data%id_oxy) = _FLUX_VAR_(data%id_oxy) + epi_flux
         IF (data%id_dic>0 ) THEN
           ! Update flux terms for CO2 (mmol C/m2/s)
           _FLUX_VAR_(data%id_dic) = _FLUX_VAR_(data%id_dic) - epi_flux
