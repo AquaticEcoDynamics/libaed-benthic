@@ -1,0 +1,189 @@
+!###############################################################################
+! MAC: aed_macrophyte - AED macrophyte / seagrass model
+!
+! Example &aed_macrophyte block for aed.nml. Two variants are given:
+!   A. coupled to the water column only (OXY, CAR, NIT, PHS, OGM)
+!   B. as A, plus the sediment (SFM, from libaed-dev) - the fully closed budget
+!
+! Mass balance
+!   Every pathway is optional; a link left as '' means that flux leaves the
+!   system (a NOTE is printed at startup for each open pathway). With all links
+!   set, C, N and P are conserved. Plants do not mineralise: nutrient release
+!   goes to DON/DOP, not NH4/PO4.
+!
+!     pathway                    water link                    sediment link
+!     -------------------------  ----------------------------  ------------------------------
+!     photosynthesis / resp.     do_uptake, c_uptake (DIC)     c_sed_uptake (root resp. DIC)
+!     N, P uptake (npp > 0)      n1/n2/p1_uptake, up to wnf    n/p_sed_uptake, the rest
+!     N, P release (npp < 0)     n/p_excretion x wef           n/p_sed_excretion x (1-wef)
+!     leaf mortality             c/n/p_mortality (+ c_excretion for the f_mort_dom part)
+!     root mortality             as leaf, x wef                c/n/p_sed_mortality x (1-wef)
+!     fruit release (C)          fruit_target (N, P go to n/p_mortality)
+!     epiphytes, net growth      do_uptake, c_uptake, n1/n2/p1_uptake (water only;
+!                                bottom layer, or each canopy layer for epi_model 2)
+!     epiphytes, net resp.       c_uptake (DIC), n/p_excretion (DON/DOP)
+!     epiphyte losses            as leaf mortality
+!
+!     wnf = water_nutrient_frac, wef = water_excr_frac
+!
+!   Root respiration (R_resp_bg) takes all its O2 from the water (lacunal
+!   transport); its DIC and DON/DOP are split by wef. For light_model 2/3 keep
+!   R_resp_bg = 0 unless E_comp is a leaf-only compensation irradiance.
+!
+! Nutrient uptake and limitation (K_N, K_P in the dbase)
+!   The water supplies up to its share wnf of the N and P demand, less as its
+!   nutrients run low; the roots cover the rest. If no sediment pool is linked
+!   the roots' supply is taken as ample, so growth is NOT nutrient limited -
+!   the simplest set-up. Growth is only nutrient limited when wnf = 1 (no root
+!   uptake, eg floating plants) or a linked sediment pool runs low. Ammonium is
+!   preferred over nitrate, and reducing nitrate releases 2 O2 per N.
+!   K_N = K_P = 0 turns this off: fixed shares wnf / 1-wnf, no limitation.
+!
+!   The mortality and fruit targets may name a water variable (OGM_poc) or a
+!   sediment one (SFM_pom_c_l); the *_sed_* targets must be sediment (sheet)
+!   variables. Sediment targets with units per m3 (eg porewater SFM_nh4_1) get
+!   the areal flux / sed_layer_dz; areal targets (per m2) get it as is.
+!
+! Module order
+!   A sediment module must be listed BEFORE aed_macrophyte in &aed_models,
+!   otherwise its variables can't be found: a *_sed_* link then stops the run,
+!   and a mortality/fruit link would be taken to be a water column variable.
+!
+! Parameters for each group (light_model, R_growth, R_resp, R_mort, R_mort_bg,
+! f_bg, X_ncon, X_pcon, fruit_model, ...) are in the dbase csv.
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+! A. Coupled to the water column only
+!-------------------------------------------------------------------------------
+&aed_macrophyte
+   !-- Macrophyte groups
+   num_mphy         = 2
+   the_mphy         = 1,2            ! dbase csv columns: 1 seagrass, 2 sav, 3 chara
+   dbase            = 'aed/aed_macrophyte_pars.csv'
+   n_zones          = 0              ! 0: all zones; >0 to restrict growth to active_zones
+!  active_zones     = 1,2
+   mac_initial      = 0              ! 0: initial biomass from the dbase (m_initial etc)
+                                     ! 1: from depth (Cockburn Sound; m_initial_d0, _mind, _minb)
+                                     ! -1: keep the host's values (initial conditions file, restart)
+
+   !-- Options
+   simMacFeedback   = .true.         ! exchange with water/sediment (else no links are used)
+   simStaticBiomass = .false.        ! .true. holds biomass fixed (not mass conserving)
+   simFruiting      = .true.         ! only active for groups with fruit_model > 0
+   simMacDrag       = .false.
+   resp_mode        = 1              ! light_model 2,3 respiration: 1 = over 24 h,
+                                     ! 0 = daylight only (Baird et al. 2016, EMS)
+
+   !-- Water column exchange
+   water_nutrient_frac = 0.5         ! water's share of N, P uptake; the roots cover the rest
+                                     ! (1 = no root uptake, so limited by the water)
+   water_excr_frac     = 1.0         ! fraction of release, root resp./mortality to the water
+   active_layer_limit  = 0.05        ! (m) no water exchange when the bottom cell is thinner
+
+   do_uptake_target_variable   = 'OXY_oxy'
+   c_uptake_target_variable    = 'CAR_dic'
+   n1_uptake_target_variable   = 'NIT_nit'
+   n2_uptake_target_variable   = 'NIT_amm'
+   p1_uptake_target_variable   = 'PHS_frp'
+   c_excretion_target_variable = 'OGM_doc'
+   n_excretion_target_variable = 'OGM_don'
+   p_excretion_target_variable = 'OGM_dop'
+
+   !-- Mortality (leaf senescence, root die-off) and fruit release
+   c_mortality_target_variable = 'OGM_poc'
+   n_mortality_target_variable = 'OGM_pon'
+   p_mortality_target_variable = 'OGM_pop'
+   f_mort_dom                  = 0.1  ! fraction of mortality released as DOM
+   fruit_target_variable       = 'OGM_poc'
+
+   !-- Epiphytes (one bulk pool on the leaves, exchanging with the water only)
+   !   Losses go to the mortality links above (f_mort_dom as DOM): R_epib, plus
+   !   sloughing at the rate leaf C is lost (senescence, or die-back under stress).
+   !   Leaf shading by epiphytes is set by K_epi in the dbase (light_model 1).
+   !   epi_model 1: bulk - the canopy as one layer, exchanging with the bottom
+   !                water layer
+   !   epi_model 2: resolved over the layers a tall canopy spans, each layer's
+   !                light, temperature and nutrients, and exchanging with that
+   !                layer. Needs a host calling calculate_column (TUFLOW-FV,
+   !                SCHISM, GLM); with sediment zones (GLM benthic_mode
+   !                2, 3) it is set to 1. Order of calls: see the module header.
+   simEpiphytes     = .false.
+   epi_model        = 1
+   epi_initial      = 0.1            ! (mmol C/m2)
+   R_epig           = 0.1            ! growth rate (/day)
+   R_epir           = 0.05           ! respiration rate (/day)
+   R_epib           = 0.01           ! background loss rate - mortality, grazing (/day)
+   I_Kepi           = 100.           ! half-saturation light (microE/m2/s)
+   epi_max          = 10000.         ! capacity (mmol C/m2 leaf)
+   epi_Xnc          = 0.151          ! N:C (mmol N/mmol C)
+   epi_Xpc          = 0.0094         ! P:C (mmol P/mmol C)
+   epi_K_N          = 10.            ! half-saturation DIN (mmol N/m3)
+   epi_K_P          = 1.0            ! half-saturation FRP (mmol P/m3)
+   theta_epi_growth = 1.06
+   theta_epi_resp   = 1.06           ! also for R_epib
+
+   diag_level       = 10
+/
+
+
+!-------------------------------------------------------------------------------
+! B. Water column and sediment (SFM) - closed C, N, P budget
+!
+!    &aed_models
+!       models = 'aed_oxygen', 'aed_carbon', 'aed_nitrogen', 'aed_phosphorus',
+!                'aed_organic_matter', 'aed_sfmdom', 'aed_macrophyte'
+!    /
+!
+!    SFM nutrients are porewater concentrations (mmol/m3) in layers 1 and 2;
+!    sed_layer_dz should be the thickness of the root layer linked (SFM H2 =
+!    0.1 m). SFM has no DIC pool, so root respiration C stays open unless a
+!    DIC sheet variable from another module is linked.
+!-------------------------------------------------------------------------------
+!&aed_macrophyte
+!   num_mphy         = 2
+!   the_mphy         = 1,2
+!   dbase            = 'aed/aed_macrophyte_pars.csv'
+!   mac_initial      = 0
+!
+!   simMacFeedback   = .true.
+!   simStaticBiomass = .false.
+!   simFruiting      = .true.
+!   resp_mode        = 1
+!
+!   water_nutrient_frac = 0.3         ! water up to 30 %; roots the rest, limited by SFM_nh4_2, SFM_po4_2
+!   water_excr_frac     = 0.5
+!   active_layer_limit  = 0.05
+!
+!   do_uptake_target_variable   = 'OXY_oxy'
+!   c_uptake_target_variable    = 'CAR_dic'
+!   n1_uptake_target_variable   = 'NIT_nit'
+!   n2_uptake_target_variable   = 'NIT_amm'
+!   p1_uptake_target_variable   = 'PHS_frp'
+!   c_excretion_target_variable = 'OGM_doc'
+!   n_excretion_target_variable = 'OGM_don'
+!   p_excretion_target_variable = 'OGM_dop'
+!
+!   ! leaf litter to the sediment labile POM (or 'OGM_poc' etc for the water)
+!   c_mortality_target_variable = 'SFM_pom_c_l'
+!   n_mortality_target_variable = 'SFM_pom_n_l'
+!   p_mortality_target_variable = 'SFM_pom_p_l'
+!   f_mort_dom                  = 0.1
+!   fruit_target_variable       = 'OGM_poc'      ! seeds/fruit released to the water
+!
+!   ! root zone
+!   n_sed_uptake_target_variable    = 'SFM_nh4_2'
+!   p_sed_uptake_target_variable    = 'SFM_po4_2'
+!   c_sed_uptake_target_variable    = ''         ! no SFM DIC pool
+!   c_sed_excretion_target_variable = 'SFM_doc_l_2'
+!   n_sed_excretion_target_variable = 'SFM_don_l_2'
+!   p_sed_excretion_target_variable = 'SFM_dop_l_2'
+!   c_sed_mortality_target_variable = 'SFM_pom_c_l'
+!   n_sed_mortality_target_variable = 'SFM_pom_n_l'
+!   p_sed_mortality_target_variable = 'SFM_pom_p_l'
+!   sed_layer_dz                    = 0.1        ! (m) for the per-m3 porewater targets
+!
+!   simEpiphytes     = .false.
+!   diag_level       = 10
+!/

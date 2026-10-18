@@ -1,35 +1,79 @@
-[COMMENT],!-- GENERAL parameters
-m_name, 'pota', 'halo', 'ruppia', 'zostera', 'chara', 'pois', 'misc', 'baumea',[COMMENT],string, Name of macrophyte group
-m0, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.3,[COMMENT],real, Minimum above ground density of macrophyte (mmol C/m2)
-[COMMENT],!-- GROWTH parameters
-R_growth, 2, 2, 1, 3.3, 3.3, 0.4, 0.4, 0.4,[COMMENT],real, Phyto max growth rate @20C (/day)
-fT_Method, 1, 1, 1, 1, 1, 1, 1, 1,[COMMENT],integer, Specifies temperature limitation function of growth (-); 0 = no temperature limitation 1= CAEDYM style
-theta_growth, 1.06, 1.06, 1.1, 1.05, 1.05, 1.1, 1.1, 1.1,[COMMENT],real, Arrenhius temperature scaling for growth function (-)
-T_std, 18, 18, 23, 12, 12, 20, 20, 20,[COMMENT],real, Standard temperature (deg C)
-T_opt, 23, 23, 28, 16, 16, 31, 31, 31,[COMMENT],real, Optimum temperature (deg C)
-T_max, 35, 35, 38, 23, 23, 39, 39, 39,[COMMENT],real, Maximum temperature (deg C)
-[COMMENT],!-- LIGHT parameters
-lightModel, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],integer, Type of light response function [0 = no photoinhibition; 1 = photoinhibition]
-I_K, 180, 180, 150, 200, 200, 500, 500, 500,[COMMENT],real, Half saturation constant for light limitation of growth (microE/m^2/s) used if lightModel=0
-I_S, 100, 100, 120, 100, 100, 100, 100, 100,[COMMENT],real, saturating light intensity  (microE/m^2/s) used if lightModel=1
-KeMAC, 0.00408, 0.00408, 0.0051, 0.0048, 0.0048, 0.003, 0.003, 0.003,[COMMENT],real, Specific attenuation coefficient  ((mmol C m^2^-1)^1 m^-1)
-[COMMENT],!-- RESPIRATION parameters
-f_pr, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025,[COMMENT],real, Fraction of primary production lost to exudation (-)
-R_resp, 0.02, 0.02, 0.02, 0.03, 0.0375, 0.05, 0.05, 0.05,[COMMENT],real, respiration/metabolic loss rate @ 20 (degC)
-theta_resp, 1.04, 1.04, 1.04, 1.09, 1.09, 1.07, 1.07, 1.07,[COMMENT],real, Arrhenius temperature scaling factor for respiration (-)
-[COMMENT],!-- SALINITY parameters
-salTol, 0, 0, 1, 1, 2, 0, 0, 0,[COMMENT],integer, Type of salinity limitation function (-)
-S_bep, 1, 1, 5, 1, 5, 1, 1, 1,[COMMENT],real, Salinity limitation value at maximum salinity S_maxsp (-)
-S_maxsp, 36, 36, 16, 36, 40, 36, 36, 36,[COMMENT],real, Maximum salinity (g/kg)
-S_opt, 1, 1, 1, 1, 33, 1, 1, 1,[COMMENT],real, Optimal salinity (g/kg)
-[COMMENT],!-- GENERAL parameters
-K_CD, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Constant relating macrophyte density to drag coefficient
-f_bg, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Fraction of primary production apportioned to below-ground biomass
-k_omega, 0, 0, 0, 0, 0, 0, 0, 0,[COMMENT],real, Omega constant relating plant density to effective area of coverage
-Xcc, 50, 50, 40, 50, 50, 60, 60, 60,[COMMENT],real, Internal C:Chl-a ratio of the plant leaves
-[COMMENT],!-- NITROGEN parameters
-K_N, 1.786, 1.786, 2.143, 2.5, 1.6, 3.571, 3.571, 3.571,[COMMENT],real, Half-saturation concentration of nitrogen (mmol N/m^3)
-X_ncon, 0.151, 0.151, 0.151, 0.151, 0.137, 0.151, 0.151, 0.151,[COMMENT],real, Constant internal nitrogen concentration (mmol N/ mmol C)
-[COMMENT],!-- PHOSPHORUS parameters
-K_P, 0.3226, 0.3226, 0.1935, 0.1935, 0.1935, 0.1613, 0.1613, 0.1613,[COMMENT],real, Half-saturation concentration of phosphorus (mmol P/m^3)
-X_pcon, 0.0094, 0.0094, 0.0094, 0.0039, 0.0039, 0.0094, 0.0094, 0.0094,[COMMENT],real, Constant internal phosphorus concentration (mmol P/ mmol C)
+m_name,'seagrass','sav','chara',[COMMENT],string, Name of macrophyte group
+!-- Example groups, one per light_model:
+!     seagrass : light_model 2, Baird et al. (2016) with a fixed light spectrum, AG/BG and fruiting
+!                (SEAF-CS csiem_model_tfvaed_1.8)
+!     sav      : light_model 1, Baird approach with bulk PAR (gbr-wetland)
+!     chara    : light_model 10, legacy AED bulk light; above-ground only
+!   light_model 3 is as 2 but uses the AED spectrally-resolved light (OASIM).
+!   Rates are per day at 20 degC, converted internally.
+!-- GENERAL parameters
+growth_form,1,1,1,[COMMENT],integer, 1 = submerged; 2 = emergent; 3 = floating
+zone_lock,0,0,0,[COMMENT],integer, Only grow in this sediment zone (0 = any active zone)
+m_initial,40000,10000,1000,[COMMENT],real, Initial above-ground (leaf) biomass (mmol C/m2); max biomass when mac_initial = 1
+m_initial_minb,500,500,0,[COMMENT],real, Min biomass for mac_initial = 1 (mmol C/m2)
+m_initial_mind,10,10,0,[COMMENT],real, Depth below which biomass is m_initial_minb for mac_initial = 1 (m)
+m_initial_d0,1.2,1.2,0,[COMMENT],real, Depth above which biomass is m_initial for mac_initial = 1 (m)
+m0,0.2,0.3,0.2,[COMMENT],real, Minimum above-ground biomass (mmol C/m2)
+!-- CANOPY / DRAG parameters
+drag_model,1,1,1,[COMMENT],integer, Canopy drag model
+K_CD,0.000001,0.000001,0,[COMMENT],real, Constant relating macrophyte density to drag coefficient
+shoot_diameter,0.01,0.01,0.01,[COMMENT],real, Shoot/leaf diameter or blade width (m)
+shoot_length,0.1,0.1,0.1,[COMMENT],real, Typical shoot/leaf length (m)
+tissue_density,200,200,200,[COMMENT],real, Shoot/leaf tissue density (kg/m3)
+elastic_modulus,1,1,1,[COMMENT],real, Shoot/leaf elasticity
+!-- LIGHT / SHADING parameters
+shading_model,1,1,1,[COMMENT],integer, Self-shading model
+KeMAC,0.001,0.0001,0.0048,[COMMENT],real, Specific attenuation coefficient ((mmol C/m2)^-1 /m)
+kA,1,1,1,[COMMENT],real, Shelf-shading constant (light_model 1-3)
+k_omega,0.003,0.0022,0,[COMMENT],real, Leaf area per biomass (m2/mmol C); Omega_MAC of Baird et al. 2016
+sine_blade,0.5,0.5,0.5,[COMMENT],real, Sine of the blade angle
+X_ldw,0.5,0.5,0.5,[COMMENT],real, Leaf length to biomass
+K_ldw,0.5,0.5,0.5,[COMMENT],real, Half-biomass of the leaf length to biomass curve
+X_sdw,3.39,3.39,3.39,[COMMENT],real, Shoots per biomass (shoots/g DW)
+!-- GROWTH parameters
+R_growth,0.2,0.37,3.3,[COMMENT],real, Max growth rate (/day)
+temp_method,1,1,1,[COMMENT],integer, Temperature limitation; 0 = none; 1 = CAEDYM style
+theta_growth,1.035,1.09,1.05,[COMMENT],real, Arrhenius temperature scaling for growth (-)
+T_std,20,20,12,[COMMENT],real, Standard temperature (degC)
+T_opt,28,35,16,[COMMENT],real, Optimum temperature (degC)
+T_max,38,40,23,[COMMENT],real, Maximum temperature (degC)
+light_model,2,1,10,[COMMENT],integer, 1 = Baird bulk PAR; 2 = Baird fixed spectrum; 3 = Baird OASIM spectrum; 10 = legacy AED
+I_K,80,30,200,[COMMENT],real, Half-saturation light for growth (microE/m2/s)
+I_S,80,30,100,[COMMENT],real, Saturating light (microE/m2/s)
+f_pr,0,0.025,0.025,[COMMENT],real, Fraction of production lost to exudation (-)
+K_epi,100,100,100,[COMMENT],real, Epiphyte load halving the light reaching the leaves (mmol C/m2 leaf); light_model 1 with simEpiphytes
+!-- RESPIRATION and MORTALITY parameters
+R_resp,0.06,0.013,0.0375,[COMMENT],real, Above-ground respiration rate (/day); light_model 2-3 use E_comp instead
+theta_resp,1.04,1.08,1.09,[COMMENT],real, Arrhenius temperature scaling for respiration and mortality (-)
+E_comp,5,9,0,[COMMENT],real, Compensation irradiance (mol photon/m2/day); light_model 2-3. Whole plant if R_resp_bg = 0; leaf only if R_resp_bg > 0
+R_mort,0.01,0.004,0.01,[COMMENT],real, Above-ground mortality rate - leaf senescence (/day)
+!-- SALINITY parameters
+sal_method,1,0,-1,[COMMENT],integer, Salinity function 1-4 (as PHY); <0 limits growth, >0 enhances respiration; 0 = none
+S_bep,5,5,0,[COMMENT],real, Salinity limitation value at S_maxsp (<=1 for growth, >1 for respiration) (-)
+S_maxsp,40,40,20,[COMMENT],real, Maximum salinity (g/kg)
+S_opt,30,1,5,[COMMENT],real, Optimum salinity (g/kg)
+!-- BELOW-GROUND parameters (light_model 1-3)
+m_initial_bg,400,4000,0,[COMMENT],real, Initial below-ground biomass (mmol C/m2)
+f_bg,0.5,0.02,0,[COMMENT],real, Target below-ground fraction BG/(AG+BG) (-)
+tau_tran,0.06,0.033,0,[COMMENT],real, AG/BG translocation rate (/day)
+R_resp_bg,0,0.004,0,[COMMENT],real, Below-ground respiration rate (/day); light_model 1; or 2-3 with a leaf-only E_comp (else 0)
+R_mort_bg,0.004,0.004,0,[COMMENT],real, Below-ground mortality rate - root die-off (/day); light_model 1-3
+!-- STOICHIOMETRY and NUTRIENT parameters
+X_cchl,100,60,50,[COMMENT],real, Internal C:Chl-a ratio of the leaves
+X_cdw,50,50,50,[COMMENT],real, Carbon per dry weight (mmol C/g DW)
+K_N,0.5,3.571,1.6,[COMMENT],real, Half-saturation N (mmol N/m3)
+X_ncon,0.161,0.151,0.137,[COMMENT],real, Internal N:C (mmol N/mmol C)
+K_P,0.5,0.1613,0.1935,[COMMENT],real, Half-saturation P (mmol P/m3)
+X_pcon,0.01,0.0094,0.0039,[COMMENT],real, Internal P:C (mmol P/mmol C)
+K_S,0.5,0.5,0.5,[COMMENT],real, Half-saturation sediment nutrients
+K_NPP,1,1,1,[COMMENT],real, Half-saturation NPP
+!-- FRUITING parameters (needs simFruiting = .true. in aed.nml)
+fruit_model,1,0,0,[COMMENT],integer, 0 = no fruiting; 1 = seasonal fruit/seed development and release
+m_initial_f,10,0,0,[COMMENT],real, Initial fruit biomass (mmol C/m2)
+tau_tran_fruit,0.1,0,0,[COMMENT],real, Translocation rate from leaves to fruit (/day)
+r_release,0.1,0,0,[COMMENT],real, Fruit release rate (/day)
+f_seed,0.1,0,0,[COMMENT],real, Fruit fraction of AG+fruit biomass at maturity (-)
+t_start_g,210,0,0,[COMMENT],real, Day of year fruit growth starts
+t_dur_g,5,0,0,[COMMENT],real, Duration to reach max fruit growth (days)
+t_start_r,270,0,0,[COMMENT],real, Day of year fruit release starts
+t_dur_r,5,0,0,[COMMENT],real, Duration to reach max release (days)
