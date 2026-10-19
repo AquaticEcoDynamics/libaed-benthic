@@ -789,6 +789,8 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
       don_excr      = zero_
       dop_excr      = zero_
       doc_excr      = zero_
+      ! clear all MAX_BVLV_PREY entries; only 1:num_prey are set below
+      grazing_prey  = zero_
 
 
       ! Retrieve prey groups (mmolC/m3)
@@ -877,8 +879,8 @@ SUBROUTINE aed_calculate_benthic_bivalve(data,column,layer_idx)
             ! Food remaining after grazing from current food group (prey)
             food = food - grazing_prey(prey_i)
          ENDDO
-         ! Reset food to total amount consumed
-         food = SUM(grazing_prey(:))
+         ! Reset food to total amount consumed (only the num_prey entries in use)
+         food = SUM(grazing_prey(1:data%bivalves(biv_i)%num_prey))
       ENDIF
 
       ! Now determine nutrient composition of food based on mix of food types.
